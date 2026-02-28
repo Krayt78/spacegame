@@ -624,42 +624,29 @@ contract FleetManager {
 
         CombatResult memory result;
 
+        uint256[3] memory loot;
+
         if (garrisonTotal > 0) {
             combatOccurred = true;
             result = _resolveCombat(fleet.ships, garrison, defenses, atkBonuses, defBonuses);
             attackerWon = result.attackerWon;
 
+            // Update fleet ships and defender state for both outcomes
+            gameState.updateFleetShips(fleetId, result.survivingAttackers);
+            _setGarrisonAt(fleet.destination, result.survivingDefenders);
+            _setDefensesAt(fleet.destination, result.survivingDefenses);
+
+            // Loot only if attacker won
             if (attackerWon) {
-                gameState.updateFleetShips(fleetId, result.survivingAttackers);
-                _setGarrisonAt(fleet.destination, result.survivingDefenders);
-                _setDefensesAt(fleet.destination, result.survivingDefenses);
-            } else {
-                {
-                    BattleReportParams memory brp;
-                    brp.attacker = fleet.owner;
-                    brp.defender = defender;
-                    brp.location = fleet.destination;
-                    brp.mission = GameState.FleetMission.RAID;
-                    brp.attackerInitial = fleet.ships;
-                    brp.attackerSurviving = result.survivingAttackers;
-                    brp.defenderInitial = garrison;
-                    brp.defenderSurviving = result.survivingDefenders;
-                    brp.defenderDefensesInitial = defenses;
-                    brp.defenderDefensesSurviving = result.survivingDefenses;
-                    brp.attackerWon = false;
-                    _createBattleReport(brp);
-                }
-                gameState.deleteFleet(fleetId);
-                return (combatOccurred, attackerWon);
+                loot = _calculateAndApplyLoot(fleetId, fleet, result.survivingAttackers, atkBonuses);
             }
         } else {
             attackerWon = true;
             result.survivingAttackers = fleet.ships;
+            loot = _calculateAndApplyLoot(fleetId, fleet, result.survivingAttackers, atkBonuses);
         }
 
-        // Loot and return
-        uint256[3] memory loot = _calculateAndApplyLoot(fleetId, fleet, result.survivingAttackers, atkBonuses);
-
+        // Battle report
         {
             BattleReportParams memory brp;
             brp.attacker = fleet.owner;
@@ -672,20 +659,31 @@ contract FleetManager {
             brp.defenderSurviving = result.survivingDefenders;
             brp.defenderDefensesInitial = defenses;
             brp.defenderDefensesSurviving = result.survivingDefenses;
-            brp.attackerWon = true;
+            brp.attackerWon = attackerWon;
             brp.lootTitanium = loot[0];
             brp.lootHelium3 = loot[1];
             brp.lootDarkMatter = loot[2];
             _createBattleReport(brp);
         }
 
-        // Set return trip
-        uint32 slowestSpeed = gameConfig.getSlowestSpeedWithResearch(
-            result.survivingAttackers, atkBonuses.combustionDrive, atkBonuses.impulseDrive, atkBonuses.hyperspaceDrive
-        );
-        uint32 returnTravelTime = gameConfig.calculateTravelTime(fleet.destination, fleet.origin, slowestSpeed);
-        gameState.updateFleetReturnTime(fleetId, uint32(block.timestamp) + returnTravelTime);
-        gameState.updateFleetStatus(fleetId, GameState.FleetStatus.RETURNING);
+        // Check if attacker has any surviving ships
+        uint256 attackerRemaining = 0;
+        for (uint8 i = 1; i < MAX_SHIP_TYPES; i++) {
+            attackerRemaining += result.survivingAttackers[i];
+        }
+
+        if (attackerRemaining == 0) {
+            // Total wipe — no ships to return
+            gameState.deleteFleet(fleetId);
+        } else {
+            // Set return trip — attacker retreats with surviving ships
+            uint32 slowestSpeed = gameConfig.getSlowestSpeedWithResearch(
+                result.survivingAttackers, atkBonuses.combustionDrive, atkBonuses.impulseDrive, atkBonuses.hyperspaceDrive
+            );
+            uint32 returnTravelTime = gameConfig.calculateTravelTime(fleet.destination, fleet.origin, slowestSpeed);
+            gameState.updateFleetReturnTime(fleetId, uint32(block.timestamp) + returnTravelTime);
+            gameState.updateFleetStatus(fleetId, GameState.FleetStatus.RETURNING);
+        }
 
         return (combatOccurred, attackerWon);
     }
@@ -808,39 +806,48 @@ contract FleetManager {
                 _setGarrisonAt(fleet.destination, result.survivingAttackers);
                 gameState.setOutpostOwner(fleet.destination[0], fleet.destination[1], fleet.destination[2], fleet.owner, uint32(block.timestamp));
                 emit OutpostCaptured(fleet.destination, previousOwner, fleet.owner);
-                {
-                    BattleReportParams memory brp;
-                    brp.attacker = fleet.owner;
-                    brp.defender = previousOwner;
-                    brp.location = fleet.destination;
-                    brp.mission = GameState.FleetMission.CAPTURE;
-                    brp.attackerInitial = fleet.ships;
-                    brp.attackerSurviving = result.survivingAttackers;
-                    brp.defenderInitial = garrison;
-                    brp.defenderSurviving = result.survivingDefenders;
-                    brp.defenderDefensesInitial = emptyDefenses;
-                    brp.defenderDefensesSurviving = result.survivingDefenses;
-                    brp.attackerWon = true;
-                    _createBattleReport(brp);
-                }
             } else {
+                // Attacker lost — update defender garrison, retreat with surviving ships
                 _setGarrisonAt(fleet.destination, result.survivingDefenders);
-                {
-                    BattleReportParams memory brp;
-                    brp.attacker = fleet.owner;
-                    brp.defender = previousOwner;
-                    brp.location = fleet.destination;
-                    brp.mission = GameState.FleetMission.CAPTURE;
-                    brp.attackerInitial = fleet.ships;
-                    // brp.attackerSurviving is zero-initialized (attacker lost)
-                    brp.defenderInitial = garrison;
-                    brp.defenderSurviving = result.survivingDefenders;
-                    brp.defenderDefensesInitial = emptyDefenses;
-                    brp.defenderDefensesSurviving = result.survivingDefenses;
-                    brp.attackerWon = false;
-                    _createBattleReport(brp);
+                gameState.updateFleetShips(fleetId, result.survivingAttackers);
+            }
+
+            // Battle report for both outcomes
+            {
+                BattleReportParams memory brp;
+                brp.attacker = fleet.owner;
+                brp.defender = previousOwner;
+                brp.location = fleet.destination;
+                brp.mission = GameState.FleetMission.CAPTURE;
+                brp.attackerInitial = fleet.ships;
+                brp.attackerSurviving = result.survivingAttackers;
+                brp.defenderInitial = garrison;
+                brp.defenderSurviving = result.survivingDefenders;
+                brp.defenderDefensesInitial = emptyDefenses;
+                brp.defenderDefensesSurviving = result.survivingDefenses;
+                brp.attackerWon = attackerWon;
+                _createBattleReport(brp);
+            }
+
+            if (!attackerWon) {
+                // Check if attacker has any surviving ships
+                uint256 attackerRemaining = 0;
+                for (uint8 i = 1; i < MAX_SHIP_TYPES; i++) {
+                    attackerRemaining += result.survivingAttackers[i];
                 }
-                gameState.deleteFleet(fleetId);
+
+                if (attackerRemaining == 0) {
+                    // Total wipe — no ships to return
+                    gameState.deleteFleet(fleetId);
+                } else {
+                    // Retreat — set return trip with surviving ships
+                    uint32 slowestSpeed = gameConfig.getSlowestSpeedWithResearch(
+                        result.survivingAttackers, atkBonuses.combustionDrive, atkBonuses.impulseDrive, atkBonuses.hyperspaceDrive
+                    );
+                    uint32 returnTravelTime = gameConfig.calculateTravelTime(fleet.destination, fleet.origin, slowestSpeed);
+                    gameState.updateFleetReturnTime(fleetId, uint32(block.timestamp) + returnTravelTime);
+                    gameState.updateFleetStatus(fleetId, GameState.FleetStatus.RETURNING);
+                }
                 return (combatOccurred, attackerWon);
             }
         } else {
@@ -850,6 +857,7 @@ contract FleetManager {
             emit OutpostCaptured(fleet.destination, previousOwner, fleet.owner);
         }
 
+        // Attacker won or no garrison — fleet ships are now the garrison, delete fleet
         gameState.deleteFleet(fleetId);
         return (combatOccurred, attackerWon);
     }
@@ -1078,12 +1086,6 @@ contract FleetManager {
         }
 
         result.attackerWon = (defenderRemaining == 0);
-
-        if (!result.attackerWon) {
-            for (uint8 i = 0; i < MAX_SHIP_TYPES; i++) {
-                result.survivingAttackers[i] = 0;
-            }
-        }
 
         return result;
     }
