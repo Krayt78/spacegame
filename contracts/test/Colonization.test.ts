@@ -442,4 +442,90 @@ describe("Colonization", function () {
       ).to.be.revertedWith("Not your planet");
     });
   });
+
+  describe("Coordinate Collision Protection", function () {
+    it("createPlanet should revert when coordinate is already occupied", async function () {
+      const { gameState } = contracts;
+      const { owner, player1 } = signers;
+
+      // Authorize owner as a manager so it can call createPlanet directly
+      await gameState.setManager(owner.address, true);
+
+      // Create a planet at (1,1,1)
+      await gameState.createPlanet(999, player1.address, [1, 1, 1], "Test");
+
+      // Attempting to create another planet at the same coordinate must revert
+      await expect(
+        gameState.createPlanet(1000, player1.address, [1, 1, 1], "Duplicate")
+      ).to.be.revertedWith("Coordinate already occupied");
+    });
+
+    it("claimStarterPlanet should skip coordinates occupied by colonized planets", async function () {
+      const { nexusGame, gameState } = contracts;
+      const { owner, player1, player2 } = signers;
+
+      // Player1 claims their starter planet — gets planetId=1 at (1,1,1)
+      await claimPlanet(nexusGame, player1, "HomeWorld");
+      const p1PlanetId = await nexusGame.playerPlanet(player1.address);
+      const p1Coords = await gameState.getPlanetCoordinates(p1PlanetId);
+      expect(p1Coords[0]).to.equal(1);
+      expect(p1Coords[1]).to.equal(1);
+      expect(p1Coords[2]).to.equal(1);
+
+      // Authorize owner as a manager so it can call createPlanet directly
+      await gameState.setManager(owner.address, true);
+
+      // Pre-occupy (1,1,2) — the coordinate that planetId=2 would normally receive —
+      // using a high ID that does not conflict with the sequential counter
+      await gameState.createPlanet(999, owner.address, [1, 1, 2], "Colonized");
+
+      // Player2 claims their starter planet; the while-loop must skip (1,1,2)
+      await claimPlanet(nexusGame, player2, "SkipMe");
+      const p2PlanetId = await nexusGame.playerPlanet(player2.address);
+      const p2Coords = await gameState.getPlanetCoordinates(p2PlanetId);
+
+      // Planet should have landed on (1,1,3), not the occupied (1,1,2)
+      expect(p2Coords[0]).to.equal(1);
+      expect(p2Coords[1]).to.equal(1);
+      expect(p2Coords[2]).to.equal(3);
+
+      // Verify the pre-placed colonized planet at (1,1,2) was not overwritten
+      const occupantAtBlocked = await gameState.getCoordinateToPlanet(1, 1, 2);
+      expect(occupantAtBlocked).to.equal(999n);
+    });
+
+    it("claimStarterPlanet should skip multiple consecutive occupied coordinates", async function () {
+      const { nexusGame, gameState } = contracts;
+      const { owner, player1, player2 } = signers;
+
+      // Player1 claims their starter planet — gets planetId=1 at (1,1,1)
+      await claimPlanet(nexusGame, player1, "HomeWorld");
+      const p1PlanetId = await nexusGame.playerPlanet(player1.address);
+      const p1Coords = await gameState.getPlanetCoordinates(p1PlanetId);
+      expect(p1Coords[0]).to.equal(1);
+      expect(p1Coords[1]).to.equal(1);
+      expect(p1Coords[2]).to.equal(1);
+
+      // Authorize owner as a manager so it can call createPlanet directly
+      await gameState.setManager(owner.address, true);
+
+      // Pre-occupy both (1,1,2) and (1,1,3) to force the loop to skip two slots
+      await gameState.createPlanet(998, owner.address, [1, 1, 2], "Blocked1");
+      await gameState.createPlanet(997, owner.address, [1, 1, 3], "Blocked2");
+
+      // Player2 claims their starter planet; the while-loop must skip (1,1,2) and (1,1,3)
+      await claimPlanet(nexusGame, player2, "FarAway");
+      const p2PlanetId = await nexusGame.playerPlanet(player2.address);
+      const p2Coords = await gameState.getPlanetCoordinates(p2PlanetId);
+
+      // Planet should have landed on (1,1,4), skipping two consecutive occupied slots
+      expect(p2Coords[0]).to.equal(1);
+      expect(p2Coords[1]).to.equal(1);
+      expect(p2Coords[2]).to.equal(4);
+
+      // Verify the pre-placed planets are still intact
+      expect(await gameState.getCoordinateToPlanet(1, 1, 2)).to.equal(998n);
+      expect(await gameState.getCoordinateToPlanet(1, 1, 3)).to.equal(997n);
+    });
+  });
 });

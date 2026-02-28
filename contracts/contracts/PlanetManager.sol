@@ -47,9 +47,20 @@ contract PlanetManager {
         uint256 planetId = gameState.incrementNextPlanetId();
 
         // Assign sequential coordinates (150 planets per galaxy, positions 1-10 only, 11-15 are for outposts)
-        uint16 galaxy = uint16((planetId - 1) / 150 + 1);
-        uint16 system = uint16(((planetId - 1) % 150) / 10 + 1);
-        uint16 position = uint16((planetId - 1) % 10 + 1);
+        // Skip coordinates already occupied by colonized planets
+        uint16 galaxy;
+        uint16 system;
+        uint16 position;
+        while (true) {
+            galaxy = uint16((planetId - 1) / 150 + 1);
+            system = uint16(((planetId - 1) % 150) / 10 + 1);
+            position = uint16((planetId - 1) % 10 + 1);
+
+            if (gameState.getCoordinateToPlanet(galaxy, system, position) == 0) {
+                break;
+            }
+            planetId = gameState.incrementNextPlanetId();
+        }
 
         // Create planet in GameState
         gameState.createPlanet(planetId, player, [galaxy, system, position], planetName);

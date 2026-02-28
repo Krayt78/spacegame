@@ -356,6 +356,7 @@ contract GameState is Ownable {
         uint16[3] memory coordinates,
         string memory name
     ) external onlyManager {
+        require(_coordinateToPlanet[coordinates[0]][coordinates[1]][coordinates[2]] == 0, "Coordinate already occupied");
         _planets[planetId] = Planet({
             owner: owner,
             coordinates: coordinates,
