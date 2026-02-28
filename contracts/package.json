@@ -1,0 +1,33 @@
+{
+  "name": "nexus-protocol-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for Nexus Protocol - on-chain space strategy game",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy.ts --network assetHubTestnet",
+    "export-abi": "node scripts/exportABI.js",
+    "node": "hardhat node",
+    "setup:galaxy": "hardhat run scripts/setupGalaxyTest.ts --network localhost"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Krayt78/game_project_contracts.git"
+  },
+  "keywords": ["blockchain", "game", "polkadot", "solidity"],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Krayt78/game_project_contracts/issues"
+  },
+  "homepage": "https://github.com/Krayt78/game_project_contracts#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0"
+  }
+}
