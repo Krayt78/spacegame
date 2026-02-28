@@ -75,6 +75,14 @@ export default function FleetPage() {
           </div>
         </div>
 
+        {/* Onboarding hint */}
+        <div className="p-3 bg-accent-secondary/5 border border-accent-secondary/20 rounded-sm mb-6">
+          <p className="text-sm text-text-secondary">
+            <span className="text-accent-secondary font-semibold">TIP:</span>{' '}
+            Send fleets to attack other planets or raid for resources. Fleet slots are limited by your AI Command Networks research level.
+          </p>
+        </div>
+
         {/* Section 1: Dispatch Fleet */}
         <FleetDispatchForm
           currentFleets={currentFleets}

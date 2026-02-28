@@ -402,6 +402,14 @@ export default function BuildingsPage() {
           </div>
         </div>
 
+        {/* Onboarding hint */}
+        <div className="p-3 bg-accent-secondary/5 border border-accent-secondary/20 rounded-sm mb-6">
+          <p className="text-sm text-text-secondary">
+            <span className="text-accent-secondary font-semibold">TIP:</span>{' '}
+            Extractors produce resources over time. Vaults increase storage capacity. The Shipyard unlocks ship construction, and the Research Node enables technology upgrades.
+          </p>
+        </div>
+
         {/* Build Queue Status */}
         {hasActiveQueue && queue && planetId && (
           <BuildQueueComponent

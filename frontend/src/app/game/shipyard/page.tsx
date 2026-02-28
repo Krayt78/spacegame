@@ -204,6 +204,14 @@ export default function ShipyardPage() {
           </div>
         </div>
 
+        {/* Onboarding hint */}
+        <div className="p-3 bg-accent-secondary/5 border border-accent-secondary/20 rounded-sm mb-6">
+          <p className="text-sm text-text-secondary">
+            <span className="text-accent-secondary font-semibold">TIP:</span>{' '}
+            Ships require a Shipyard to build. Higher shipyard levels unlock more advanced ships. You can build one ship type at a time.
+          </p>
+        </div>
+
         {/* Shipyard Requirement Check */}
         {!hasShipyard && (
           <Card className="border-[var(--accent-warn)]/30">
