@@ -25,31 +25,31 @@ export const localhost = defineChain({
   testnet: true,
 });
 
-// Define AssetHub Westend (EVM-compatible Polkadot parachain)
-export const assetHubWestend = defineChain({
-  id: 420420421,
-  name: 'AssetHub Westend',
+// Define Polkadot Hub TestNet (EVM-compatible Polkadot chain)
+export const polkadotHubTestnet = defineChain({
+  id: 420420417,
+  name: 'Polkadot Hub TestNet',
   nativeCurrency: {
     decimals: 18,
-    name: 'Westend',
-    symbol: 'WND',
+    name: 'PAS',
+    symbol: 'PAS',
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_ASSETHUB_RPC_URL || 'https://westend-asset-hub-eth-rpc.polkadot.io'],
+      http: [process.env.NEXT_PUBLIC_POLKADOT_HUB_RPC_URL || 'https://eth-rpc-testnet.polkadot.io'],
     },
   },
   blockExplorers: {
     default: {
-      name: 'Subscan',
-      url: 'https://assethub-westend.subscan.io',
+      name: 'Blockscout',
+      url: 'https://blockscout-testnet.polkadot.io',
     },
   },
   testnet: true,
 });
 
-// Environment-driven chain selection: set NEXT_PUBLIC_CHAIN=testnet for AssetHub Westend
-export const activeChain = process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? assetHubWestend : localhost;
+// Environment-driven chain selection: set NEXT_PUBLIC_CHAIN=testnet for Polkadot Hub TestNet
+export const activeChain = process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? polkadotHubTestnet : localhost;
 
 export const config = createConfig(
   getDefaultConfig({

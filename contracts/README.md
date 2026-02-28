@@ -81,7 +81,7 @@ npm run node
 npm run deploy:local
 ```
 
-AssetHub Testnet:
+Polkadot Hub TestNet:
 ```bash
 # Copy .env.example to .env and fill in your private key
 cp .env.example .env
