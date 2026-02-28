@@ -11,7 +11,7 @@ import type { Ships, ShipComposition } from '@/types/game';
 import { SHIP_NAMES } from '@/constants/gameConfig';
 
 // Constants for galaxy limits
-const MAX_GALAXIES = 5;
+const MAX_GALAXIES = 10;
 const MAX_SYSTEMS = 499;
 const POSITIONS_COUNT = 15;
 

@@ -46,9 +46,9 @@ contract PlanetManager {
 
         uint256 planetId = gameState.incrementNextPlanetId();
 
-        // Assign sequential coordinates (positions 1-10 only, 11-15 are for outposts)
-        uint16 galaxy = 1;
-        uint16 system = uint16((planetId - 1) / 10 + 1);
+        // Assign sequential coordinates (150 planets per galaxy, positions 1-10 only, 11-15 are for outposts)
+        uint16 galaxy = uint16((planetId - 1) / 150 + 1);
+        uint16 system = uint16(((planetId - 1) % 150) / 10 + 1);
         uint16 position = uint16((planetId - 1) % 10 + 1);
 
         // Create planet in GameState

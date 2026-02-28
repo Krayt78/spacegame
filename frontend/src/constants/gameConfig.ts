@@ -358,7 +358,7 @@ export const STARTING_BUILDINGS: Buildings = {
 
 // Game constants
 export const UNIVERSE_SIZE = {
-  galaxies: 5,
+  galaxies: 10,
   systems: 499,
   positions: 15,
 };
