@@ -32,7 +32,7 @@ jobs:
         working-directory: frontend
     env:
       NEXT_PUBLIC_CHAIN: testnet
-      NEXT_PUBLIC_ASSETHUB_RPC_URL: https://westend-asset-hub-eth-rpc.polkadot.io
+      NEXT_PUBLIC_POLKADOT_HUB_RPC_URL: https://eth-rpc-testnet.polkadot.io
       NEXT_PUBLIC_NEXUS_GAME_ADDRESS: "0x0000000000000000000000000000000000000000"
       NEXT_PUBLIC_GAME_CONFIG_ADDRESS: "0x0000000000000000000000000000000000000000"
     steps:
