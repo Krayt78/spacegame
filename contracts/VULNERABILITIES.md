@@ -222,6 +222,241 @@ _raiderOutposts[galaxy][system][position].storedResources -= amount;
 
 ---
 
+## V-010: MOVE Fleet TOCTOU — Outpost Ownership Not Checked at Resolution
+
+**Status:** Open
+**Severity:** HIGH
+
+### The Issue
+
+`FleetResolver._resolveMove()` (line 297-320) delivers ships and cargo to an outpost **without re-checking ownership**. Ownership is validated only at dispatch time (`FleetManager._validateFleetDispatch()` line 297).
+
+```solidity
+// At resolution — NO ownership check
+} else if (_isOutpostPosition(fleet.destination[2])) {
+    gameState.addOutpostResources(..., cargoAmount);
+    currentGarrison[i] += fleet.ships[i];
+    _setGarrisonAt(fleet.destination, currentGarrison);
+}
+```
+
+### Attack Scenario
+
+1. Player A owns outpost at (1,1,11), dispatches MOVE fleet with 100 LightFighters + 50,000 titanium cargo
+2. Player B sends CAPTURE fleet to (1,1,11) and captures the outpost before Player A's fleet arrives
+3. Player A's fleet resolves — ships and cargo are delivered to Player B's outpost
+4. Player B gains 100 free LightFighters in garrison + 50,000 titanium
+
+### Suggested Fix
+
+Re-validate ownership at resolution time in `_resolveMove`. If ownership changed, convert to RETURNING status:
+
+```solidity
+GameState.RaiderOutpost memory outpost = gameState.getRaiderOutpost(...);
+if (outpost.owner != fleet.owner) {
+    // Ownership changed — fleet returns home with cargo
+    gameState.updateFleetStatus(fleetId, GameState.FleetStatus.RETURNING);
+    return;
+}
+```
+
+---
+
+## V-011: Crawlers Deployable in Fleets as Cheap Damage Absorbers
+
+**Status:** Open
+**Severity:** MEDIUM (Game Balance)
+
+### The Issue
+
+Crawlers have `speed: 0`, `cargoCapacity: 0`, `weaponPower: 1`, `structuralIntegrity: 4000`. The `getSlowestSpeedWithResearch` function (`GameConfig.sol:1352`) skips speed=0 ships, so Crawlers in a mixed fleet travel at the speed of the slowest non-Crawler ship.
+
+In combat, Crawlers absorb damage proportionally (`damageShare = firepower * unitCount / totalUnits`), acting as cheap meat shields (cost: 2000/2000/1000 vs LightFighter: 3000/1000/0 for the same 4000 hull).
+
+### Impact
+
+- Distorts combat balance — mass Crawlers protect valuable ships cheaply
+- Crawlers in OGame are planet-bound production boosters, not fleet units
+- No validation prevents including Crawlers in `dispatchFleet`
+
+### Suggested Fix
+
+In `_validateFleetDispatch`, reject Crawlers:
+
+```solidity
+require(ships[uint256(GameConfig.ShipType.Crawler)] == 0, "Crawlers cannot be dispatched");
+```
+
+---
+
+## V-012: Building Cost Overflow — Effective Cap ~47, Not 255
+
+**Status:** Open
+**Severity:** MEDIUM
+
+### The Issue
+
+`PlanetManager.upgradeBuilding()` checks `require(currentLevel < 255)`, but `GameConfig.getUpgradeCost()` uses `_pow(costMultiplier, currentLevel)` where `costMultiplier` is typically 150.
+
+```solidity
+uint256 multiplier = _pow(config.costMultiplier, currentLevel); // 150^48 > uint256 max
+```
+
+`_pow(150, 48)` exceeds `uint256` max (~1.15e77), causing an opaque arithmetic overflow panic. The actual building cap is ~level 47, but the error is a generic panic with no explanation.
+
+### Impact
+
+- Players can't upgrade past ~level 47 with a confusing revert (no clear error message)
+- The `require(currentLevel < 255)` check is misleading
+- Different buildings may have different effective caps depending on their `costMultiplier`
+
+### Suggested Fix
+
+Cap building level explicitly at a reasonable max with a clear error, or use a safe cost formula:
+
+```solidity
+require(currentLevel < MAX_BUILDING_LEVEL, "Max building level reached");
+```
+
+---
+
+## V-013: Colonization Allows Unbounded Galaxy/System Coordinates
+
+**Status:** Open
+**Severity:** MEDIUM
+
+### The Issue
+
+COLONIZE validation in `_validateFleetDispatch` (`FleetManager.sol:307-318`) only checks:
+
+1. `_isPlanetPosition(destination[2])` — position is 1-10
+2. `getCoordinateToPlanet() == 0` — position is empty
+
+No validation on `destination[0]` (galaxy) or `destination[1]` (system) bounds. Players can colonize at coordinates like `[65535, 65535, 1]`, which lie outside the starter planet formula range.
+
+### Impact
+
+- Creates orphaned galaxies that only the colonizer can access
+- Galaxy map UI may not handle extreme coordinate values
+- Breaks the organized galaxy layout (150 planets per galaxy, 10 per system)
+- Also applies to RAID/MOVE/CAPTURE — no galaxy/system bounds on any mission
+
+### Suggested Fix
+
+Add bounds validation to `_validateFleetDispatch`:
+
+```solidity
+require(destination[0] >= 1 && destination[0] <= MAX_GALAXY, "Invalid galaxy");
+require(destination[1] >= 1 && destination[1] <= MAX_SYSTEM, "Invalid system");
+```
+
+---
+
+## V-014: Combat Division by Zero if Ship/Defense Config Has Low Hull
+
+**Status:** Open
+**Severity:** MEDIUM
+
+### The Issue
+
+CombatEngine computes `destroyed = damageShare / defense` where `defense = boostedShield + boostedHull / 100`. If a unit has `structuralIntegrity < 100` and `shieldPower == 0`, then `defense = 0 + 0 = 0`, causing a division by zero revert.
+
+```solidity
+uint256 defense = boostedShield + boostedHull / 100;
+uint256 destroyed = damageShare / defense; // REVERTS if defense == 0
+```
+
+### Current State
+
+All current ship/defense configs have `structuralIntegrity >= 4000`, so this is safe with current values. However, if the `GameConfig` owner later modifies ship stats (e.g., sets a unit to `structuralIntegrity: 50, shieldPower: 0`), **all combat** involving that unit would permanently revert.
+
+### Suggested Fix
+
+Add a minimum defense floor:
+
+```solidity
+uint256 defense = boostedShield + boostedHull / 100;
+if (defense == 0) defense = 1;
+```
+
+---
+
+## V-015: Fleet Destination Position 16+ Silently Accepted
+
+**Status:** Open
+**Severity:** LOW-MEDIUM
+
+### The Issue
+
+In `_validateFleetDispatch`, RAID/CAPTURE/MOVE missions validate positions 1-10 (planets) and 11-15 (outposts), but positions 16-65535 fall through with **no validation**:
+
+```solidity
+if (_isPlanetPosition(destination[2])) {        // 1-10
+    // validate planet/outpost
+} else if (_isOutpostPosition(destination[2])) { // 11-15
+    // validate outpost
+}
+// Positions 16-65535: NO VALIDATION — silently accepted
+```
+
+A fleet dispatched to position 16+ passes validation, consumes fuel, and completes a round trip to an empty location.
+
+### Suggested Fix
+
+Add an `else revert` clause for all mission types:
+
+```solidity
+} else {
+    revert("Invalid destination position");
+}
+```
+
+---
+
+## V-016: `uint32` Timestamp Truncation in Build/Travel Times
+
+**Status:** Open
+**Severity:** LOW
+
+### The Issue
+
+Multiple locations cast `block.timestamp + buildTime` to `uint32`:
+
+```solidity
+uint32 completionTime = uint32(block.timestamp + buildTime);
+```
+
+`uint32` max is 4,294,967,295 (February 7, 2106). If the sum exceeds this, the value silently wraps, potentially producing a past timestamp that allows immediate completion.
+
+Similarly, `calculateTravelTime` returns `uint32(time)` (`GameConfig.sol:1114`).
+
+### Impact
+
+Theoretical until 2106 for normal operations. Extremely high `buildTime` values from high building levels (before the V-012 overflow cap) could potentially trigger this sooner.
+
+---
+
+## V-017: No Debris Field or Recovery From Combat Losses
+
+**Status:** Open
+**Severity:** LOW (Game Design)
+
+### The Issue
+
+When ships are destroyed in combat, they vanish entirely. In OGame, 30% of metal+crystal costs of destroyed ships become a debris field that Recyclers can collect.
+
+### Combined Impact
+
+Combined with V-004 (100% loot on raids) and V-002 (total attacker loss on draw), combat outcomes are extremely punitive:
+
+- Attacker wins: defender loses all resources + all ships
+- Defender wins or draw: attacker loses all ships, no recovery
+- No debris field means Recyclers have no purpose
+
+This creates a "cold war" meta where combat is rarely worth the risk, stifling active gameplay.
+
+---
+
 ## Non-Vulnerabilities (Investigated and Cleared)
 
 ### Ship Deduction Order in dispatchFleet — NOT A BUG
@@ -252,6 +487,10 @@ Advantage values default to 1 when not found, preventing division by zero in fir
 
 4. **Colonized planets have no initial buildings** — New colonies start with zero-level everything. Buildings default to 0 in uninitialized storage. Players must build from scratch.
 
+5. **Defenses have no combat advantages** — Ships have advantage matrices (`_advantage` mapping in GameConfig), but defense firepower in CombatEngine is flat (`CombatEngine.sol:241-248`). In OGame, defenses have rapid-fire against certain ships.
+
+6. **Single build queue per type** — Each planet has exactly one queue for buildings, ships, and defenses. Queuing multiple ship batches requires waiting for each to complete. By-design but limits gameplay flow.
+
 ---
 
 ## Summary Table
@@ -267,3 +506,11 @@ Advantage values default to 1 when not found, preventing division by zero in fir
 | V-007 | No admin timelock / multi-sig | MEDIUM | Open |
 | V-008 | Loot rounding (dark matter remainder) | LOW | Open |
 | V-009 | Outpost deduction no bounds check | LOW | Open |
+| V-010 | MOVE fleet delivers to captured outpost (TOCTOU) | HIGH | Open |
+| V-011 | Crawlers deployable as cheap fleet shields | MEDIUM | Open |
+| V-012 | Building level cap ~47 due to `_pow` overflow | MEDIUM | Open |
+| V-013 | Unbounded galaxy/system in colonization | MEDIUM | Open |
+| V-014 | Combat division by zero if unit hull < 100 | MEDIUM | Open |
+| V-015 | Fleet destination position 16+ silently accepted | LOW-MEDIUM | Open |
+| V-016 | `uint32` timestamp truncation | LOW | Open |
+| V-017 | No debris field or combat loss recovery | LOW | Open |
