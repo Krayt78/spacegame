@@ -110,7 +110,7 @@ export function calculateProduction(
   if (!('baseProduction' in config) || level === 0) return 0;
 
   return Math.floor(
-    config.baseProduction * Math.pow(config.productionMultiplier, level - 1)
+    config.baseProduction * level * Math.pow(config.productionMultiplier, level)
   );
 }
 

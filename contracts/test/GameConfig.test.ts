@@ -26,7 +26,8 @@ describe("GameConfig", function () {
 
     it("Should calculate production rates", async function () {
       const production = await contracts.gameConfig.getProduction(1, 1); // TITANIUM_EXTRACTOR level 1
-      expect(production).to.equal(30n);
+      // Production = baseProduction * level * 1.1^level = 30 * 1 * 1.1 = 33
+      expect(production).to.equal(33n);
     });
 
     it("Should return zero production for level 0", async function () {

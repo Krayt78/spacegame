@@ -92,11 +92,11 @@ describe("PlanetManager", function () {
 
       let [titanium, helium3, darkMatter] = await contracts.nexusGame.calculateCurrentResources(planetId);
 
-      // Titanium production is 30/hour, so 2 minutes = 1 titanium
+      // Titanium production is 33/hour (30*1*1.1^1), so 2 minutes = 1 titanium
       // Starting with 500, should now have 501
       expect(titanium).to.equal(501n);
 
-      // Helium3 production is 20/hour, so 2 minutes = 0 helium3
+      // Helium3 production is 22/hour (20*1*1.1^1), so 2 minutes = 0 helium3
       // Starting with 500, should now have 500
       expect(helium3).to.equal(500n);
 
@@ -107,13 +107,13 @@ describe("PlanetManager", function () {
 
       [titanium, helium3, darkMatter] = await contracts.nexusGame.calculateCurrentResources(planetId);
 
-      // Titanium production is 30/hour, so 30 minutes = 15 titanium
-      // Starting with 500, should now have 515
-      expect(titanium).to.equal(515n);
+      // Titanium production is 33/hour (30*1*1.1^1), so 30 minutes = 16 titanium
+      // Starting with 500, should now have 516
+      expect(titanium).to.equal(516n);
 
-      // Helium3 production is 20/hour, so 30 minutes = 10 helium3
-      // Starting with 500, should now have 510
-      expect(helium3).to.equal(510n);
+      // Helium3 production is 22/hour (20*1*1.1^1), so 30 minutes = 11 helium3
+      // Starting with 500, should now have 511
+      expect(helium3).to.equal(511n);
 
       expect(darkMatter).to.equal(0n); // No dark matter collector
     });

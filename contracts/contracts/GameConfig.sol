@@ -844,9 +844,9 @@ contract GameConfig is Ownable {
 
         BuildingConfig memory config = buildingConfigs[buildingType];
 
-        // Production = baseProduction * (multiplier/100) ^ (level - 1)
-        uint256 multiplier = _pow(config.productionMultiplier, level - 1);
-        return (config.baseProduction * multiplier) / _pow(100, level - 1);
+        // Production = baseProduction * level * (multiplier/100) ^ level
+        uint256 multiplier = _pow(config.productionMultiplier, level);
+        return (config.baseProduction * level * multiplier) / _pow(100, level);
     }
 
     /**
