@@ -89,13 +89,12 @@ enum BuildingType {
     TITANIUM_EXTRACTOR,      // 1
     HELIUM3_HARVESTER,       // 2
     DARKMATTER_COLLECTOR,    // 3
-    FUSION_REACTOR,          // 4
-    TITANIUM_VAULT,          // 5
-    HELIUM3_TANK,            // 6
-    DARKMATTER_CONTAINMENT,  // 7
-    ASSEMBLY_BAY,            // 8
-    RESEARCH_NODE,           // 9
-    UNDERGROUND_BUNKER       // 10
+    TITANIUM_VAULT,          // 4
+    HELIUM3_TANK,            // 5
+    DARKMATTER_CONTAINMENT,  // 6
+    SHIPYARD,                // 7
+    RESEARCH_NODE,           // 8
+    UNDERGROUND_BUNKER       // 9
 }
 ```
 
@@ -173,13 +172,7 @@ At every level, upgrading the bunker costs significantly more than the value of 
 
 ### Build Time
 
-Base time: **90 seconds** (between production buildings at 30s and storage/advanced buildings at 120s)
-
-Uses the standard formula: `baseTime × (level + 1) × totalCost / 1000`
-
-### No Energy Cost
-
-The bunker is a passive structure — no energy consumption. This is consistent with storage buildings which also don't consume energy.
+Uses the standard formula: `totalCost / 25` (seconds)
 
 ---
 
