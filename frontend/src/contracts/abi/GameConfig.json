@@ -1,0 +1,1610 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.BuildingType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "buildingConfigs",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "baseCost",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint16",
+        "name": "costMultiplier",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint256",
+        "name": "baseProduction",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint16",
+        "name": "productionMultiplier",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint256",
+        "name": "baseCapacity",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint16",
+        "name": "capacityMultiplier",
+        "type": "uint16"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16[3]",
+        "name": "origin",
+        "type": "uint16[3]"
+      },
+      {
+        "internalType": "uint16[3]",
+        "name": "destination",
+        "type": "uint16[3]"
+      }
+    ],
+    "name": "calculateDistance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "distance",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[13]",
+        "name": "ships",
+        "type": "uint256[13]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "distance",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateFleetFuelConsumption",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "totalFuel",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16[3]",
+        "name": "origin",
+        "type": "uint16[3]"
+      },
+      {
+        "internalType": "uint16[3]",
+        "name": "destination",
+        "type": "uint16[3]"
+      },
+      {
+        "internalType": "uint32",
+        "name": "slowestSpeed",
+        "type": "uint32"
+      }
+    ],
+    "name": "calculateTravelTime",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.DefenseType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "defenseConfigs",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "cost",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint32",
+        "name": "structuralIntegrity",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint16",
+        "name": "shieldPower",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint16",
+        "name": "weaponPower",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint8",
+        "name": "limit",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "attacker",
+        "type": "uint8"
+      },
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "target",
+        "type": "uint8"
+      }
+    ],
+    "name": "getAdvantage",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "attacker",
+        "type": "uint8"
+      }
+    ],
+    "name": "getAdvantageRow",
+    "outputs": [
+      {
+        "internalType": "uint8[13]",
+        "name": "",
+        "type": "uint8[13]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.BuildingType",
+        "name": "buildingType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "currentLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getBuildTime",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.DefenseType",
+        "name": "defenseType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "quantity",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "shipyardLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getDefenseBuildTime",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.DefenseType",
+        "name": "defenseType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "weaponTechLevel",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "shieldingTechLevel",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "armourTechLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getDefenseCombatStats",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "weaponPower",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "shieldPower",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "structuralIntegrity",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.CombatStats",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.DefenseType",
+        "name": "defenseType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getDefenseConfig",
+    "outputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "titanium",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "helium3",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "darkMatter",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct GameConfig.Cost",
+            "name": "cost",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint32",
+            "name": "structuralIntegrity",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint16",
+            "name": "shieldPower",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "weaponPower",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint8",
+            "name": "limit",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct GameConfig.DefenseConfig",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.DefenseType",
+        "name": "defenseType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getDefenseCost",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.DefenseType",
+        "name": "defenseType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getDefenseRequirements",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint8",
+            "name": "shipyardLevel",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum GameConfig.ResearchType",
+            "name": "researchReq1",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "researchLevel1",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum GameConfig.ResearchType",
+            "name": "researchReq2",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "researchLevel2",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct GameConfig.DefenseRequirements",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint8",
+        "name": "astrophysicsLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getMaxColonies",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.OutpostType",
+        "name": "outpostType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getOutpostConfig",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "productionRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "storageCap",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.OutpostConfig",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.OutpostType",
+        "name": "outpostType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getOutpostProduction",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.OutpostType",
+        "name": "outpostType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getOutpostStorageCap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "position",
+        "type": "uint16"
+      }
+    ],
+    "name": "getOutpostTypeForPosition",
+    "outputs": [
+      {
+        "internalType": "enum GameConfig.OutpostType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.BuildingType",
+        "name": "buildingType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "level",
+        "type": "uint8"
+      }
+    ],
+    "name": "getProduction",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ResearchType",
+        "name": "researchType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getResearchConfig",
+    "outputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "titanium",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "helium3",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "darkMatter",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct GameConfig.Cost",
+            "name": "baseCost",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint16",
+            "name": "costMultiplier",
+            "type": "uint16"
+          }
+        ],
+        "internalType": "struct GameConfig.ResearchConfig",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ResearchType",
+        "name": "researchType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "currentLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getResearchCost",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ResearchType",
+        "name": "researchType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "currentLevel",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "researchNodeLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getResearchTime",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "shipType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "quantity",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "shipyardLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipBuildTime",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "shipType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "weaponTechLevel",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "shieldingTechLevel",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "armourTechLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipCombatStats",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "weaponPower",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "shieldPower",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "structuralIntegrity",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.CombatStats",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "shipType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipConfig",
+    "outputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "titanium",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "helium3",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "darkMatter",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct GameConfig.Cost",
+            "name": "cost",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint32",
+            "name": "structuralIntegrity",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint16",
+            "name": "shieldPower",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "weaponPower",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint32",
+            "name": "speed",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "cargoCapacity",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint16",
+            "name": "fuelConsumption",
+            "type": "uint16"
+          }
+        ],
+        "internalType": "struct GameConfig.ShipConfig",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "shipType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipCost",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "shipType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipDriveType",
+    "outputs": [
+      {
+        "internalType": "enum GameConfig.DriveType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "shipType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipRequirements",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint8",
+            "name": "shipyardLevel",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum GameConfig.ResearchType",
+            "name": "researchReq1",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "researchLevel1",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum GameConfig.ResearchType",
+            "name": "researchReq2",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "researchLevel2",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum GameConfig.ResearchType",
+            "name": "researchReq3",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "researchLevel3",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct GameConfig.ShipRequirements",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "attacker",
+        "type": "uint8"
+      },
+      {
+        "internalType": "enum GameConfig.DefenseType",
+        "name": "target",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipVsDefenseAdvantage",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "attacker",
+        "type": "uint8"
+      }
+    ],
+    "name": "getShipVsDefenseAdvantageRow",
+    "outputs": [
+      {
+        "internalType": "uint8[9]",
+        "name": "",
+        "type": "uint8[9]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[13]",
+        "name": "ships",
+        "type": "uint256[13]"
+      }
+    ],
+    "name": "getSlowestSpeed",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[13]",
+        "name": "ships",
+        "type": "uint256[13]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "combustionLevel",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "impulseLevel",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "hyperspaceLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getSlowestSpeedWithResearch",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getStartingResources",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.BuildingType",
+        "name": "buildingType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "level",
+        "type": "uint8"
+      }
+    ],
+    "name": "getStorageCapacity",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[13]",
+        "name": "ships",
+        "type": "uint256[13]"
+      }
+    ],
+    "name": "getTotalCargoCapacity",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[13]",
+        "name": "ships",
+        "type": "uint256[13]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "hyperspaceTechLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getTotalCargoCapacityWithResearch",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.BuildingType",
+        "name": "buildingType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "currentLevel",
+        "type": "uint8"
+      }
+    ],
+    "name": "getUpgradeCost",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.OutpostType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "outpostConfigs",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "productionRate",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "storageCap",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ResearchType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "researchConfigs",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "baseCost",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint16",
+        "name": "costMultiplier",
+        "type": "uint16"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_speedFactor",
+        "type": "uint256"
+      }
+    ],
+    "name": "setSpeedFactor",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "shipConfigs",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "titanium",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "helium3",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "darkMatter",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct GameConfig.Cost",
+        "name": "cost",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint32",
+        "name": "structuralIntegrity",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint16",
+        "name": "shieldPower",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint16",
+        "name": "weaponPower",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint32",
+        "name": "speed",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "cargoCapacity",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint16",
+        "name": "fuelConsumption",
+        "type": "uint16"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "speedFactor",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.BuildingType",
+        "name": "buildingType",
+        "type": "uint8"
+      },
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "titanium",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "helium3",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "darkMatter",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct GameConfig.Cost",
+            "name": "baseCost",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint16",
+            "name": "costMultiplier",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint256",
+            "name": "baseProduction",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint16",
+            "name": "productionMultiplier",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint256",
+            "name": "baseCapacity",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint16",
+            "name": "capacityMultiplier",
+            "type": "uint16"
+          }
+        ],
+        "internalType": "struct GameConfig.BuildingConfig",
+        "name": "newConfig",
+        "type": "tuple"
+      }
+    ],
+    "name": "updateBuildingConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum GameConfig.ShipType",
+        "name": "shipType",
+        "type": "uint8"
+      },
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "titanium",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "helium3",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "darkMatter",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct GameConfig.Cost",
+            "name": "cost",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint32",
+            "name": "structuralIntegrity",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint16",
+            "name": "shieldPower",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "weaponPower",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint32",
+            "name": "speed",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "cargoCapacity",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint16",
+            "name": "fuelConsumption",
+            "type": "uint16"
+          }
+        ],
+        "internalType": "struct GameConfig.ShipConfig",
+        "name": "newConfig",
+        "type": "tuple"
+      }
+    ],
+    "name": "updateShipConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

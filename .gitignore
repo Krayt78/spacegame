@@ -7,7 +7,7 @@ cache/
 typechain-types/
 coverage/
 coverage.json
-abi/
+contracts/abi/
 
 # Hardhat
 deployments/
