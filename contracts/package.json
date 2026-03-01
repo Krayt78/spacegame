@@ -9,7 +9,8 @@
     "deploy:testnet": "hardhat run scripts/deploy.ts --network polkadotHubTestnet",
     "export-abi": "node scripts/exportABI.js",
     "node": "hardhat node",
-    "setup:galaxy": "hardhat run scripts/setupGalaxyTest.ts --network localhost"
+    "setup:galaxy": "hardhat run scripts/setupGalaxyTest.ts --network localhost",
+    "verify:testnet": "hardhat run scripts/verify.ts --network polkadotHubTestnet"
   },
   "repository": {
     "type": "git",

@@ -32,6 +32,21 @@ const config: HardhatUserConfig = {
       chainId: 420420417, // Polkadot Hub TestNet EVM chain ID
     },
   },
+  etherscan: {
+    apiKey: {
+      polkadotHubTestnet: "no-api-key-needed",
+    },
+    customChains: [
+      {
+        network: "polkadotHubTestnet",
+        chainId: 420420417,
+        urls: {
+          apiURL: "https://blockscout-testnet.polkadot.io/api",
+          browserURL: "https://blockscout-testnet.polkadot.io/",
+        },
+      },
+    ],
+  },
   typechain: {
     outDir: "typechain-types",
     target: "ethers-v6",
