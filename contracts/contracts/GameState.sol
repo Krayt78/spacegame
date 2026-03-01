@@ -41,6 +41,7 @@ contract GameState is Ownable {
         uint8 darkMatterContainment;
         uint8 shipyard;
         uint8 researchNode;
+        uint8 undergroundBunker;
     }
 
     struct Resources {
@@ -254,6 +255,7 @@ contract GameState is Ownable {
         if (buildingType == GameConfig.BuildingType.DARKMATTER_CONTAINMENT) return buildings.darkMatterContainment;
         if (buildingType == GameConfig.BuildingType.SHIPYARD) return buildings.shipyard;
         if (buildingType == GameConfig.BuildingType.RESEARCH_NODE) return buildings.researchNode;
+        if (buildingType == GameConfig.BuildingType.UNDERGROUND_BUNKER) return buildings.undergroundBunker;
 
         revert("GameState: invalid building type");
     }
@@ -391,6 +393,7 @@ contract GameState is Ownable {
         else if (buildingType == GameConfig.BuildingType.DARKMATTER_CONTAINMENT) buildings.darkMatterContainment++;
         else if (buildingType == GameConfig.BuildingType.SHIPYARD) buildings.shipyard++;
         else if (buildingType == GameConfig.BuildingType.RESEARCH_NODE) buildings.researchNode++;
+        else if (buildingType == GameConfig.BuildingType.UNDERGROUND_BUNKER) buildings.undergroundBunker++;
         else revert("GameState: invalid building type");
     }
 

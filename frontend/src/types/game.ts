@@ -25,6 +25,9 @@ export interface Buildings {
   // Facilities
   shipyard: number;
   researchNode: number;
+
+  // Defense
+  undergroundBunker: number;
 }
 
 export interface Resources {

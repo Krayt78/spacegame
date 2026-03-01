@@ -12,6 +12,7 @@ import {
   Factory,
   FlaskConical,
   Wrench,
+  Shield,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui';
 import { Button } from '@/components/ui';
@@ -57,6 +58,8 @@ const getBuildingIcon = (buildingKey: keyof Buildings) => {
       return { icon: Wrench, color: 'var(--accent-warn)' };
     case 'researchNode':
       return { icon: FlaskConical, color: 'var(--accent-tertiary)' };
+    case 'undergroundBunker':
+      return { icon: Shield, color: 'var(--accent-secondary)' };
     default:
       return { icon: Factory, color: 'var(--text-secondary)' };
   }
@@ -81,6 +84,8 @@ const getBuildingDescription = (buildingKey: keyof Buildings): string => {
       return 'Reduces ship construction time';
     case 'researchNode':
       return 'Accelerates research progress';
+    case 'undergroundBunker':
+      return 'Protects resources from being plundered during raids.';
     default:
       return 'Planetary infrastructure';
   }

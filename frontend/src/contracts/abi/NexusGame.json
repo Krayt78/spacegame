@@ -1058,6 +1058,11 @@
             "internalType": "uint8",
             "name": "researchNode",
             "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "undergroundBunker",
+            "type": "uint8"
           }
         ],
         "internalType": "struct GameState.Buildings",
@@ -1430,6 +1435,35 @@
         "internalType": "struct GameState.ResearchLevels",
         "name": "",
         "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "planetId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPlunderableResources",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "titanium",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "helium3",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "darkMatter",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1816,6 +1850,11 @@
       {
         "internalType": "uint8",
         "name": "researchNode",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "undergroundBunker",
         "type": "uint8"
       }
     ],

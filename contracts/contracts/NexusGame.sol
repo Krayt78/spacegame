@@ -322,6 +322,17 @@ contract NexusGame is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Get plunderable resources for a planet (accounts for bunker protection and 50% cap)
+     */
+    function getPlunderableResources(uint256 planetId)
+        external
+        view
+        returns (uint256 titanium, uint256 helium3, uint256 darkMatter)
+    {
+        return planetManager.getPlunderableResources(planetId);
+    }
+
+    /**
      * @notice Get player's starter planet ID
      */
     function getPlayerPlanetId(address player) external view returns (uint256) {
@@ -527,7 +538,8 @@ contract NexusGame is Ownable, ReentrancyGuard {
         uint8 helium3Tank,
         uint8 darkMatterContainment,
         uint8 shipyard,
-        uint8 researchNode
+        uint8 researchNode,
+        uint8 undergroundBunker
     ) {
         GameState.Buildings memory b = gameState.getPlanetBuildings(planetId);
         return (
@@ -538,7 +550,8 @@ contract NexusGame is Ownable, ReentrancyGuard {
             b.helium3Tank,
             b.darkMatterContainment,
             b.shipyard,
-            b.researchNode
+            b.researchNode,
+            b.undergroundBunker
         );
     }
 

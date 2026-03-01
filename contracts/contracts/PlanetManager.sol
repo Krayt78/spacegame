@@ -74,7 +74,8 @@ contract PlanetManager {
             helium3Tank: 0,
             darkMatterContainment: 0,
             shipyard: 0,
-            researchNode: 0
+            researchNode: 0,
+            undergroundBunker: 0
         }));
 
         // Initialize starting resources
@@ -195,6 +196,24 @@ contract PlanetManager {
         titaniumPerHour = gameConfig.getProduction(GameConfig.BuildingType.TITANIUM_EXTRACTOR, buildings.titaniumExtractor);
         helium3PerHour = gameConfig.getProduction(GameConfig.BuildingType.HELIUM3_HARVESTER, buildings.helium3Harvester);
         darkMatterPerHour = gameConfig.getProduction(GameConfig.BuildingType.DARKMATTER_COLLECTOR, buildings.darkMatterCollector);
+    }
+
+    /**
+     * @notice Calculate plunderable resources for a planet (used by raid system)
+     * @dev Plunderable = max(0, total - bunkerProtection) / 2
+     */
+    function getPlunderableResources(uint256 planetId)
+        external
+        view
+        returns (uint256 titanium, uint256 helium3, uint256 darkMatter)
+    {
+        (uint256 totalTi, uint256 totalHe, uint256 totalDm) = calculateCurrentResources(planetId);
+        uint8 bunkerLevel = gameState.getBuildingLevel(planetId, GameConfig.BuildingType.UNDERGROUND_BUNKER);
+        uint256 protection = gameConfig.getStorageCapacity(GameConfig.BuildingType.UNDERGROUND_BUNKER, bunkerLevel);
+
+        titanium = totalTi > protection ? (totalTi - protection) / 2 : 0;
+        helium3 = totalHe > protection ? (totalHe - protection) / 2 : 0;
+        darkMatter = totalDm > protection ? (totalDm - protection) / 2 : 0;
     }
 
     // ============ BUILDING MANAGEMENT ============

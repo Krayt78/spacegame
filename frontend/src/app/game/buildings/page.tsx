@@ -30,6 +30,7 @@ const ALL_BUILDINGS: (keyof Buildings)[] = [
   'darkMatterContainment',
   'shipyard',
   'researchNode',
+  'undergroundBunker',
 ];
 
 // Building category helpers
@@ -55,6 +56,7 @@ type BuildingBonus =
   | { type: 'storage'; resource: string; currentCapacity: number; nextCapacity: number }
   | { type: 'shipyard'; unlockedCount: number; nextUnlock: string[] }
   | { type: 'research'; reductionPercent: number; nextReductionPercent: number }
+  | { type: 'bunker'; currentProtection: number; nextProtection: number }
   | { type: 'none' };
 
 function getBuildingBonus(buildingKey: keyof Buildings, level: number): BuildingBonus {
@@ -95,6 +97,12 @@ function getBuildingBonus(buildingKey: keyof Buildings, level: number): Building
     const nextLevel = level + 1;
     const nextReductionPercent = Math.round((nextLevel * 3) / (10 + nextLevel * 3) * 1000) / 10;
     return { type: 'research', reductionPercent, nextReductionPercent };
+  }
+
+  if (buildingKey === 'undergroundBunker') {
+    const currentProtection = level === 0 ? 0 : calculateStorageCapacity('undergroundBunker', level);
+    const nextProtection = calculateStorageCapacity('undergroundBunker', level + 1);
+    return { type: 'bunker', currentProtection, nextProtection };
   }
 
   return { type: 'none' };
@@ -160,6 +168,20 @@ function BuildingBonusDisplay({ buildingKey, level }: { buildingKey: keyof Build
           </span>
           <span className="text-xs text-[var(--accent-primary)] ml-2">
             → {bonus.nextReductionPercent}%
+          </span>
+        </div>
+      )}
+
+      {bonus.type === 'bunker' && (
+        <div className="text-sm">
+          <span className="text-[var(--text-muted)] text-xs">Protection: </span>
+          <span className="text-[var(--text-secondary)]">
+            {bonus.currentProtection > 0
+              ? `${formatNumber(bonus.currentProtection)} per resource`
+              : 'None'}
+          </span>
+          <span className="text-xs text-[var(--accent-primary)] ml-2">
+            → {formatNumber(bonus.nextProtection)}/resource
           </span>
         </div>
       )}
@@ -297,6 +319,7 @@ export default function BuildingsPage() {
       darkMatterContainment: Number(buildingsData.darkMatterContainment),
       shipyard: Number(buildingsData.shipyard),
       researchNode: Number(buildingsData.researchNode),
+      undergroundBunker: Number(buildingsData.undergroundBunker),
     } as Buildings;
   }, [planetData]);
 

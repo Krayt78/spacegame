@@ -35,6 +35,7 @@ export function GameLayout({ children, className }: GameLayoutProps) {
           darkMatterContainment: 0,
           shipyard: 0,
           researchNode: 0,
+          undergroundBunker: 0,
         },
         resources: {
           titanium: 12450,

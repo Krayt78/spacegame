@@ -21,7 +21,8 @@ contract GameConfig is Ownable {
         HELIUM3_TANK,
         DARKMATTER_CONTAINMENT,
         SHIPYARD,
-        RESEARCH_NODE
+        RESEARCH_NODE,
+        UNDERGROUND_BUNKER
     }
 
     // Ship types - index maps directly to position in fixed-size arrays
@@ -286,6 +287,17 @@ contract GameConfig is Ownable {
             productionMultiplier: 0,
             baseCapacity: 0,
             capacityMultiplier: 0
+        });
+
+        // Underground Bunker — protects resources from raids
+        // Protection per resource = baseCapacity × (capacityMultiplier/100)^level = 500 × 1.2^level
+        buildingConfigs[BuildingType.UNDERGROUND_BUNKER] = BuildingConfig({
+            baseCost: Cost(750, 450, 0),
+            costMultiplier: 200,
+            baseProduction: 0,
+            productionMultiplier: 0,
+            baseCapacity: 500,
+            capacityMultiplier: 120
         });
 
         // Starting resources

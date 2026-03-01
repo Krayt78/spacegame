@@ -32,6 +32,7 @@ export interface Buildings {
   darkMatterContainment: number;
   shipyard: number;
   researchNode: number;
+  undergroundBunker: number;
 }
 
 /** Resources struct from NexusGame contract */
@@ -159,6 +160,7 @@ export const BUILDING_TYPE_MAP: Record<string, number> = {
   darkMatterContainment: 6,
   shipyard: 7,
   researchNode: 8,
+  undergroundBunker: 9,
 };
 
 // Reverse mapping: contract enum to frontend key
@@ -171,6 +173,7 @@ export const BUILDING_TYPE_REVERSE_MAP: Record<number, string> = {
   6: 'darkMatterContainment',
   7: 'shipyard',
   8: 'researchNode',
+  9: 'undergroundBunker',
 };
 
 // ========== Ship Type Mapping ==========
@@ -347,6 +350,7 @@ export function usePlanetData(planetId: bigint | undefined) {
           darkMatterContainment: Number(buildings.darkMatterContainment),
           shipyard: Number(buildings.shipyard),
           researchNode: Number(buildings.researchNode),
+          undergroundBunker: Number(buildings.undergroundBunker),
         },
         resources: {
           titanium: Number(resources.titanium),

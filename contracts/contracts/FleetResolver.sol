@@ -399,9 +399,14 @@ contract FleetResolver {
             if (destPlanetId != 0) {
                 _claimResourcesInternal(destPlanetId);
                 GameState.Resources memory destRes = gameState.getPlanetResources(destPlanetId);
-                availableTitanium = destRes.titanium;
-                availableHelium3 = destRes.helium3;
-                availableDarkMatter = destRes.darkMatter;
+
+                // Subtract bunker protection before calculating lootable resources
+                uint8 bunkerLevel = gameState.getBuildingLevel(destPlanetId, GameConfig.BuildingType.UNDERGROUND_BUNKER);
+                uint256 protection = gameConfig.getStorageCapacity(GameConfig.BuildingType.UNDERGROUND_BUNKER, bunkerLevel);
+
+                availableTitanium = destRes.titanium > protection ? destRes.titanium - protection : 0;
+                availableHelium3 = destRes.helium3 > protection ? destRes.helium3 - protection : 0;
+                availableDarkMatter = destRes.darkMatter > protection ? destRes.darkMatter - protection : 0;
             }
         } else if (_isOutpostPosition(fleet.destination[2])) {
             GameState.RaiderOutpost memory outpost = _getOrInitOutpost(fleet.destination[0], fleet.destination[1], fleet.destination[2]);
