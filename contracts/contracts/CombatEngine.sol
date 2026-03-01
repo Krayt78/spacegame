@@ -82,6 +82,8 @@ contract CombatEngine {
                     uint256 damageShare = (attackerFirepower * result.survivingDefenders[i]) / defenderTotalUnits;
                     uint256 boostedShield = uint256(config.shieldPower) * (100 + uint256(defenderResearch.shieldingTech) * 10) / 100;
                     uint256 boostedHull = uint256(config.structuralIntegrity) * (100 + uint256(defenderResearch.armourTech) * 10) / 100;
+                    // Hull is divided by 100 intentionally: hull derives from resource costs and scales
+                    // much higher than shields/damage, so it must be scaled down for balanced combat.
                     uint256 defense = boostedShield + boostedHull / 100;
                     uint256 destroyed = damageShare / defense;
                     if (destroyed >= result.survivingDefenders[i]) {
@@ -99,6 +101,8 @@ contract CombatEngine {
                     uint256 damageShare = (attackerFirepower * result.survivingDefenses[i]) / defenderTotalUnits;
                     uint256 boostedShield = uint256(config.shieldPower) * (100 + uint256(defenderResearch.shieldingTech) * 10) / 100;
                     uint256 boostedHull = uint256(config.structuralIntegrity) * (100 + uint256(defenderResearch.armourTech) * 10) / 100;
+                    // Hull is divided by 100 intentionally: hull derives from resource costs and scales
+                    // much higher than shields/damage, so it must be scaled down for balanced combat.
                     uint256 defense = boostedShield + boostedHull / 100;
                     uint256 destroyed = damageShare / defense;
                     if (destroyed >= result.survivingDefenses[i]) {
@@ -116,6 +120,8 @@ contract CombatEngine {
                     uint256 damageShare = (defenderFirepower * result.survivingAttackers[i]) / attackerTotalShips;
                     uint256 boostedShield = uint256(config.shieldPower) * (100 + uint256(attackerResearch.shieldingTech) * 10) / 100;
                     uint256 boostedHull = uint256(config.structuralIntegrity) * (100 + uint256(attackerResearch.armourTech) * 10) / 100;
+                    // Hull is divided by 100 intentionally: hull derives from resource costs and scales
+                    // much higher than shields/damage, so it must be scaled down for balanced combat.
                     uint256 defense = boostedShield + boostedHull / 100;
                     uint256 destroyed = damageShare / defense;
                     if (destroyed >= result.survivingAttackers[i]) {

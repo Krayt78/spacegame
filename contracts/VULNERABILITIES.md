@@ -50,12 +50,12 @@ Each colonization requires a Colony Ship + Astrophysics research + fleet travel 
 
 ## V-003: Combat Defense Formula — Operator Precedence
 
-**Status:** Open
+**Status:** Resolved (By Design)
 **Severity:** MEDIUM
 
 ### The Issue
 
-The defense calculation in `FleetManager.sol` (lines 1026, 1043, 1060) uses:
+The defense calculation in `CombatEngine.sol` (lines 85, 102, 119) uses:
 
 ```solidity
 uint256 defense = boostedShield + boostedHull / 100;
@@ -63,20 +63,11 @@ uint256 defense = boostedShield + boostedHull / 100;
 
 Due to operator precedence, this evaluates as `boostedShield + (boostedHull / 100)`, NOT `(boostedShield + boostedHull) / 100`.
 
-### Concrete Example (SmallCargo, no research)
+### Resolution
 
-- `boostedShield = 10 * 100/100 = 10`
-- `boostedHull = 4000 * 100/100 = 4000`
-- **Current:** `defense = 10 + (4000/100) = 50` — shield is 20% of defense
-- **Alternative:** `(10 + 4000)/100 = 40` — shield is 0.25% of defense (irrelevant)
+The operator precedence is **intentional**. Hull values derive from resource costs used to build the unit and scale much higher than shields or damage values. Dividing hull by 100 brings it into a balanced range relative to shields and firepower. Without this scaling, hull would dominate the defense calculation and make shields irrelevant.
 
-### Analysis
-
-The current formula makes shield meaningful relative to hull, which may be intentional. However, it appears across 3 identical blocks without comment. If intentional, it should be documented. If not, it changes combat balance by ~25%.
-
-### Suggestion
-
-Add a comment clarifying intent, or add parentheses if the alternative was intended.
+Clarifying comments have been added to all three occurrences in `CombatEngine.sol`.
 
 ---
 
@@ -499,7 +490,7 @@ Advantage values default to 1 when not found, preventing division by zero in fir
 |----|-------|----------|--------|
 | V-001 | Coordinate collision / Gas DoS | HIGH | Partially Mitigated |
 | V-002 | Combat draw = total attacker loss | HIGH | Open |
-| V-003 | Combat defense formula precedence | MEDIUM | Open |
+| V-003 | Combat defense formula precedence | MEDIUM | Resolved (By Design) |
 | V-004 | 100% loot on raids | MEDIUM | Open |
 | V-005 | addResources bypasses storage caps | LOW | Open (likely by design) |
 | V-006 | No emergency pause mechanism | MEDIUM | Open |
