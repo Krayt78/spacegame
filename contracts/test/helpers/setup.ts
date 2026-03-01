@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { NexusGame, GameConfig, GameState, PlanetManager, ShipManager, FleetManager, ResearchManager, DefenseManager } from "../../typechain-types";
+import { NexusGame, GameConfig, GameState, PlanetManager, ShipManager, FleetManager, ResearchManager, DefenseManager, CombatEngine, FleetResolver } from "../../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 export interface DeployedContracts {
@@ -8,6 +8,8 @@ export interface DeployedContracts {
   gameState: GameState;
   planetManager: PlanetManager;
   shipManager: ShipManager;
+  combatEngine: CombatEngine;
+  fleetResolver: FleetResolver;
   fleetManager: FleetManager;
   researchManager: ResearchManager;
   defenseManager: DefenseManager;
@@ -63,12 +65,29 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   );
   await shipManager.waitForDeployment();
 
+  // Deploy CombatEngine
+  const CombatEngineFactory = await ethers.getContractFactory("CombatEngine");
+  const combatEngine = await CombatEngineFactory.deploy(
+    await gameConfig.getAddress()
+  );
+  await combatEngine.waitForDeployment();
+
+  // Deploy FleetResolver
+  const FleetResolverFactory = await ethers.getContractFactory("FleetResolver");
+  const fleetResolver = await FleetResolverFactory.deploy(
+    await gameState.getAddress(),
+    await gameConfig.getAddress(),
+    await combatEngine.getAddress()
+  );
+  await fleetResolver.waitForDeployment();
+
   // Deploy FleetManager
   const FleetManagerFactory = await ethers.getContractFactory("FleetManager");
   const fleetManager = await FleetManagerFactory.deploy(
     await nexusGame.getAddress(),
     await gameState.getAddress(),
-    await gameConfig.getAddress()
+    await gameConfig.getAddress(),
+    await fleetResolver.getAddress()
   );
   await fleetManager.waitForDeployment();
 
@@ -103,11 +122,12 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   await gameState.setManager(await planetManager.getAddress(), true);
   await gameState.setManager(await shipManager.getAddress(), true);
   await gameState.setManager(await fleetManager.getAddress(), true);
+  await gameState.setManager(await fleetResolver.getAddress(), true);
   await gameState.setManager(await researchManager.getAddress(), true);
   await gameState.setManager(await defenseManager.getAddress(), true);
 
   return {
-    contracts: { nexusGame, gameConfig, gameState, planetManager, shipManager, fleetManager, researchManager, defenseManager },
+    contracts: { nexusGame, gameConfig, gameState, planetManager, shipManager, combatEngine, fleetResolver, fleetManager, researchManager, defenseManager },
     signers: { owner, player1, player2, player3 },
   };
 }

@@ -226,7 +226,7 @@ describe("Colonization", function () {
     });
 
     it("Should create a new planet on successful colonization", async function () {
-      const { nexusGame, gameState, fleetManager } = contracts;
+      const { nexusGame, gameState, fleetManager, fleetResolver } = contracts;
       const { player1 } = signers;
 
       const ships = new Array(13).fill(0);
@@ -242,7 +242,7 @@ describe("Colonization", function () {
       await advanceTime(Number(fleet.arrivalTime - fleet.departureTime) + 1);
 
       await expect(nexusGame.resolveFleet(fleetIds[0]))
-        .to.emit(fleetManager, "PlanetColonized");
+        .to.emit(fleetResolver, "PlanetColonized");
 
       // Check new planet exists
       const newPlanetId = await gameState.getCoordinateToPlanet(1, 3, 5);
@@ -338,7 +338,7 @@ describe("Colonization", function () {
     });
 
     it("Should return fleet if destination was colonized during travel", async function () {
-      const { nexusGame, gameState, gameConfig, fleetManager } = contracts;
+      const { nexusGame, gameState, gameConfig, fleetManager, fleetResolver } = contracts;
       const { player1, player2 } = signers;
 
       // Setup player2 with colony ship + astrophysics
@@ -373,7 +373,7 @@ describe("Colonization", function () {
       // Now resolve player2's fleet — should fail and return
       const p2Fleets = await gameState.getPlayerFleets(player2.address);
       await expect(nexusGame.resolveFleet(p2Fleets[0]))
-        .to.emit(fleetManager, "ColonizationFailed");
+        .to.emit(fleetResolver, "ColonizationFailed");
 
       // Player2's fleet should be in RETURNING status
       const p2Fleet = await gameState.getFleet(p2Fleets[0]);

@@ -1,6 +1,5 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
-import "@parity/hardhat-polkadot";
 import "dotenv/config";
 
 const config: HardhatUserConfig = {
@@ -13,10 +12,6 @@ const config: HardhatUserConfig = {
       },
       viaIR: true,
     },
-  },
-  resolc: {
-    version: "1.0.0",
-    compilerSource: "npm",
   },
   networks: {
     hardhat: {
@@ -32,7 +27,6 @@ const config: HardhatUserConfig = {
       chainId: 31337,
     },
     polkadotHubTestnet: {
-      polkadot: true,
       url: process.env.POLKADOT_HUB_RPC_URL || "",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 420420417, // Polkadot Hub TestNet EVM chain ID

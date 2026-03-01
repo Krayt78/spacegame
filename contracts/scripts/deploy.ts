@@ -52,45 +52,63 @@ async function main() {
   const shipManagerAddress = await shipManager.getAddress();
   console.log("ShipManager deployed to:", shipManagerAddress);
 
-  // 6. Deploy FleetManager
-  console.log("\n6. Deploying FleetManager...");
+  // 6. Deploy CombatEngine
+  console.log("\n6. Deploying CombatEngine...");
+  const CombatEngine = await ethers.getContractFactory("CombatEngine");
+  const combatEngine = await CombatEngine.deploy(gameConfigAddress);
+  await combatEngine.waitForDeployment();
+  const combatEngineAddress = await combatEngine.getAddress();
+  console.log("CombatEngine deployed to:", combatEngineAddress);
+
+  // 7. Deploy FleetResolver
+  console.log("\n7. Deploying FleetResolver...");
+  const FleetResolver = await ethers.getContractFactory("FleetResolver");
+  const fleetResolver = await FleetResolver.deploy(gameStateAddress, gameConfigAddress, combatEngineAddress);
+  await fleetResolver.waitForDeployment();
+  const fleetResolverAddress = await fleetResolver.getAddress();
+  console.log("FleetResolver deployed to:", fleetResolverAddress);
+
+  // 8. Deploy FleetManager
+  console.log("\n8. Deploying FleetManager...");
   const FleetManager = await ethers.getContractFactory("FleetManager");
-  const fleetManager = await FleetManager.deploy(nexusGameAddress, gameStateAddress, gameConfigAddress);
+  const fleetManager = await FleetManager.deploy(nexusGameAddress, gameStateAddress, gameConfigAddress, fleetResolverAddress);
   await fleetManager.waitForDeployment();
   const fleetManagerAddress = await fleetManager.getAddress();
   console.log("FleetManager deployed to:", fleetManagerAddress);
 
-  // 7. Deploy ResearchManager
-  console.log("\n7. Deploying ResearchManager...");
+  // 9. Deploy ResearchManager
+  console.log("\n9. Deploying ResearchManager...");
   const ResearchManager = await ethers.getContractFactory("ResearchManager");
   const researchManager = await ResearchManager.deploy(nexusGameAddress, gameStateAddress, gameConfigAddress);
   await researchManager.waitForDeployment();
   const researchManagerAddress = await researchManager.getAddress();
   console.log("ResearchManager deployed to:", researchManagerAddress);
 
-  // 8. Deploy DefenseManager
-  console.log("\n8. Deploying DefenseManager...");
+  // 10. Deploy DefenseManager
+  console.log("\n10. Deploying DefenseManager...");
   const DefenseManager = await ethers.getContractFactory("DefenseManager");
   const defenseManager = await DefenseManager.deploy(nexusGameAddress, gameStateAddress, gameConfigAddress);
   await defenseManager.waitForDeployment();
   const defenseManagerAddress = await defenseManager.getAddress();
   console.log("DefenseManager deployed to:", defenseManagerAddress);
 
-  // 9. Configure NexusGame with managers
-  console.log("\n9. Configuring NexusGame with managers...");
+  // 11. Configure NexusGame with managers
+  console.log("\n11. Configuring NexusGame with managers...");
   await nexusGame.updateManagers(planetManagerAddress, shipManagerAddress, fleetManagerAddress);
   await nexusGame.setResearchManager(researchManagerAddress);
   await nexusGame.setDefenseManager(defenseManagerAddress);
   console.log("Managers configured in NexusGame");
 
-  // 10. Authorize managers in GameState
-  console.log("\n10. Authorizing managers in GameState...");
+  // 12. Authorize managers in GameState
+  console.log("\n12. Authorizing managers in GameState...");
   await gameState.setManager(planetManagerAddress, true);
   console.log("PlanetManager authorized");
   await gameState.setManager(shipManagerAddress, true);
   console.log("ShipManager authorized");
   await gameState.setManager(fleetManagerAddress, true);
   console.log("FleetManager authorized");
+  await gameState.setManager(fleetResolverAddress, true);
+  console.log("FleetResolver authorized");
   await gameState.setManager(researchManagerAddress, true);
   console.log("ResearchManager authorized");
   await gameState.setManager(defenseManagerAddress, true);
@@ -108,6 +126,8 @@ async function main() {
       NexusGame: nexusGameAddress,
       PlanetManager: planetManagerAddress,
       ShipManager: shipManagerAddress,
+      CombatEngine: combatEngineAddress,
+      FleetResolver: fleetResolverAddress,
       FleetManager: fleetManagerAddress,
       ResearchManager: researchManagerAddress,
       DefenseManager: defenseManagerAddress,

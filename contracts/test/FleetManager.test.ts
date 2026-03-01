@@ -273,7 +273,7 @@ describe("FleetManager", function () {
 
       await expect(
         contracts.nexusGame.resolveFleet(fleetIds[0])
-      ).to.emit(contracts.fleetManager, "BattleReportCreated");
+      ).to.emit(contracts.fleetResolver, "BattleReportCreated");
     });
   });
 

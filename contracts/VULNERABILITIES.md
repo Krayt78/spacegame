@@ -48,48 +48,6 @@ Each colonization requires a Colony Ship + Astrophysics research + fleet travel 
 
 ---
 
-## V-002: Combat Draw = Total Attacker Loss
-
-**Status:** Open
-**Severity:** HIGH (Game Balance)
-
-### The Bug
-
-After 6 rounds of combat, if ANY defender unit survives, the attacker loses ALL ships. The code in `FleetManager.sol:1080-1086` zeros out all attacker ships when `attackerWon == false`:
-
-```solidity
-result.attackerWon = (defenderRemaining == 0);
-if (!result.attackerWon) {
-    for (uint8 i = 0; i < MAX_SHIP_TYPES; i++) {
-        result.survivingAttackers[i] = 0;
-    }
-}
-```
-
-### Impact
-
-In OGame, after 6 rounds of combat, both sides keep their surviving units and the attacker retreats. Here, the attacker must achieve a **complete wipe** of all defenders or lose everything. A single surviving defender unit means 100% attacker loss.
-
-This makes attacking extremely risky and defense overpowered. Players are strongly discouraged from attacking unless they have overwhelming force.
-
-### Affected Code
-
-- Combat resolution: `FleetManager.sol:1080-1086`
-- RAID handling (attacker loss branch): `FleetManager.sol:636-653`
-- CAPTURE handling (attacker loss branch): `FleetManager.sol:826-844`
-
-### Suggested Fix
-
-When `!attackerWon`, keep `result.survivingAttackers` as-is (the per-round calculations already correctly track survivors). Introduce a "draw" outcome where the fleet returns with surviving ships instead of being deleted:
-
-```solidity
-result.attackerWon = (defenderRemaining == 0);
-// Remove the block that zeros out attacker ships on loss
-// Instead, handle "draw" (attacker retreats with survivors) in _resolveRaid/_resolveCapture
-```
-
----
-
 ## V-003: Combat Defense Formula — Operator Precedence
 
 **Status:** Open

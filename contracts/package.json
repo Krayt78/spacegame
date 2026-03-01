@@ -30,7 +30,6 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^5.0.0",
-    "@parity/hardhat-polkadot": "^0.2.7",
     "hardhat": "^2.22.0",
     "solc": "0.8.24"
   },
