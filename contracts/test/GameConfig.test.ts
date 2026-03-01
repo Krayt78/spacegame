@@ -153,6 +153,37 @@ describe("GameConfig", function () {
     });
   });
 
+  describe("Raid Loot Percentage", function () {
+    it("Should have default raidLootPercentage of 50", async function () {
+      const pct = await contracts.gameConfig.raidLootPercentage();
+      expect(pct).to.equal(50);
+    });
+
+    it("Should allow owner to update raidLootPercentage", async function () {
+      await contracts.gameConfig.setRaidLootPercentage(75);
+      const pct = await contracts.gameConfig.raidLootPercentage();
+      expect(pct).to.equal(75);
+    });
+
+    it("Should reject zero raidLootPercentage", async function () {
+      await expect(
+        contracts.gameConfig.setRaidLootPercentage(0)
+      ).to.be.revertedWith("Percentage must be 1-100");
+    });
+
+    it("Should reject raidLootPercentage over 100", async function () {
+      await expect(
+        contracts.gameConfig.setRaidLootPercentage(101)
+      ).to.be.revertedWith("Percentage must be 1-100");
+    });
+
+    it("Should reject non-owner setting raidLootPercentage", async function () {
+      await expect(
+        contracts.gameConfig.connect(signers.player1).setRaidLootPercentage(75)
+      ).to.be.reverted;
+    });
+  });
+
   describe("Distance Calculation", function () {
     it("Should calculate same-system distance correctly", async function () {
       // Position 1 to 5, distance = 1000 + 5 * 4 = 1020

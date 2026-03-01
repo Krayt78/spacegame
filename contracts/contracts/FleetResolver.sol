@@ -416,6 +416,12 @@ contract FleetResolver {
             }
         }
 
+        // Apply raid loot percentage cap (V-004 fix)
+        uint256 lootPct = gameConfig.raidLootPercentage();
+        availableTitanium = (availableTitanium * lootPct) / 100;
+        availableHelium3 = (availableHelium3 * lootPct) / 100;
+        availableDarkMatter = (availableDarkMatter * lootPct) / 100;
+
         uint256 totalAvailable = availableTitanium + availableHelium3 + availableDarkMatter;
         if (totalAvailable > 0) {
             if (totalAvailable <= cargoCapacity) {

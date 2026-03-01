@@ -200,6 +200,9 @@ contract GameConfig is Ownable {
     // Speed factor for travel time calculation (higher = faster travel)
     uint256 public speedFactor = 1000;
 
+    // Percentage of resources available as raid loot (50 = 50%)
+    uint256 public raidLootPercentage = 50;
+
     constructor() Ownable(msg.sender) {
         _initializeConfigs();
     }
@@ -893,6 +896,14 @@ contract GameConfig is Ownable {
     function setSpeedFactor(uint256 _speedFactor) external onlyOwner {
         require(_speedFactor > 0, "Speed factor must be positive");
         speedFactor = _speedFactor;
+    }
+
+    /**
+     * @notice Update raid loot percentage cap (owner only, for game balancing)
+     */
+    function setRaidLootPercentage(uint256 _raidLootPercentage) external onlyOwner {
+        require(_raidLootPercentage > 0 && _raidLootPercentage <= 100, "Percentage must be 1-100");
+        raidLootPercentage = _raidLootPercentage;
     }
 
     /**

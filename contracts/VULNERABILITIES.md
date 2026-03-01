@@ -73,7 +73,7 @@ Clarifying comments have been added to all three occurrences in `CombatEngine.so
 
 ## V-004: Raids Can Drain 100% of Planet Resources
 
-**Status:** Open
+**Status:** Resolved
 **Severity:** MEDIUM (Game Balance)
 
 ### The Issue
@@ -92,15 +92,18 @@ In OGame, only 50% of stored resources can be looted. Without a loot cap, a sing
 
 The 100%-loss-on-defense rule and 100%-loot-on-attack create a volatile win/lose dynamic where combat outcomes are extremely one-sided.
 
-### Suggested Fix
+### Resolution
 
-Cap available resources at 50% (or a configurable percentage in GameConfig):
+Added `raidLootPercentage` config in `GameConfig.sol` (default 50%). Applied in `FleetResolver.sol:_calculateAndApplyLoot()` to cap available loot for both planet and outpost raids:
 
 ```solidity
-availableTitanium = destRes.titanium / 2;
-availableHelium3 = destRes.helium3 / 2;
-availableDarkMatter = destRes.darkMatter / 2;
+uint256 lootPct = gameConfig.raidLootPercentage();
+availableTitanium = (availableTitanium * lootPct) / 100;
+availableHelium3 = (availableHelium3 * lootPct) / 100;
+availableDarkMatter = (availableDarkMatter * lootPct) / 100;
 ```
+
+Owner can adjust via `setRaidLootPercentage(1-100)`.
 
 ---
 
@@ -491,7 +494,7 @@ Advantage values default to 1 when not found, preventing division by zero in fir
 | V-001 | Coordinate collision / Gas DoS | HIGH | Partially Mitigated |
 | V-002 | Combat draw = total attacker loss | HIGH | Open |
 | V-003 | Combat defense formula precedence | MEDIUM | Resolved (By Design) |
-| V-004 | 100% loot on raids | MEDIUM | Open |
+| V-004 | 100% loot on raids | MEDIUM | Resolved |
 | V-005 | addResources bypasses storage caps | LOW | Open (likely by design) |
 | V-006 | No emergency pause mechanism | MEDIUM | Open |
 | V-007 | No admin timelock / multi-sig | MEDIUM | Open |
