@@ -36,6 +36,7 @@ import { NEXUS_GAME_ADDRESS, nexusGameAbi } from '@/lib/contracts';
 import { SHIP_CONFIG, SHIP_NAMES, SHIP_ICON_MAP, SHIP_TYPE_MAP, MAX_SHIP_TYPES } from '@/constants/gameConfig';
 import { calculateDistance, calculateFleetFuelConsumption } from '@/lib/gameLogic';
 import { formatNumber, cn } from '@/lib/utils';
+import { isUserRejection } from '@/lib/transactionErrors';
 import type { Ships } from '@/types/game';
 
 interface FleetDispatchFormProps {
@@ -921,11 +922,19 @@ export function FleetDispatchForm({
 
         {/* Transaction Error */}
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-[var(--accent-danger)]/10 rounded-sm">
-            <AlertTriangle className="w-4 h-4 text-[var(--accent-danger)] flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-[var(--accent-danger)]">
-              {(error as Error).message?.includes('user rejected')
-                ? 'Transaction rejected'
+          <div className={cn(
+            'flex items-start gap-2 p-3 rounded-sm',
+            isUserRejection(error) ? 'bg-[var(--text-muted)]/10' : 'bg-[var(--accent-danger)]/10'
+          )}>
+            {!isUserRejection(error) && (
+              <AlertTriangle className="w-4 h-4 text-[var(--accent-danger)] flex-shrink-0 mt-0.5" />
+            )}
+            <p className={cn(
+              'text-sm',
+              isUserRejection(error) ? 'text-[var(--text-muted)]' : 'text-[var(--accent-danger)]'
+            )}>
+              {isUserRejection(error)
+                ? 'Transaction cancelled. You can try again when ready.'
                 : (error as Error).message || 'Transaction failed'}
             </p>
           </div>

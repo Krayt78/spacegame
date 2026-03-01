@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { GameHeader } from '@/components/layout/GameHeader';
 import { useHasPlanet, useClaimStarterPlanet } from '@/hooks/useNexusGame';
 import { cn } from '@/lib/utils';
+import { isUserRejection } from '@/lib/transactionErrors';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -168,16 +169,35 @@ export default function OnboardingPage() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-accent-danger/10 border border-accent-danger/30 rounded-sm"
+                  className={cn(
+                    'p-3 border rounded-sm',
+                    isUserRejection(error)
+                      ? 'bg-text-muted/10 border-text-muted/30'
+                      : 'bg-accent-danger/10 border-accent-danger/30'
+                  )}
                 >
-                  <p className="text-sm text-accent-danger flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    {error.message || 'Transaction failed. Please try again.'}
+                  <p className={cn(
+                    'text-sm flex items-center gap-2',
+                    isUserRejection(error) ? 'text-text-muted' : 'text-accent-danger'
+                  )}>
+                    {isUserRejection(error) ? (
+                      <>Transaction cancelled. Click the button when you&apos;re ready to try again.</>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        {error.message || 'Transaction failed. Please try again.'}
+                      </>
+                    )}
                   </p>
                   <button
                     type="button"
                     onClick={() => reset()}
-                    className="text-xs text-accent-danger/70 hover:text-accent-danger mt-2 underline"
+                    className={cn(
+                      'text-xs mt-2 underline',
+                      isUserRejection(error)
+                        ? 'text-text-muted/70 hover:text-text-muted'
+                        : 'text-accent-danger/70 hover:text-accent-danger'
+                    )}
                   >
                     Dismiss
                   </button>

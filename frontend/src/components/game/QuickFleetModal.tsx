@@ -30,6 +30,7 @@ import {
 import { SHIP_CONFIG, SHIP_NAMES, SHIP_ICON_MAP, SHIP_TYPE_MAP, MAX_SHIP_TYPES } from '@/constants/gameConfig';
 import { calculateDistance, calculateFleetFuelConsumption } from '@/lib/gameLogic';
 import { formatNumber, cn } from '@/lib/utils';
+import { isUserRejection } from '@/lib/transactionErrors';
 import type { Ships } from '@/types/game';
 
 interface QuickFleetModalProps {
@@ -774,9 +775,19 @@ export function QuickFleetModal({
 
           {/* Transaction Error */}
           {error && (
-            <div className="p-3 bg-[var(--accent-danger)]/10 border border-[var(--accent-danger)]/30 rounded-sm">
-              <p className="text-sm text-[var(--accent-danger)]">
-                Transaction failed: {error.message?.slice(0, 100)}
+            <div className={cn(
+              'p-3 border rounded-sm',
+              isUserRejection(error)
+                ? 'bg-[var(--text-muted)]/10 border-[var(--text-muted)]/30'
+                : 'bg-[var(--accent-danger)]/10 border-[var(--accent-danger)]/30'
+            )}>
+              <p className={cn(
+                'text-sm',
+                isUserRejection(error) ? 'text-[var(--text-muted)]' : 'text-[var(--accent-danger)]'
+              )}>
+                {isUserRejection(error)
+                  ? 'Transaction cancelled. You can try again when ready.'
+                  : `Transaction failed: ${error.message?.slice(0, 100)}`}
               </p>
             </div>
           )}
