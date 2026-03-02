@@ -46,6 +46,25 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldMultiplier",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newMultiplier",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProductionMultiplierUpdated",
+    "type": "event"
+  },
+  {
     "inputs": [
       {
         "internalType": "enum GameConfig.BuildingType",
@@ -1317,6 +1336,19 @@
   },
   {
     "inputs": [],
+    "name": "productionMultiplier",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "raidLootPercentage",
     "outputs": [
       {
@@ -1374,6 +1406,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_productionMultiplier",
+        "type": "uint256"
+      }
+    ],
+    "name": "setProductionMultiplier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
