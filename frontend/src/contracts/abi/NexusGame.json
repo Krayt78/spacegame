@@ -1081,6 +1081,41 @@
             "internalType": "uint8",
             "name": "undergroundBunker",
             "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved10",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved11",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved12",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved13",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved14",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved15",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved16",
+            "type": "uint8"
           }
         ],
         "internalType": "struct GameState.Buildings",
@@ -1442,6 +1477,101 @@
           {
             "internalType": "uint8",
             "name": "astrophysics",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved14",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved15",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved16",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved17",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved18",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved19",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved20",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved21",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved22",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved23",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved24",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved25",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved26",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved27",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved28",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved29",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved30",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved31",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved32",
             "type": "uint8"
           }
         ],
@@ -2184,6 +2314,101 @@
           {
             "internalType": "uint8",
             "name": "astrophysics",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved14",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved15",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved16",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved17",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved18",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved19",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved20",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved21",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved22",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved23",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved24",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved25",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved26",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved27",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved28",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved29",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved30",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved31",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved32",
             "type": "uint8"
           }
         ],

@@ -9,10 +9,10 @@ import * as path from "path";
  * player data stored in GameState. The existing NexusGame router is updated
  * to point to the new contracts.
  *
- * IMPORTANT: This script assumes GameState's storage layout has NOT changed.
- * If GameState structs changed (e.g., added/removed fields), you must either:
- *   1. Deploy a fresh GameState (data wipe), or
- *   2. Implement a proxy pattern for GameState (future improvement)
+ * GameState uses a UUPS proxy pattern — upgrading it deploys a new
+ * implementation and calls upgradeToAndCall on the proxy. The proxy address
+ * never changes, so managers keep working without redeployment. Player data
+ * is fully preserved as long as the storage layout follows append-only rules.
  *
  * Usage:
  *   npx hardhat run scripts/upgrade.ts --network <network>
@@ -27,7 +27,7 @@ import * as path from "path";
  *   UPGRADE_DEFENSE_MANAGER - Set to "true" to redeploy DefenseManager (default: true)
  *   UPGRADE_COMBAT_ENGINE - Set to "true" to redeploy CombatEngine (default: true)
  *   UPGRADE_FLEET_RESOLVER - Set to "true" to redeploy FleetResolver (default: true)
- *   UPGRADE_GAME_STATE - Set to "true" to redeploy GameState (WARNING: data wipe!)
+ *   UPGRADE_GAME_STATE - Set to "true" to upgrade GameState implementation (data preserved)
  *   DRY_RUN - Set to "true" to simulate without executing transactions
  */
 
@@ -38,6 +38,7 @@ interface DeploymentInfo {
   contracts: {
     GameConfig: string;
     GameState: string;
+    GameStateImplementation?: string;
     NexusGame: string;
     PlanetManager: string;
     ShipManager: string;
@@ -91,32 +92,29 @@ async function main() {
   const upgradeCombatEngine = shouldUpgrade("UPGRADE_COMBAT_ENGINE");
   const upgradeFleetResolver = shouldUpgrade("UPGRADE_FLEET_RESOLVER");
 
-  if (upgradeGameState) {
-    console.log("⚠️  WARNING: UPGRADE_GAME_STATE=true — this will WIPE all player data!");
-    console.log("   All planets, buildings, resources, fleets, and research will be lost.");
-    console.log("   Press Ctrl+C within 5 seconds to abort...\n");
-    if (!dryRun) {
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-  }
-
   // Track new addresses (start with existing, overwrite as we deploy)
-  const addresses = { ...existing.contracts };
+  const addresses: Record<string, string> = { ...existing.contracts };
 
   // ── Connect to existing contracts ─────────────────────────────────
   const nexusGame = await ethers.getContractAt("NexusGame", existing.contracts.NexusGame);
   let gameState = await ethers.getContractAt("GameState", existing.contracts.GameState);
 
-  // ── Step 1: GameState (only if explicitly requested — DATA WIPE) ─
+  // ── Step 1: GameState (UUPS upgrade — data preserved) ─────────────
   if (upgradeGameState) {
-    console.log("[1/9] Deploying NEW GameState (⚠️  DATA WIPE)...");
+    console.log("[1/9] Upgrading GameState implementation (data preserved via UUPS proxy)...");
     if (!dryRun) {
-      const GameState = await ethers.getContractFactory("GameState");
-      const newGameState = await GameState.deploy();
-      await newGameState.waitForDeployment();
-      addresses.GameState = await newGameState.getAddress();
-      gameState = newGameState;
-      console.log("  ✓ GameState deployed to:", addresses.GameState);
+      const GameStateV2 = await ethers.getContractFactory("GameState");
+      const newImpl = await GameStateV2.deploy();
+      await newImpl.waitForDeployment();
+      const newImplAddress = await newImpl.getAddress();
+      console.log("  New implementation deployed to:", newImplAddress);
+
+      // Upgrade the proxy to point to the new implementation
+      const tx = await gameState.upgradeToAndCall(newImplAddress, "0x");
+      await tx.wait();
+      addresses.GameStateImplementation = newImplAddress;
+      // addresses.GameState stays the same — proxy address is stable
+      console.log("  ✓ GameState proxy upgraded (address unchanged:", addresses.GameState, ")");
     } else {
       console.log("  (dry run — skipped)");
     }

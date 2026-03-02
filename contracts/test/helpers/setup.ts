@@ -35,10 +35,20 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   const gameConfig = await GameConfigFactory.deploy();
   await gameConfig.waitForDeployment();
 
-  // Deploy GameState
+  // Deploy GameState behind UUPS proxy
   const GameStateFactory = await ethers.getContractFactory("GameState");
-  const gameState = await GameStateFactory.deploy();
-  await gameState.waitForDeployment();
+  const gameStateImpl = await GameStateFactory.deploy();
+  await gameStateImpl.waitForDeployment();
+
+  const ERC1967ProxyFactory = await ethers.getContractFactory("ERC1967Proxy");
+  const initData = GameStateFactory.interface.encodeFunctionData("initialize");
+  const gameStateProxy = await ERC1967ProxyFactory.deploy(
+    await gameStateImpl.getAddress(),
+    initData
+  );
+  await gameStateProxy.waitForDeployment();
+
+  const gameState = GameStateFactory.attach(await gameStateProxy.getAddress()) as GameState;
 
   // Deploy NexusGame (Router)
   const NexusGameFactory = await ethers.getContractFactory("NexusGame");

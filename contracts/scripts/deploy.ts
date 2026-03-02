@@ -20,13 +20,21 @@ async function main() {
   const gameConfigAddress = await gameConfig.getAddress();
   console.log("GameConfig deployed to:", gameConfigAddress);
 
-  // 2. Deploy GameState
-  console.log("\n2. Deploying GameState...");
+  // 2. Deploy GameState (UUPS Proxy)
+  console.log("\n2. Deploying GameState (UUPS Proxy)...");
   const GameState = await ethers.getContractFactory("GameState");
-  const gameState = await GameState.deploy();
-  await gameState.waitForDeployment();
-  const gameStateAddress = await gameState.getAddress();
-  console.log("GameState deployed to:", gameStateAddress);
+  const gameStateImpl = await GameState.deploy();
+  await gameStateImpl.waitForDeployment();
+  const gameStateImplAddress = await gameStateImpl.getAddress();
+  console.log("GameState implementation deployed to:", gameStateImplAddress);
+
+  const ERC1967Proxy = await ethers.getContractFactory("ERC1967Proxy");
+  const initData = GameState.interface.encodeFunctionData("initialize");
+  const gameStateProxy = await ERC1967Proxy.deploy(gameStateImplAddress, initData);
+  await gameStateProxy.waitForDeployment();
+  const gameStateAddress = await gameStateProxy.getAddress();
+  const gameState = GameState.attach(gameStateAddress);
+  console.log("GameState proxy deployed to:", gameStateAddress);
 
   // 3. Deploy NexusGame (Router) with GameState and GameConfig
   console.log("\n3. Deploying NexusGame (Router)...");
@@ -134,6 +142,7 @@ async function main() {
     contracts: {
       GameConfig: gameConfigAddress,
       GameState: gameStateAddress,
+      GameStateImplementation: gameStateImplAddress,
       NexusGame: nexusGameAddress,
       PlanetManager: planetManagerAddress,
       ShipManager: shipManagerAddress,

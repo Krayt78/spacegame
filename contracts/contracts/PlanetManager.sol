@@ -75,7 +75,14 @@ contract PlanetManager {
             darkMatterContainment: 0,
             shipyard: 0,
             researchNode: 0,
-            undergroundBunker: 0
+            undergroundBunker: 0,
+            __reserved10: 0,
+            __reserved11: 0,
+            __reserved12: 0,
+            __reserved13: 0,
+            __reserved14: 0,
+            __reserved15: 0,
+            __reserved16: 0
         }));
 
         // Initialize starting resources
