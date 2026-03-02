@@ -2,6 +2,7 @@ export { BuildingCard } from './BuildingCard';
 export { BuildQueue } from './BuildQueue';
 export { ShipCard } from './ShipCard';
 export { ShipQueue } from './ShipQueue';
+export { ResearchQueue } from './ResearchQueue';
 export { DefenseCard } from './DefenseCard';
 export { DefenseQueue } from './DefenseQueue';
 export { SystemScene } from './SystemScene';

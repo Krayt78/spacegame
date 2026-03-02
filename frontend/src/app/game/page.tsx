@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useActivePlanetId, usePlanetData, useCurrentResources, useProductionRates, useBlockTimestamp, useBuildTime, useShipQueue, useShipBuildTime } from '@/hooks';
+import { useActivePlanetId, usePlanetData, useCurrentResources, useProductionRates, useBlockTimestamp, useBuildTime, useShipQueue, useShipBuildTime, useResearchQueue, useResearchTime, type ResearchQueueResult } from '@/hooks';
 import { GameLayout } from '@/components/layout';
-import { BuildQueue, ShipQueue } from '@/components/game';
+import { BuildQueue, ShipQueue, ResearchQueue } from '@/components/game';
 import { Card, CardHeader, CardContent } from '@/components/ui';
 import { formatNumber, calculateStorageCapacity } from '@/lib/utils';
 
@@ -113,6 +113,34 @@ export default function GameDashboard() {
     return { timeRemaining, totalDuration };
   }, [shipQueue, hasActiveShipQueue, blockTimestamp, shipBuildTimeData]);
 
+  // Fetch research queue data
+  const { data: researchQueueData } = useResearchQueue();
+
+  const researchQueue = useMemo(() => {
+    if (!researchQueueData) return null;
+    const [researchType, targetLevel, completionTime] = researchQueueData as ResearchQueueResult;
+    return { researchType: Number(researchType), targetLevel: Number(targetLevel), completionTime: Number(completionTime) };
+  }, [researchQueueData]);
+
+  const hasActiveResearchQueue = researchQueue && researchQueue.researchType > 0 && researchQueue.completionTime > 0;
+
+  // Fetch research time for progress bar
+  const researchNodeLevel = planetData ? Number(planetData[1].researchNode) : 0;
+  const researchQueueType = researchQueue ? researchQueue.researchType : 0;
+  const researchQueueCurrentLevel = researchQueue ? Math.max(0, researchQueue.targetLevel - 1) : 0;
+  const { data: researchTimeData } = useResearchTime(
+    hasActiveResearchQueue ? researchQueueType : 0,
+    researchQueueCurrentLevel,
+    researchNodeLevel
+  );
+
+  const researchQueueTimeInfo = useMemo(() => {
+    if (!researchQueue || !hasActiveResearchQueue) return { timeRemaining: 0, totalDuration: 0 };
+    const timeRemaining = Math.max(0, researchQueue.completionTime - blockTimestamp);
+    const totalDuration = researchTimeData ? Number(researchTimeData) : timeRemaining;
+    return { timeRemaining, totalDuration };
+  }, [researchQueue, hasActiveResearchQueue, blockTimestamp, researchTimeData]);
+
   // Calculate time remaining and total duration for build queue
   const queueTimeInfo = useMemo(() => {
     if (!queue || !hasActiveQueue) return { timeRemaining: 0, totalDuration: 0 };
@@ -203,6 +231,16 @@ export default function GameDashboard() {
             queue={shipQueue}
             initialTimeRemaining={shipQueueTimeInfo.timeRemaining}
             totalDuration={shipQueueTimeInfo.totalDuration}
+          />
+        )}
+
+        {/* Research Queue Status */}
+        {hasActiveResearchQueue && researchQueue && planetId && (
+          <ResearchQueue
+            planetId={planetId}
+            queue={researchQueue}
+            initialTimeRemaining={researchQueueTimeInfo.timeRemaining}
+            totalDuration={researchQueueTimeInfo.totalDuration}
           />
         )}
 

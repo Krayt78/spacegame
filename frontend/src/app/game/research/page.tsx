@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useCallback, useState, useEffect } from 'react';
-import { FlaskConical, Loader2, XCircle, Clock, Wrench, ArrowRight } from 'lucide-react';
+import { useMemo, useCallback } from 'react';
+import { FlaskConical, Loader2, XCircle, Wrench, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { GameLayout } from '@/components/layout';
-import { Card, CardHeader, CardContent, Button, ProgressBar } from '@/components/ui';
+import { ResearchQueue } from '@/components/game';
+import { Card, CardContent, Button } from '@/components/ui';
 import {
   useActivePlanetId,
   usePlanetData,
@@ -15,10 +16,7 @@ import {
   useResearchCost,
   useResearchTime,
   useStartResearch,
-  useCompleteResearch,
-  useCancelResearch,
   RESEARCH_TYPE_MAP,
-  RESEARCH_TYPE_REVERSE_MAP,
   type ResearchLevels,
   type ResearchQueueResult,
 } from '@/hooks';
@@ -49,108 +47,6 @@ const RESEARCH_CATEGORIES: { title: string; keys: (keyof Research)[] }[] = [
     keys: ['astrophysics'],
   },
 ];
-
-// Research Queue component (mirrors BuildQueue)
-function ResearchQueueDisplay({
-  planetId,
-  queue,
-  initialTimeRemaining,
-  totalDuration,
-}: {
-  planetId: bigint;
-  queue: { researchType: number; targetLevel: number; completionTime: number };
-  initialTimeRemaining: number;
-  totalDuration: number;
-}) {
-  const [timeRemaining, setTimeRemaining] = useState(initialTimeRemaining);
-
-  const {
-    completeResearch,
-    isPending: isCompletePending,
-    isConfirming: isCompleteConfirming,
-    isSuccess: isCompleteSuccess,
-    reset: resetComplete,
-  } = useCompleteResearch();
-
-  const {
-    cancelResearch,
-    isPending: isCancelPending,
-    isConfirming: isCancelConfirming,
-  } = useCancelResearch();
-
-  useEffect(() => {
-    setTimeRemaining(initialTimeRemaining);
-  }, [initialTimeRemaining]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeRemaining((prev) => (prev <= 0 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const progress = totalDuration > 0
-    ? Math.max(0, Math.min(100, ((totalDuration - timeRemaining) / totalDuration) * 100))
-    : 0;
-
-  useEffect(() => {
-    if (!isCompleteSuccess) return;
-    const timer = setTimeout(() => resetComplete(), 2000);
-    return () => clearTimeout(timer);
-  }, [isCompleteSuccess, resetComplete]);
-
-  const canComplete = timeRemaining === 0;
-  const researchKey = RESEARCH_TYPE_REVERSE_MAP[queue.researchType];
-  const researchName = researchKey ? RESEARCH_NAMES[researchKey as keyof Research] : 'Research';
-
-  return (
-    <Card className="border-[var(--accent-warn)]/30">
-      <CardHeader title="Research Queue" subtitle="1 research in progress" />
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-4 p-3 bg-[var(--bg-tertiary)] rounded-sm">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium text-[var(--text-primary)]">
-                {researchName}
-              </span>
-              <span className="text-sm text-[var(--accent-warn)]">
-                Level {queue.targetLevel}
-              </span>
-            </div>
-            <ProgressBar progress={progress} variant="warning" size="sm" animated />
-          </div>
-          <div className="flex items-center gap-1 text-sm text-[var(--text-muted)] min-w-[80px]">
-            <Clock className="w-4 h-4" />
-            <span className="font-mono">{formatTime(timeRemaining)}</span>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          {canComplete && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => completeResearch()}
-              disabled={isCompletePending || isCompleteConfirming}
-              isLoading={isCompletePending || isCompleteConfirming}
-            >
-              Complete Research
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => cancelResearch(planetId)}
-            disabled={isCancelPending || isCancelConfirming}
-            isLoading={isCancelPending || isCancelConfirming}
-          >
-            Cancel (50% refund)
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 // Research item component that fetches its own cost
 function ResearchItem({
@@ -404,7 +300,7 @@ export default function ResearchPage() {
 
         {/* Research Queue */}
         {hasActiveQueue && queue && planetId && (
-          <ResearchQueueDisplay
+          <ResearchQueue
             planetId={planetId}
             queue={queue}
             initialTimeRemaining={queueTimeInfo.timeRemaining}
