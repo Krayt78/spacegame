@@ -114,6 +114,13 @@ export const TUTORIAL_QUESTS: TutorialQuest[] = [
   },
   {
     id: 15,
+    name: 'Fleet Command',
+    description: 'Research Computer Technology Level 1',
+    tip: 'Computer Tech determines how many fleets you can send simultaneously. Level 1 unlocks your first fleet slot.',
+    reward: { titanium: 3000, helium3: 2000, darkMatter: 500 },
+  },
+  {
+    id: 16,
     name: 'Battle Ready',
     description: 'Build a fleet of 5 Light Fighters',
     tip: "A small fleet is better than no fleet. You're ready to explore the galaxy, Commander!",

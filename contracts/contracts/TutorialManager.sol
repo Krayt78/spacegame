@@ -15,7 +15,7 @@ contract TutorialManager {
     GameConfig public immutable gameConfig;
     address public immutable router;
 
-    uint256 public constant TOTAL_QUESTS = 16;
+    uint256 public constant TOTAL_QUESTS = 17;
 
     struct QuestReward {
         uint256 titanium;
@@ -30,7 +30,7 @@ contract TutorialManager {
     mapping(address => bool) public tutorialCompleted;
 
     // Quest rewards (set in constructor)
-    QuestReward[16] private _questRewards;
+    QuestReward[17] private _questRewards;
 
     event QuestClaimed(address indexed player, uint256 indexed questId, uint256 titanium, uint256 helium3, uint256 darkMatter);
     event TutorialCompleted(address indexed player);
@@ -75,8 +75,10 @@ contract TutorialManager {
         _questRewards[13] = QuestReward(3200, 1200, 0);
         // Quest 14: Maiden Voyage — Own >= 1 Light Fighter
         _questRewards[14] = QuestReward(12500, 4500, 0);
-        // Quest 15: Battle Ready — Own >= 5 Light Fighters
-        _questRewards[15] = QuestReward(5000, 3000, 1000);
+        // Quest 15: Fleet Command — Computer Tech >= 1
+        _questRewards[15] = QuestReward(3000, 2000, 500);
+        // Quest 16: Battle Ready — Own >= 5 Light Fighters
+        _questRewards[16] = QuestReward(5000, 3000, 1000);
     }
 
     // ============ QUEST CLAIMING ============
@@ -124,7 +126,7 @@ contract TutorialManager {
     function getQuestStatus(address player, uint256 planetId)
         external
         view
-        returns (bool[16] memory claimed, bool[16] memory claimable, bool allDone)
+        returns (bool[17] memory claimed, bool[17] memory claimable, bool allDone)
     {
         allDone = tutorialCompleted[player];
         uint256 mask = questCompletion[player];
@@ -186,6 +188,11 @@ contract TutorialManager {
         }
 
         if (questId == 15) {
+            GameState.ResearchLevels memory r = gameState.getPlayerResearch(player);
+            return r.computerTech >= 1;
+        }
+
+        if (questId == 16) {
             return gameState.getPlanetShipCount(planetId, 3) >= 5;
         }
 

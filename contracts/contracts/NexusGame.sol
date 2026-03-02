@@ -540,7 +540,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
     function getTutorialStatus(address player, uint256 planetId)
         external
         view
-        returns (bool[16] memory claimed, bool[16] memory claimable, bool allDone)
+        returns (bool[17] memory claimed, bool[17] memory claimable, bool allDone)
     {
         return tutorialManager.getQuestStatus(player, planetId);
     }
