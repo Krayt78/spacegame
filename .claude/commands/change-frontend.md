@@ -8,7 +8,7 @@ The user wants to make a frontend change: $ARGUMENTS
 Use the **frontend-dev** agent to:
 - Implement the requested UI/UX change
 - Ensure it follows the design system
-- Verify it compiles: `cd space-empire && npm run build`
+- Verify it compiles: `cd frontend && npm run build`
 
 ## Step 2: Review
 Use the **qa-reviewer** agent to:

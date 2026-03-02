@@ -28,9 +28,9 @@ Players build interstellar empires: mine resources, construct fleets, research t
 | Category | Details |
 |----------|---------|
 | Resources | Titanium, Helium-3, Dark Matter |
-| Buildings | 9 types (extractors, storage, shipyard, research node, fusion reactor) |
+| Buildings | 9 types (extractors, storage, shipyard, research node, underground bunker) |
 | Ships | 12 types — from Light Fighters to Destroyers, plus Recyclers and Colony Ships |
-| Defenses | 8 types + 2 shield domes |
+| Defenses | 8 types including 2 shield domes |
 | Research | 14 technologies unlocking new ships, drives, and combat bonuses |
 | Missions | Attack, Transport, Colonize, Outpost Capture |
 | Planets | Multi-planet system — expand your empire across the galaxy |

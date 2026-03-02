@@ -1,5 +1,26 @@
 # Contracts Reference
 
+## Contract Architecture
+
+10 contracts in a multi-contract pattern (all under 24KB bytecode limit):
+
+| Contract | Role | Size |
+|----------|------|------|
+| NexusGame.sol | Router — delegates all calls to managers | 17.01 KB |
+| GameState.sol | Single storage contract for all state | 18.90 KB |
+| GameConfig.sol | All costs, rates, formulas, enums | 10.56 KB |
+| PlanetManager.sol | Planets, buildings, resources | 11.96 KB |
+| ShipManager.sol | Ship building queue | 7.87 KB |
+| FleetManager.sol | Fleet dispatch, movement, outposts | 21.43 KB |
+| FleetResolver.sol | Fleet resolution, combat integration, loot | 23.13 KB |
+| CombatEngine.sol | 6-round iterative combat math | 5.86 KB |
+| ResearchManager.sol | Research queue, 13 technologies | 7.21 KB |
+| DefenseManager.sol | Defense building, 8 types | 8.02 KB |
+
+Access control:
+- Managers use `onlyRouter` modifier (only NexusGame can call them)
+- GameState uses `onlyManager` modifier (only authorized managers can write)
+
 ## Deployed Addresses
 
 ```typescript
@@ -10,9 +31,82 @@ export const GAME_CONFIG_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
 // Update these after testnet deployment
 ```
 
-## NexusGame.sol - Full ABI
+## Enums (GameConfig.sol)
 
-### Structs
+```solidity
+enum BuildingType {
+    NONE,                    // 0
+    TITANIUM_EXTRACTOR,      // 1
+    HELIUM3_HARVESTER,       // 2
+    DARKMATTER_COLLECTOR,    // 3
+    TITANIUM_VAULT,          // 4
+    HELIUM3_TANK,            // 5
+    DARKMATTER_CONTAINMENT,  // 6
+    SHIPYARD,                // 7
+    RESEARCH_NODE,           // 8
+    UNDERGROUND_BUNKER       // 9
+}
+
+enum ShipType {
+    NONE,              // 0
+    SmallCargo,        // 1
+    LargeCargo,        // 2
+    LightFighter,      // 3
+    HeavyFighter,      // 4
+    Cruiser,           // 5
+    Battleship,        // 6
+    Battlecruiser,     // 7
+    Bomber,            // 8
+    Destroyer,         // 9
+    ColonyShip,        // 10
+    Recycler,          // 11
+    Crawler            // 12
+}
+
+enum DefenseType {
+    NONE,              // 0
+    RocketLauncher,    // 1
+    LightLaser,        // 2
+    HeavyLaser,        // 3
+    IonCannon,         // 4
+    GaussCannon,       // 5
+    PlasmaTurret,      // 6
+    SmallShieldDome,   // 7
+    LargeShieldDome    // 8
+}
+
+enum ResearchType {
+    NONE,                   // 0
+    COMBUSTION_DRIVE,       // 1
+    IMPULSE_DRIVE,          // 2
+    HYPERSPACE_DRIVE,       // 3
+    WEAPON_TECH,            // 4
+    SHIELDING_TECH,         // 5
+    ARMOUR_TECH,            // 6
+    COMPUTER_TECH,          // 7
+    STEALTH_SYSTEMS,        // 8
+    ION_TECH,               // 9
+    HYPERSPACE_TECH,        // 10
+    LASER_TECH,             // 11
+    PLASMA_TECH,            // 12
+    ASTROPHYSICS            // 13
+}
+
+enum OutpostType {
+    NONE,                   // 0
+    TITANIUM_MINE,          // 1
+    HELIUM3_LAB,            // 2
+    DARKMATTER_REFINERY     // 3
+}
+```
+
+```solidity
+// In NexusGame.sol and GameState.sol
+enum FleetMission { NONE, RAID, CAPTURE, MOVE, COLONIZE }
+enum FleetStatus { NONE, TRAVELING, RETURNING }
+```
+
+## Key Structs (GameState.sol)
 
 ```solidity
 struct Planet {
@@ -27,19 +121,19 @@ struct Buildings {
     uint8 titaniumExtractor;
     uint8 helium3Harvester;
     uint8 darkMatterCollector;
-    uint8 fusionReactor;
     uint8 titaniumVault;
     uint8 helium3Tank;
     uint8 darkMatterContainment;
-    uint8 assemblyBay;
+    uint8 shipyard;
     uint8 researchNode;
+    uint8 undergroundBunker;
 }
 
 struct Resources {
     uint256 titanium;
     uint256 helium3;
     uint256 darkMatter;
-    uint32 lastClaimed;  // Timestamp
+    uint32 lastClaimed;
 }
 
 struct BuildQueue {
@@ -47,310 +141,206 @@ struct BuildQueue {
     uint8 targetLevel;
     uint32 completionTime;
 }
+
+struct ShipQueue {
+    GameConfig.ShipType shipType;
+    uint256 quantity;
+    uint32 completionTime;
+}
+
+struct DefenseQueue {
+    GameConfig.DefenseType defenseType;
+    uint256 quantity;
+    uint32 completionTime;
+}
+
+struct ResearchLevels {
+    uint8 combustionDrive;
+    uint8 impulseDrive;
+    uint8 hyperspaceDrive;
+    uint8 weaponTech;
+    uint8 shieldingTech;
+    uint8 armourTech;
+    uint8 computerTech;
+    uint8 stealthSystems;
+    uint8 ionTech;
+    uint8 hyperspaceTech;
+    uint8 laserTech;
+    uint8 plasmaTech;
+    uint8 astrophysics;
+}
+
+struct ResearchQueue {
+    GameConfig.ResearchType researchType;
+    uint8 targetLevel;
+    uint32 completionTime;
+}
+
+struct Fleet {
+    address owner;
+    uint256 originPlanetId;
+    uint16[3] destination;
+    FleetMission mission;
+    FleetStatus status;
+    uint256[13] ships;       // Fixed-size array indexed by ShipType
+    uint256 departureTime;
+    uint256 arrivalTime;
+    uint256 cargoTitanium;
+    uint256 cargoHelium3;
+    uint256 cargoDarkMatter;
+}
+
+struct RaiderOutpost {
+    GameConfig.OutpostType outpostType;
+    address controller;
+    uint256[13] garrisonShips;
+    uint256 titaniumStored;
+    uint256 helium3Stored;
+    uint256 darkMatterStored;
+    uint32 lastCollected;
+    bool exists;
+}
+
+struct BattleReport {
+    address attacker;
+    address defender;
+    uint256 attackerPlanetId;
+    uint16[3] defenderCoords;
+    uint256[13] attackerShipsBefore;
+    uint256[13] defenderShipsBefore;
+    uint256[9] defenderDefensesBefore;
+    uint256[13] attackerShipsAfter;
+    uint256[13] defenderShipsAfter;
+    uint256[9] defenderDefensesAfter;
+    uint256 titaniumPlundered;
+    uint256 helium3Plundered;
+    uint256 darkMatterPlundered;
+    bool attackerWon;
+    uint32 timestamp;
+}
 ```
 
-### Events
-
-```solidity
-event PlanetClaimed(address indexed player, uint256 indexed planetId, uint16[3] coordinates, string name);
-event ResourcesClaimed(uint256 indexed planetId, uint256 titanium, uint256 helium3, uint256 darkMatter);
-event BuildingUpgradeStarted(uint256 indexed planetId, GameConfig.BuildingType buildingType, uint8 newLevel, uint32 completionTime);
-event BuildingUpgradeCompleted(uint256 indexed planetId, GameConfig.BuildingType buildingType, uint8 newLevel);
-event BuildingUpgradeCancelled(uint256 indexed planetId, GameConfig.BuildingType buildingType);
-```
-
-### Read Functions
-
-```solidity
-// Check if address has a planet
-function hasPlanet(address player) external view returns (bool);
-
-// Get player's planet ID (returns 0 if none)
-function playerPlanet(address player) external view returns (uint256);
-
-// Convenience wrapper for playerPlanet
-function getPlayerPlanetId(address player) external view returns (uint256);
-
-// Get complete planet data
-function getPlanet(uint256 planetId) external view returns (
-    Planet memory planet,
-    Buildings memory buildings,
-    Resources memory resources,
-    BuildQueue memory queue
-);
-
-// Calculate current resources (includes pending production, doesn't claim)
-function calculateCurrentResources(uint256 planetId) external view returns (
-    uint256 titanium,
-    uint256 helium3,
-    uint256 darkMatter
-);
-
-// Get production rates per hour
-function getProductionRates(uint256 planetId) external view returns (
-    uint256 titaniumPerHour,
-    uint256 helium3PerHour,
-    uint256 darkMatterPerHour,
-    uint256 energy
-);
-```
+## NexusGame.sol — Router API
 
 ### Write Functions
 
 ```solidity
-// Claim starter planet (one per address)
-function claimStarterPlanet(string memory planetName) external;
+// === Planet ===
+function claimStarterPlanet(string calldata planetName) external;
 
-// Start building upgrade (deducts resources, starts timer)
-function upgradeBuilding(GameConfig.BuildingType buildingType) external;
+// === Resources ===
+function claimResources(uint256 planetId) external;
 
-// Complete upgrade after timer expires (anyone can call)
+// === Buildings ===
+function upgradeBuilding(uint256 planetId, GameConfig.BuildingType buildingType) external;
 function completeUpgrade(uint256 planetId) external;
+function cancelUpgrade(uint256 planetId) external;
 
-// Cancel in-progress upgrade (50% resource refund)
-function cancelUpgrade() external;
+// === Ships ===
+function buildShips(uint256 planetId, GameConfig.ShipType shipType, uint256 quantity) external;
+function completeShipBuild(uint256 planetId) external;
+function cancelShipBuild(uint256 planetId) external;
 
-// Claim accumulated resources (updates lastClaimed timestamp)
-function claimResources() external;
-```
+// === Defenses ===
+function buildDefenses(uint256 planetId, GameConfig.DefenseType defenseType, uint256 quantity) external;
+function completeDefenseBuild(uint256 planetId) external;
+function cancelDefenseBuild(uint256 planetId) external;
 
-## GameConfig.sol - Full ABI
+// === Research ===
+function startResearch(uint256 planetId, GameConfig.ResearchType researchType) external;
+function completeResearch(address player) external;
+function cancelResearch(uint256 planetId) external;
 
-### Enums
-
-```solidity
-enum BuildingType {
-    NONE,                    // 0
-    TITANIUM_EXTRACTOR,      // 1
-    HELIUM3_HARVESTER,       // 2
-    DARKMATTER_COLLECTOR,    // 3
-    FUSION_REACTOR,          // 4
-    TITANIUM_VAULT,          // 5
-    HELIUM3_TANK,            // 6
-    DARKMATTER_CONTAINMENT,  // 7
-    ASSEMBLY_BAY,            // 8
-    RESEARCH_NODE            // 9
-}
-```
-
-### Structs
-
-```solidity
-struct Cost {
-    uint256 titanium;
-    uint256 helium3;
-    uint256 darkMatter;
-}
-
-struct BuildingConfig {
-    Cost baseCost;
-    uint16 costMultiplier;       // x100 (150 = 1.5x)
-    uint256 baseProduction;      // per hour
-    uint16 productionMultiplier; // x100
-    uint256 baseCapacity;        // for storage
-    uint16 capacityMultiplier;   // x100
-    uint16 baseTime;             // seconds
-}
+// === Fleet ===
+function dispatchFleet(
+    uint256 originPlanetId,
+    uint16[3] calldata destination,
+    uint8 mission,
+    uint256[13] calldata ships,
+    uint256 cargoTitanium, uint256 cargoHelium3, uint256 cargoDarkMatter
+) external;
+function dispatchFleetFromOutpost(
+    uint16[3] calldata outpostCoords,
+    uint16[3] calldata destination,
+    uint8 mission,
+    uint256[13] calldata ships
+) external;
+function resolveFleet(uint256 fleetId) external;
+function completeFleet(uint256 fleetId) external;
 ```
 
 ### Read Functions
 
 ```solidity
-// Get starting resources for new players
-function getStartingResources() external view returns (Cost memory);
+// === Planet Data ===
+function getPlanet(uint256 planetId) external view returns (Planet, Buildings, Resources, BuildQueue);
+function getSystemPlanets(uint16 galaxy, uint16 system) external view returns (uint256[10] memory);
+function getPlayerPlanetId(address player) external view returns (uint256);
+function getPlayerPlanets(address player) external view returns (uint256[] memory);
+function getPlayerPlanetCount(address player) external view returns (uint256);
+function hasPlanet(address player) external view returns (bool);
+function getPlanetIdAtCoordinates(uint16 galaxy, uint16 system, uint16 position) external view returns (uint256);
 
-// Calculate upgrade cost for building at current level
-function getUpgradeCost(BuildingType buildingType, uint8 currentLevel) external view returns (Cost memory);
+// === Resources ===
+function calculateCurrentResources(uint256 planetId) external view returns (uint256 titanium, uint256 helium3, uint256 darkMatter);
+function getProductionRates(uint256 planetId) external view returns (uint256 titaniumPerHour, uint256 helium3PerHour, uint256 darkMatterPerHour);
+function canAffordUpgrade(uint256 planetId, GameConfig.BuildingType buildingType) external view returns (bool);
+function getPlunderableResources(uint256 planetId) external view returns (uint256 titanium, uint256 helium3, uint256 darkMatter);
 
-// Get production per hour for building at level
-function getProduction(BuildingType buildingType, uint8 level) external view returns (uint256);
+// === Ships & Defenses ===
+function getShips(uint256 planetId) external view returns (uint256[13] memory);
+function getShipCount(uint256 planetId, uint8 shipType) external view returns (uint256);
+function getDefenses(uint256 planetId) external view returns (uint256[9] memory);
+function getDefenseCount(uint256 planetId, uint8 defenseType) external view returns (uint256);
+function getShipCombatStats(GameConfig.ShipType shipType, address player) external view returns (GameConfig.CombatStats memory);
 
-// Get storage capacity for storage building at level
-function getStorageCapacity(BuildingType buildingType, uint8 level) external view returns (uint256);
+// === Fleet ===
+function getFleet(uint256 fleetId) external view returns (GameState.Fleet memory);
+function getPlayerFleetIds(address player) external view returns (uint256[] memory);
+function getPlayerFleetCount(address player) external view returns (uint256);
+function getStationedShips(uint16[3] calldata coords) external view returns (uint256[13] memory);
 
-// Get build time in seconds
-function getBuildTime(BuildingType buildingType, uint8 currentLevel) external view returns (uint256);
+// === Research ===
+function getPlayerResearch(address player) external view returns (GameState.ResearchLevels memory);
+function getResearchQueue(address player) external view returns (GameState.ResearchQueue memory);
+
+// === Outposts ===
+function getOutpost(uint16 galaxy, uint16 system, uint16 position) external view returns (GameState.RaiderOutpost memory);
+function getSystemOutposts(uint16 galaxy, uint16 system) external view returns (GameState.RaiderOutpost[5] memory);
+function calculateOutpostResources(uint16 galaxy, uint16 system, uint16 position) external view returns (uint256 titanium, uint256 helium3, uint256 darkMatter);
+function getPlayerOutposts(address player) external view returns (uint16[3][] memory);
+
+// === Battle Reports ===
+function getBattleReport(uint256 reportId) external view returns (GameState.BattleReport memory);
+function getPlayerReportIds(address player) external view returns (uint256[] memory);
+function getPlayerReportCount(address player) external view returns (uint256);
+function getPlayerRecentReports(address player, uint256 count) external view returns (uint256[] memory);
 ```
 
-## Frontend ABI Definitions
+## Frontend ABI Usage
+
+ABIs are imported from JSON artifacts — NEVER manually defined:
 
 ```typescript
-// In src/lib/contracts.ts
+import NexusGameArtifact from '@/contracts/abi/NexusGame.json';
+import GameConfigArtifact from '@/contracts/abi/GameConfig.json';
 
-export const nexusGameAbi = [
-  // hasPlanet
-  {
-    inputs: [{ name: 'player', type: 'address' }],
-    name: 'hasPlanet',
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  // getPlayerPlanetId
-  {
-    inputs: [{ name: 'player', type: 'address' }],
-    name: 'getPlayerPlanetId',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  // getPlanet - returns tuple of (Planet, Buildings, Resources, BuildQueue)
-  {
-    inputs: [{ name: 'planetId', type: 'uint256' }],
-    name: 'getPlanet',
-    outputs: [
-      {
-        name: 'planet',
-        type: 'tuple',
-        components: [
-          { name: 'owner', type: 'address' },
-          { name: 'coordinates', type: 'uint16[3]' },
-          { name: 'name', type: 'string' },
-          { name: 'createdAt', type: 'uint32' },
-          { name: 'exists', type: 'bool' },
-        ],
-      },
-      {
-        name: 'buildings',
-        type: 'tuple',
-        components: [
-          { name: 'titaniumExtractor', type: 'uint8' },
-          { name: 'helium3Harvester', type: 'uint8' },
-          { name: 'darkMatterCollector', type: 'uint8' },
-          { name: 'fusionReactor', type: 'uint8' },
-          { name: 'titaniumVault', type: 'uint8' },
-          { name: 'helium3Tank', type: 'uint8' },
-          { name: 'darkMatterContainment', type: 'uint8' },
-          { name: 'assemblyBay', type: 'uint8' },
-          { name: 'researchNode', type: 'uint8' },
-        ],
-      },
-      {
-        name: 'resources',
-        type: 'tuple',
-        components: [
-          { name: 'titanium', type: 'uint256' },
-          { name: 'helium3', type: 'uint256' },
-          { name: 'darkMatter', type: 'uint256' },
-          { name: 'lastClaimed', type: 'uint32' },
-        ],
-      },
-      {
-        name: 'queue',
-        type: 'tuple',
-        components: [
-          { name: 'buildingType', type: 'uint8' },
-          { name: 'targetLevel', type: 'uint8' },
-          { name: 'completionTime', type: 'uint32' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  // calculateCurrentResources
-  {
-    inputs: [{ name: 'planetId', type: 'uint256' }],
-    name: 'calculateCurrentResources',
-    outputs: [
-      { name: 'titanium', type: 'uint256' },
-      { name: 'helium3', type: 'uint256' },
-      { name: 'darkMatter', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  // getProductionRates
-  {
-    inputs: [{ name: 'planetId', type: 'uint256' }],
-    name: 'getProductionRates',
-    outputs: [
-      { name: 'titaniumPerHour', type: 'uint256' },
-      { name: 'helium3PerHour', type: 'uint256' },
-      { name: 'darkMatterPerHour', type: 'uint256' },
-      { name: 'energy', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  // claimStarterPlanet
-  {
-    inputs: [{ name: 'planetName', type: 'string' }],
-    name: 'claimStarterPlanet',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  // upgradeBuilding
-  {
-    inputs: [{ name: 'buildingType', type: 'uint8' }],
-    name: 'upgradeBuilding',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  // completeUpgrade
-  {
-    inputs: [{ name: 'planetId', type: 'uint256' }],
-    name: 'completeUpgrade',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  // cancelUpgrade
-  {
-    inputs: [],
-    name: 'cancelUpgrade',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  // claimResources
-  {
-    inputs: [],
-    name: 'claimResources',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-] as const;
+export const nexusGameAbi = NexusGameArtifact.abi as const;
+export const gameConfigAbi = GameConfigArtifact.abi as const;
 ```
+
+ABIs are exported via `npm run export-abi` in the contracts directory and placed in `frontend/src/contracts/abi/`.
 
 ## Adding New Contract Functions
 
 When adding new functions to the contract:
 
-1. **Add to Solidity contract** with proper access control
-2. **Export ABI** using `npm run export-abi` in contracts repo
-3. **Update `src/lib/contracts.ts`** with new ABI entries
-4. **Create hook** in `src/hooks/useNexusGame.ts`
-5. **Update types** in `src/types/game.ts` if needed
-
-### Example: Adding Ship Building
-
-```solidity
-// In NexusGame.sol
-struct Ship {
-    uint8 shipType;
-    uint256 quantity;
-}
-
-struct ShipQueue {
-    uint8 shipType;
-    uint256 quantity;
-    uint32 completionTime;
-}
-
-mapping(uint256 => Ship[]) public planetShips;
-mapping(uint256 => ShipQueue) public shipQueues;
-
-event ShipBuildStarted(uint256 indexed planetId, uint8 shipType, uint256 quantity, uint32 completionTime);
-event ShipBuildCompleted(uint256 indexed planetId, uint8 shipType, uint256 quantity);
-
-function buildShips(uint8 shipType, uint256 quantity) external nonReentrant {
-    uint256 planetId = playerPlanet[msg.sender];
-    require(planetId != 0, "No planet owned");
-    require(shipQueues[planetId].completionTime == 0, "Ship queue busy");
-    // ... cost deduction, queue setup
-}
-```
+1. **Add to the appropriate Manager** with proper access control (`onlyRouter`)
+2. **Add the route in NexusGame.sol** that delegates to the manager
+3. **Add storage in GameState.sol** if new state is needed (`onlyManager`)
+4. **Add config in GameConfig.sol** if new constants/formulas are needed
+5. **Compile**: `npx hardhat compile` and check all contracts stay under 24KB
+6. **Export ABI**: `npm run export-abi` in contracts dir
+7. **Copy ABI** to `frontend/src/contracts/abi/`
+8. **Create hook** in `frontend/src/hooks/useNexusGame.ts`
+9. **Update types** in `frontend/src/types/game.ts` if needed

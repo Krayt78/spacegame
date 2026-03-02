@@ -103,14 +103,15 @@ export function calculateUpgradeCost(
  */
 export function calculateProduction(
   buildingKey: keyof Buildings,
-  level: number
+  level: number,
+  serverMultiplier: number = 100
 ): number {
   const config = BUILDING_CONFIG[buildingKey];
 
   if (!('baseProduction' in config) || level === 0) return 0;
 
   return Math.floor(
-    config.baseProduction * Math.pow(config.productionMultiplier, level - 1)
+    config.baseProduction * level * Math.pow(config.productionMultiplier, level) * serverMultiplier / 100
   );
 }
 

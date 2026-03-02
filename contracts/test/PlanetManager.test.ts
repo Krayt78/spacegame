@@ -92,11 +92,11 @@ describe("PlanetManager", function () {
 
       let [titanium, helium3, darkMatter] = await contracts.nexusGame.calculateCurrentResources(planetId);
 
-      // Titanium production is 30/hour, so 2 minutes = 1 titanium
+      // Titanium production is 33/hour (30*1*1.1^1), so 2 minutes = 1 titanium
       // Starting with 500, should now have 501
       expect(titanium).to.equal(501n);
 
-      // Helium3 production is 20/hour, so 2 minutes = 0 helium3
+      // Helium3 production is 22/hour (20*1*1.1^1), so 2 minutes = 0 helium3
       // Starting with 500, should now have 500
       expect(helium3).to.equal(500n);
 
@@ -107,13 +107,13 @@ describe("PlanetManager", function () {
 
       [titanium, helium3, darkMatter] = await contracts.nexusGame.calculateCurrentResources(planetId);
 
-      // Titanium production is 30/hour, so 30 minutes = 15 titanium
-      // Starting with 500, should now have 515
-      expect(titanium).to.equal(515n);
+      // Titanium production is 33/hour (30*1*1.1^1), so 30 minutes = 16 titanium
+      // Starting with 500, should now have 516
+      expect(titanium).to.equal(516n);
 
-      // Helium3 production is 20/hour, so 30 minutes = 10 helium3
-      // Starting with 500, should now have 510
-      expect(helium3).to.equal(510n);
+      // Helium3 production is 22/hour (20*1*1.1^1), so 30 minutes = 11 helium3
+      // Starting with 500, should now have 511
+      expect(helium3).to.equal(511n);
 
       expect(darkMatter).to.equal(0n); // No dark matter collector
     });
@@ -140,6 +140,36 @@ describe("PlanetManager", function () {
       expect(titaniumRate).to.be.gt(0n);
       expect(helium3Rate).to.be.gt(0n);
       expect(darkMatterRate).to.equal(0n); // No collector
+    });
+
+    it("Should accumulate resources at double rate with 2x multiplier", async function () {
+      const planetId = await contracts.nexusGame.playerPlanet(signers.player1.address);
+
+      // Set multiplier to 2x
+      await contracts.gameConfig.setProductionMultiplier(200);
+
+      // Fast forward 30 minutes (1800 seconds)
+      await advanceTime(1800);
+
+      const [titanium, helium3] = await contracts.nexusGame.calculateCurrentResources(planetId);
+
+      // At 2x: titanium production = 66/hr, so 30 min = 33 titanium. Starting 500 -> 533
+      expect(titanium).to.equal(533n);
+
+      // At 2x: helium3 production = 44/hr, so 30 min = 22 helium3. Starting 500 -> 522
+      expect(helium3).to.equal(522n);
+    });
+
+    it("Should double production rates with 2x multiplier", async function () {
+      const planetId = await contracts.nexusGame.playerPlanet(signers.player1.address);
+
+      const [titaniumRate1x] = await contracts.nexusGame.getProductionRates(planetId);
+
+      await contracts.gameConfig.setProductionMultiplier(200);
+
+      const [titaniumRate2x] = await contracts.nexusGame.getProductionRates(planetId);
+
+      expect(titaniumRate2x).to.equal(titaniumRate1x * 2n);
     });
   });
 

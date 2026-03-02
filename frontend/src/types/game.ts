@@ -25,6 +25,9 @@ export interface Buildings {
   // Facilities
   shipyard: number;
   researchNode: number;
+
+  // Defense
+  undergroundBunker: number;
 }
 
 export interface Resources {
@@ -80,7 +83,6 @@ export interface Research {
   armourTech: number;
 
   // Technology
-  powerSystems: number;
   computerTech: number;
   stealthSystems: number;
   ionTech: number;

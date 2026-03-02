@@ -161,7 +161,7 @@ describe("Integration Tests", function () {
       // Research Computer Tech level 1 (required for fleet dispatch)
       await advanceTime(216000); // 60 hours to accumulate enough dark matter (10/hr * 60 = 600 DM)
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
-      await contracts.nexusGame.connect(signers.player1).startResearch(planetId, 8); // COMPUTER_TECH
+      await contracts.nexusGame.connect(signers.player1).startResearch(planetId, 7); // COMPUTER_TECH
       await advanceTime(3600);
       await contracts.nexusGame.completeResearch(signers.player1.address);
 

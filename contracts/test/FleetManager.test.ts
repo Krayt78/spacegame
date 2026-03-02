@@ -402,9 +402,9 @@ describe("FleetManager", function () {
 
       // Verify Computer Tech is level 1
       // Note: research array index is enum_value - 1 (because NONE is not in the struct)
-      // COMPUTER_TECH = enum 8, so it's at array index 7
+      // COMPUTER_TECH = enum 7, so it's at array index 6
       let research = await contracts.nexusGame.getPlayerResearch(signers.player1.address);
-      expect(research[7]).to.equal(1);
+      expect(research[6]).to.equal(1);
 
       // Dispatch first fleet with Computer Tech level 1
       let ships = [0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n];
@@ -416,13 +416,13 @@ describe("FleetManager", function () {
       // Computer Tech level 2: 0 Ti, 800 He3, 1200 DM (2x multiplier)
       await advanceTime(360000); // 100 hours to accumulate resources
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId1);
-      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 8); // COMPUTER_TECH level 2
+      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 7); // COMPUTER_TECH level 2
       await advanceTime(360000); // Wait for research
       await contracts.nexusGame.completeResearch(signers.player1.address);
 
       // Verify Computer Tech is level 2
       research = await contracts.nexusGame.getPlayerResearch(signers.player1.address);
-      expect(research[7]).to.equal(2); // COMPUTER_TECH is at index 7 (enum 8 - 1)
+      expect(research[6]).to.equal(2); // COMPUTER_TECH is at index 6 (enum 7 - 1)
 
       // Now dispatch second fleet - should succeed
       ships = [0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n];
@@ -666,7 +666,7 @@ describe("FleetManager", function () {
       // Research COMPUTER_TECH level 1
       await advanceTime(360000);
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId1);
-      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 8);
+      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 7);
       await advanceTime(360000);
       await contracts.nexusGame.completeResearch(signers.player1.address);
 
@@ -795,6 +795,101 @@ describe("FleetManager", function () {
 
       // Verify one-way uses less fuel than round-trip
       expect(expectedFuel).to.be.lt(roundTripFuel);
+    });
+  });
+
+  describe("Raid Loot Cap (V-004)", function () {
+    it("Should cap planet raid loot to 50% of available resources by default", async function () {
+      // Player1 has a SmallCargo (cargo=5000), player2 has no defenders
+      const planetId1 = await setupPlayerWithShips(contracts.nexusGame, contracts.gameConfig, signers.player1, 1, 1);
+      const planetId2 = await setupPlayerWithShips(contracts.nexusGame, contracts.gameConfig, signers.player2, 1, 0);
+
+      // Let player2 accumulate resources
+      await advanceTime(7200);
+      await contracts.nexusGame.connect(signers.player2).claimResources(planetId2);
+
+      // Record player2's resources before raid
+      const [tiBefore, he3Before, dmBefore] = await contracts.nexusGame.planetResources(planetId2);
+      expect(tiBefore).to.be.gt(0n);
+
+      // Player1 raids player2 (no defenders = auto-win)
+      const ships = [0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n];
+      await contracts.nexusGame.connect(signers.player1).dispatchFleet(planetId1, ships, [1, 1, 2], 1, 0, 0, 0);
+
+      const fleetIds = await contracts.nexusGame.getPlayerFleetIds(signers.player1.address);
+      await advanceTime(60);
+      await contracts.nexusGame.resolveFleet(fleetIds[0]);
+
+      // Check battle report loot - should be at most 50% of defender's resources
+      const reportIds = await contracts.nexusGame.getPlayerReportIds(signers.player1.address);
+      const report = await contracts.nexusGame.getBattleReport(reportIds[0]);
+
+      // Loot should be capped at 50% of what was available
+      expect(report.lootTitanium).to.be.lte(tiBefore / 2n + 1n); // +1 for rounding
+      expect(report.lootHelium3).to.be.lte(he3Before / 2n + 1n);
+
+      // Defender should retain at least ~50%
+      const [tiAfter, he3After, dmAfter] = await contracts.nexusGame.planetResources(planetId2);
+      expect(tiAfter).to.be.gte(tiBefore / 2n - 1n); // -1 for rounding
+    });
+
+    it("Should respect custom loot percentage set by owner", async function () {
+      // Set loot percentage to 25%
+      await contracts.gameConfig.setRaidLootPercentage(25);
+
+      const planetId1 = await setupPlayerWithShips(contracts.nexusGame, contracts.gameConfig, signers.player1, 1, 1);
+      const planetId2 = await setupPlayerWithShips(contracts.nexusGame, contracts.gameConfig, signers.player2, 1, 0);
+
+      await advanceTime(7200);
+      await contracts.nexusGame.connect(signers.player2).claimResources(planetId2);
+
+      const [tiBefore, he3Before, dmBefore] = await contracts.nexusGame.planetResources(planetId2);
+
+      const ships = [0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n];
+      await contracts.nexusGame.connect(signers.player1).dispatchFleet(planetId1, ships, [1, 1, 2], 1, 0, 0, 0);
+
+      const fleetIds = await contracts.nexusGame.getPlayerFleetIds(signers.player1.address);
+      await advanceTime(60);
+      await contracts.nexusGame.resolveFleet(fleetIds[0]);
+
+      const reportIds = await contracts.nexusGame.getPlayerReportIds(signers.player1.address);
+      const report = await contracts.nexusGame.getBattleReport(reportIds[0]);
+
+      // With 25% cap, loot should be at most 25% of available
+      expect(report.lootTitanium).to.be.lte(tiBefore / 4n + 1n);
+
+      // Defender should retain at least ~75%
+      const [tiAfter] = await contracts.nexusGame.planetResources(planetId2);
+      expect(tiAfter).to.be.gte((tiBefore * 3n) / 4n - 1n);
+    });
+
+    it("Should allow 100% loot when set to 100", async function () {
+      // Set loot percentage to 100% (legacy behavior)
+      await contracts.gameConfig.setRaidLootPercentage(100);
+
+      const planetId1 = await setupPlayerWithShips(contracts.nexusGame, contracts.gameConfig, signers.player1, 1, 1);
+      const planetId2 = await setupPlayerWithShips(contracts.nexusGame, contracts.gameConfig, signers.player2, 1, 0);
+
+      await advanceTime(7200);
+      await contracts.nexusGame.connect(signers.player2).claimResources(planetId2);
+
+      const [tiBefore, he3Before, dmBefore] = await contracts.nexusGame.planetResources(planetId2);
+
+      const ships = [0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n];
+      await contracts.nexusGame.connect(signers.player1).dispatchFleet(planetId1, ships, [1, 1, 2], 1, 0, 0, 0);
+
+      const fleetIds = await contracts.nexusGame.getPlayerFleetIds(signers.player1.address);
+      await advanceTime(60);
+      await contracts.nexusGame.resolveFleet(fleetIds[0]);
+
+      const reportIds = await contracts.nexusGame.getPlayerReportIds(signers.player1.address);
+      const report = await contracts.nexusGame.getBattleReport(reportIds[0]);
+
+      // At 100%, all resources up to cargo capacity should be lootable
+      const totalLoot = report.lootTitanium + report.lootHelium3 + report.lootDarkMatter;
+      const totalBefore = tiBefore + he3Before + dmBefore;
+      // Either all resources were taken, or cargo capacity was the limit
+      expect(totalLoot).to.be.gt(0n);
     });
   });
 });

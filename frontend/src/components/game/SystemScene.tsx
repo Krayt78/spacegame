@@ -99,6 +99,27 @@ function Sun() {
   );
 }
 
+// Selection arrow that bobs above the selected planet/outpost
+function SelectionArrow({ yOffset }: { yOffset: number }) {
+  const arrowRef = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    if (arrowRef.current) {
+      arrowRef.current.position.y = yOffset + Math.sin(clock.elapsedTime * 3) * 0.15;
+    }
+  });
+
+  return (
+    <group ref={arrowRef} position={[0, yOffset, 0]}>
+      {/* Downward-pointing cone */}
+      <mesh rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[0.3, 0.6, 8]} />
+        <meshBasicMaterial color="#00ff00" />
+      </mesh>
+    </group>
+  );
+}
+
 // Orbital ring component
 function OrbitalRing({ position }: { position: number }) {
   const radius = getOrbitalRadius(position);
@@ -233,6 +254,9 @@ function Planet({ position, planetData, isPlayerPlanet, isSelected, onSelect }: 
           />
         </mesh>
       )}
+
+      {/* Selection arrow */}
+      {isSelected && <SelectionArrow yOffset={planetSize + 0.8} />}
 
       {/* Hover label */}
       {hovered && (
@@ -378,6 +402,9 @@ function Outpost({ position, outpostData, isPlayerOutpost, isSelected, onSelect 
           />
         </mesh>
       )}
+
+      {/* Selection arrow */}
+      {isSelected && <SelectionArrow yOffset={outpostSize + 0.8} />}
 
       {/* Hover label */}
       {hovered && (

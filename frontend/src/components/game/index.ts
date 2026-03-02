@@ -13,3 +13,4 @@ export { GalaxyActionPanel, FLEET_ACTION_WITHDRAW } from './GalaxyActionPanel';
 export { QuickFleetModal } from './QuickFleetModal';
 export { BattleReportCard } from './BattleReportCard';
 export { BattleReportList } from './BattleReportList';
+export { TutorialSidebar } from './TutorialSidebar';

@@ -1,15 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./GameConfig.sol";
 
 /**
  * @title GameState
- * @notice Centralized storage contract for Nexus Protocol
- * @dev Holds all game state with access-controlled setters for manager contracts
+ * @notice Centralized storage contract for Nexus Protocol (UUPS upgradeable)
+ * @dev Holds all game state with access-controlled setters for manager contracts.
+ *
+ * UPGRADE RULES:
+ * 1. Never remove or reorder struct fields — replace __reservedN with a named field
+ * 2. Never change field types
+ * 3. Add new state variables BEFORE __gap, and reduce gap size by the same amount
+ * 4. New fields default to zero for existing entries
  */
-contract GameState is Ownable {
+contract GameState is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     // Maximum number of ship types (for fixed-size arrays)
     uint256 public constant MAX_SHIP_TYPES = 13;
@@ -41,6 +49,14 @@ contract GameState is Ownable {
         uint8 darkMatterContainment;
         uint8 shipyard;
         uint8 researchNode;
+        uint8 undergroundBunker;
+        uint8 __reserved10;
+        uint8 __reserved11;
+        uint8 __reserved12;
+        uint8 __reserved13;
+        uint8 __reserved14;
+        uint8 __reserved15;
+        uint8 __reserved16;
     }
 
     struct Resources {
@@ -112,20 +128,38 @@ contract GameState is Ownable {
     }
 
     struct ResearchLevels {
-        uint8 combustionDrive;     // was impulseDrive
-        uint8 impulseDrive;        // was warpDrive
-        uint8 hyperspaceDrive;     // was quantumShiftDrive
-        uint8 weaponTech;          // was offensiveSystems
-        uint8 shieldingTech;       // was defensiveArrays
-        uint8 armourTech;          // was hullReinforcement
-        uint8 powerSystems;        // kept
-        uint8 computerTech;        // was aiCommandNetworks
-        uint8 stealthSystems;      // kept
-        uint8 ionTech;             // NEW
-        uint8 hyperspaceTech;      // NEW
-        uint8 laserTech;           // NEW
-        uint8 plasmaTech;          // NEW
-        uint8 astrophysics;        // NEW - colony slots
+        uint8 combustionDrive;
+        uint8 impulseDrive;
+        uint8 hyperspaceDrive;
+        uint8 weaponTech;
+        uint8 shieldingTech;
+        uint8 armourTech;
+        uint8 computerTech;
+        uint8 stealthSystems;
+        uint8 ionTech;
+        uint8 hyperspaceTech;
+        uint8 laserTech;
+        uint8 plasmaTech;
+        uint8 astrophysics;
+        uint8 __reserved14;
+        uint8 __reserved15;
+        uint8 __reserved16;
+        uint8 __reserved17;
+        uint8 __reserved18;
+        uint8 __reserved19;
+        uint8 __reserved20;
+        uint8 __reserved21;
+        uint8 __reserved22;
+        uint8 __reserved23;
+        uint8 __reserved24;
+        uint8 __reserved25;
+        uint8 __reserved26;
+        uint8 __reserved27;
+        uint8 __reserved28;
+        uint8 __reserved29;
+        uint8 __reserved30;
+        uint8 __reserved31;
+        uint8 __reserved32;
     }
 
     struct ResearchQueue {
@@ -136,8 +170,8 @@ contract GameState is Ownable {
 
     // ============ STORAGE ============
 
-    uint256 public nextPlanetId = 1;
-    uint256 public nextFleetId = 1;
+    uint256 public nextPlanetId;
+    uint256 public nextFleetId;
 
     // Planet storage
     mapping(uint256 => Planet) internal _planets;
@@ -170,7 +204,7 @@ contract GameState is Ownable {
     mapping(address => uint16[3][]) internal _playerOutposts;
 
     // Battle reports
-    uint256 public nextReportId = 1;
+    uint256 public nextReportId;
     mapping(uint256 => BattleReport) internal _battleReports;
     mapping(address => uint256[]) internal _playerReports;
 
@@ -182,12 +216,33 @@ contract GameState is Ownable {
 
     mapping(address => bool) public authorizedManagers;
 
+    // ============ STORAGE GAP ============
+    // Reserved for future state variables. When adding new variables,
+    // place them BEFORE this gap and reduce the gap size accordingly.
+    uint256[50] private __gap;
+
+    // ============ MODIFIERS ============
+
     modifier onlyManager() {
         require(authorizedManagers[msg.sender], "GameState: not authorized manager");
         _;
     }
 
-    constructor() Ownable(msg.sender) {}
+    // ============ INITIALIZATION ============
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize() external initializer {
+        __Ownable_init(msg.sender);
+        nextPlanetId = 1;
+        nextFleetId = 1;
+        nextReportId = 1;
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function setManager(address manager, bool authorized) external onlyOwner {
         authorizedManagers[manager] = authorized;
@@ -254,6 +309,7 @@ contract GameState is Ownable {
         if (buildingType == GameConfig.BuildingType.DARKMATTER_CONTAINMENT) return buildings.darkMatterContainment;
         if (buildingType == GameConfig.BuildingType.SHIPYARD) return buildings.shipyard;
         if (buildingType == GameConfig.BuildingType.RESEARCH_NODE) return buildings.researchNode;
+        if (buildingType == GameConfig.BuildingType.UNDERGROUND_BUNKER) return buildings.undergroundBunker;
 
         revert("GameState: invalid building type");
     }
@@ -391,6 +447,7 @@ contract GameState is Ownable {
         else if (buildingType == GameConfig.BuildingType.DARKMATTER_CONTAINMENT) buildings.darkMatterContainment++;
         else if (buildingType == GameConfig.BuildingType.SHIPYARD) buildings.shipyard++;
         else if (buildingType == GameConfig.BuildingType.RESEARCH_NODE) buildings.researchNode++;
+        else if (buildingType == GameConfig.BuildingType.UNDERGROUND_BUNKER) buildings.undergroundBunker++;
         else revert("GameState: invalid building type");
     }
 
@@ -714,7 +771,6 @@ contract GameState is Ownable {
         if (researchType == GameConfig.ResearchType.WEAPON_TECH) return research.weaponTech;
         if (researchType == GameConfig.ResearchType.SHIELDING_TECH) return research.shieldingTech;
         if (researchType == GameConfig.ResearchType.ARMOUR_TECH) return research.armourTech;
-        if (researchType == GameConfig.ResearchType.POWER_SYSTEMS) return research.powerSystems;
         if (researchType == GameConfig.ResearchType.COMPUTER_TECH) return research.computerTech;
         if (researchType == GameConfig.ResearchType.STEALTH_SYSTEMS) return research.stealthSystems;
         if (researchType == GameConfig.ResearchType.ION_TECH) return research.ionTech;
@@ -754,7 +810,6 @@ contract GameState is Ownable {
         else if (researchType == GameConfig.ResearchType.WEAPON_TECH) research.weaponTech++;
         else if (researchType == GameConfig.ResearchType.SHIELDING_TECH) research.shieldingTech++;
         else if (researchType == GameConfig.ResearchType.ARMOUR_TECH) research.armourTech++;
-        else if (researchType == GameConfig.ResearchType.POWER_SYSTEMS) research.powerSystems++;
         else if (researchType == GameConfig.ResearchType.COMPUTER_TECH) research.computerTech++;
         else if (researchType == GameConfig.ResearchType.STEALTH_SYSTEMS) research.stealthSystems++;
         else if (researchType == GameConfig.ResearchType.ION_TECH) research.ionTech++;

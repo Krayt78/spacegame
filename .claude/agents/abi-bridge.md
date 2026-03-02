@@ -15,11 +15,11 @@ You are the ABI Bridge Agent for Nexus Protocol. You keep the smart contracts an
 
 ## Your Responsibilities
 - After contract changes pass tests, regenerate ABIs: `npm run export-abi` (in contracts dir)
-- Copy ABI JSON files to `space-empire/src/contracts/abi/`
-- Update `space-empire/src/lib/contracts.ts` (addresses, ABI imports)
-- Update `space-empire/src/hooks/useNexusGame.ts` (read/write hooks, type definitions)
-- Update `space-empire/src/types/game.ts` to match struct changes
-- Update `space-empire/src/constants/gameConfig.ts` (names, configs, costs)
+- Copy ABI JSON files to `frontend/src/contracts/abi/`
+- Update `frontend/src/lib/contracts.ts` (addresses, ABI imports)
+- Update `frontend/src/hooks/useNexusGame.ts` (read/write hooks, type definitions)
+- Update `frontend/src/types/game.ts` to match struct changes
+- Update `frontend/src/constants/gameConfig.ts` (names, configs, costs)
 - Verify contract addresses match deployment
 
 ## Key Files to Sync
@@ -29,12 +29,12 @@ abi/GameConfig.json
 deployments/latest.json
 
 Frontend Side:
-space-empire/src/contracts/abi/NexusGame.json    ← ABI files
-space-empire/src/contracts/abi/GameConfig.json
-space-empire/src/lib/contracts.ts                ← Addresses + ABI exports
-space-empire/src/hooks/useNexusGame.ts           ← All contract hooks
-space-empire/src/types/game.ts                   ← TypeScript game types
-space-empire/src/constants/gameConfig.ts          ← UI constants
+frontend/src/contracts/abi/NexusGame.json    ← ABI files
+frontend/src/contracts/abi/GameConfig.json
+frontend/src/lib/contracts.ts                ← Addresses + ABI exports
+frontend/src/hooks/useNexusGame.ts           ← All contract hooks (54 hooks)
+frontend/src/types/game.ts                   ← TypeScript game types
+frontend/src/constants/gameConfig.ts          ← UI constants
 
 ## Critical Rule
 NEVER manually define ABIs. Always import from the JSON artifacts:

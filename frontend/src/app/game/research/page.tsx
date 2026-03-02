@@ -38,7 +38,7 @@ const RESEARCH_CATEGORIES: { title: string; keys: (keyof Research)[] }[] = [
   },
   {
     title: 'Technology',
-    keys: ['powerSystems', 'computerTech', 'stealthSystems'],
+    keys: ['computerTech', 'stealthSystems'],
   },
   {
     title: 'Advanced',
@@ -242,7 +242,7 @@ function ResearchItem({
         </div>
 
         <Button
-          variant="primary"
+          variant={canResearch ? 'primary' : 'secondary'}
           size="sm"
           className="w-full"
           disabled={!canResearch}
@@ -287,7 +287,6 @@ export default function ResearchPage() {
       weaponTech: Number(data.weaponTech),
       shieldingTech: Number(data.shieldingTech),
       armourTech: Number(data.armourTech),
-      powerSystems: Number(data.powerSystems),
       computerTech: Number(data.computerTech),
       stealthSystems: Number(data.stealthSystems),
       ionTech: Number(data.ionTech),

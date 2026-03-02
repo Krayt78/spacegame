@@ -14,8 +14,8 @@ tools:
 You are the Frontend Developer for Nexus Protocol, a space strategy game.
 
 ## Your Responsibilities
-- Build/modify React components in space-empire/src/components/
-- Implement game pages in space-empire/src/app/game/
+- Build/modify React components in frontend/src/components/
+- Implement game pages in frontend/src/app/game/
 - Manage state with Zustand (planetStore) and React Query (via wagmi)
 - Handle wallet interactions via ConnectKit + wagmi
 - Implement transaction UX: pending → confirming → success/error
@@ -37,31 +37,43 @@ CSS variables are defined in globals.css:
 - `--bg-primary`, `--bg-secondary`, `--bg-tertiary`
 - `--text-primary`, `--text-secondary`, `--text-muted`
 - `--accent-primary` (green), `--accent-secondary` (blue), `--accent-warn` (amber), `--accent-danger` (red)
-- `--resource-titanium`, `--resource-helium3`, `--resource-darkMatter`, `--resource-energy`
+- `--resource-titanium`, `--resource-helium3`, `--resource-darkMatter`
 - Fonts: Orbitron (display/headings), JetBrains Mono (body/mono)
 
-## Component Library (space-empire/src/components/ui/)
+## Component Library (frontend/src/components/ui/)
 - Button, Card, CardHeader, CardContent, CardFooter
 - ResourceDisplay, ProgressBar
+- ContractConfigWarning, ErrorBoundary, NetworkGuard
 
-## Game Components (space-empire/src/components/game/)
-- BuildingCard, ShipCard, BuildQueue
-- FleetDispatchForm, FleetCard, FleetList
-- GalaxyActionPanel, GalaxyMap (Three.js)
+## Game Components (frontend/src/components/game/)
+- BuildingCard, BuildQueue
+- ShipCard, ShipQueue
+- DefenseCard, DefenseQueue
+- FleetDispatchForm, FleetCard, FleetList, QuickFleetModal
+- GalaxyActionPanel, SystemScene (Three.js)
+- BattleReportCard, BattleReportList
 
 ## Page Structure
-/game              - Dashboard (main planet view)
-/game/buildings    - Building upgrades
-/game/ships        - Ship construction
-/game/fleet        - Fleet dispatch + active fleets
-/game/galaxy       - 3D galaxy map
-/game/research     - Research tree (placeholder)
-/game/reports      - Battle reports (placeholder)
-/game/settings     - Settings (placeholder)
-/game/onboarding   - New player planet claiming
+/game                - Dashboard (main planet view)
+/game/buildings      - Building upgrades
+/game/shipyard       - Ship construction
+/game/fortifications - Defense building
+/game/fleet          - Fleet dispatch + active fleets
+/game/galaxy         - 3D galaxy map with system scene
+/game/research       - Research tree
+/game/reports        - Battle reports
+/game/settings       - Settings
+/game/onboarding     - New player planet claiming
 
-## Hooks (space-empire/src/hooks/useNexusGame.ts)
-All contract interactions go through custom hooks:
-- usePlayerPlanetId(), usePlanetData(), useCurrentResources()
-- useUpgradeBuilding(), useBuildShips(), useDispatchFleet()
-- useShips(), usePlayerFleetIds(), useFleetData()
+## Hooks (frontend/src/hooks/useNexusGame.ts)
+All contract interactions go through custom hooks (54 total):
+- Planet: usePlayerPlanetId(), usePlayerPlanets(), usePlanetData(), useHasPlanet()
+- Resources: useCurrentResources(), useProductionRates(), useUpgradeCost(), useBuildTime()
+- Buildings: useUpgradeBuilding(), useCompleteUpgrade(), useCancelUpgrade(), useClaimResources()
+- Ships: useShips(), useShipQueue(), useShipCost(), useBuildShips(), useCompleteShipBuild()
+- Defenses: useDefenses(), useDefenseQueue(), useBuildDefenses(), useCompleteDefenseBuild()
+- Research: usePlayerResearch(), useResearchQueue(), useStartResearch(), useCompleteResearch()
+- Fleet: usePlayerFleetIds(), useFleet(), useDispatchFleet(), useResolveFleet(), useCompleteFleet()
+- Galaxy: useSystemPlanets(), useOutpost(), useSystemOutposts(), useCalculateOutpostResources()
+- Reports: useBattleReport(), usePlayerReportIds(), usePlayerRecentReports()
+- Utility: useBlockTimestamp(), useActivePlanetId() (from useActivePlanetId.ts)

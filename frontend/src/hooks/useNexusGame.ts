@@ -32,6 +32,7 @@ export interface Buildings {
   darkMatterContainment: number;
   shipyard: number;
   researchNode: number;
+  undergroundBunker: number;
 }
 
 /** Resources struct from NexusGame contract */
@@ -159,6 +160,7 @@ export const BUILDING_TYPE_MAP: Record<string, number> = {
   darkMatterContainment: 6,
   shipyard: 7,
   researchNode: 8,
+  undergroundBunker: 9,
 };
 
 // Reverse mapping: contract enum to frontend key
@@ -171,6 +173,7 @@ export const BUILDING_TYPE_REVERSE_MAP: Record<number, string> = {
   6: 'darkMatterContainment',
   7: 'shipyard',
   8: 'researchNode',
+  9: 'undergroundBunker',
 };
 
 // ========== Ship Type Mapping ==========
@@ -347,6 +350,7 @@ export function usePlanetData(planetId: bigint | undefined) {
           darkMatterContainment: Number(buildings.darkMatterContainment),
           shipyard: Number(buildings.shipyard),
           researchNode: Number(buildings.researchNode),
+          undergroundBunker: Number(buildings.undergroundBunker),
         },
         resources: {
           titanium: Number(resources.titanium),
@@ -450,6 +454,20 @@ export function useProductionRates(planetId: bigint | undefined) {
   }, [planetId, result.data, result.isLoading, result.error]);
 
   return result;
+}
+
+/**
+ * Hook to get the global production multiplier (100 = 1x, 200 = 2x)
+ */
+export function useProductionMultiplier() {
+  return useReadContract({
+    address: GAME_CONFIG_ADDRESS,
+    abi: gameConfigAbi,
+    functionName: 'productionMultiplier',
+    query: {
+      enabled: !!GAME_CONFIG_ADDRESS,
+    },
+  }) as ReturnType<typeof useReadContract> & { data: bigint | undefined };
 }
 
 /**
@@ -667,6 +685,7 @@ export function useCompleteUpgrade() {
     invalidateContractQueries(queryClient, [
       'getPlanet', // Building levels updated
       'getProductionRates', // Production changes with building levels
+      'getTutorialStatus', // Quest conditions may now be met
     ]);
   }
 
@@ -903,6 +922,7 @@ export function useCompleteShipBuild() {
       invalidateContractQueries(queryClient, [
         'shipQueues',
         'getShips',
+        'getTutorialStatus', // Quest conditions may now be met
       ]);
     }
   }, [isSuccess, queryClient]);
@@ -1523,14 +1543,13 @@ export const RESEARCH_TYPE_MAP: Record<string, number> = {
   weaponTech: 4,
   shieldingTech: 5,
   armourTech: 6,
-  powerSystems: 7,
-  computerTech: 8,
-  stealthSystems: 9,
-  ionTech: 10,
-  hyperspaceTech: 11,
-  laserTech: 12,
-  plasmaTech: 13,
-  astrophysics: 14,
+  computerTech: 7,
+  stealthSystems: 8,
+  ionTech: 9,
+  hyperspaceTech: 10,
+  laserTech: 11,
+  plasmaTech: 12,
+  astrophysics: 13,
 };
 
 export const RESEARCH_TYPE_REVERSE_MAP: Record<number, string> = {
@@ -1540,14 +1559,13 @@ export const RESEARCH_TYPE_REVERSE_MAP: Record<number, string> = {
   4: 'weaponTech',
   5: 'shieldingTech',
   6: 'armourTech',
-  7: 'powerSystems',
-  8: 'computerTech',
-  9: 'stealthSystems',
-  10: 'ionTech',
-  11: 'hyperspaceTech',
-  12: 'laserTech',
-  13: 'plasmaTech',
-  14: 'astrophysics',
+  7: 'computerTech',
+  8: 'stealthSystems',
+  9: 'ionTech',
+  10: 'hyperspaceTech',
+  11: 'laserTech',
+  12: 'plasmaTech',
+  13: 'astrophysics',
 };
 
 /** ResearchLevels struct from GameState contract */
@@ -1558,7 +1576,6 @@ export interface ResearchLevels {
   weaponTech: number;
   shieldingTech: number;
   armourTech: number;
-  powerSystems: number;
   computerTech: number;
   stealthSystems: number;
   ionTech: number;
@@ -1702,6 +1719,7 @@ export function useCompleteResearch() {
       invalidateContractQueries(queryClient, [
         'getPlayerResearch',
         'researchQueues',
+        'getTutorialStatus', // Quest conditions may now be met
       ]);
     }
   }, [isSuccess, queryClient]);
@@ -1770,4 +1788,80 @@ export function useBlockTimestamp() {
   const timestamp = block?.timestamp ? Number(block.timestamp) : Math.floor(Date.now() / 1000);
 
   return { timestamp };
+}
+
+// ========== Tutorial Hooks ==========
+
+/**
+ * Hook to get the full tutorial quest status for the current player
+ */
+export function useTutorialStatus(planetId: bigint | undefined) {
+  const { address } = useAccount();
+
+  const result = useReadContract({
+    address: NEXUS_GAME_ADDRESS,
+    abi: nexusGameAbi,
+    functionName: 'getTutorialStatus',
+    args: address && planetId !== undefined ? [address, planetId] : undefined,
+    query: {
+      enabled: !!address && planetId !== undefined && !!NEXUS_GAME_ADDRESS,
+    },
+  });
+
+  useEffect(() => {
+    if (result.isLoading) return;
+    console.log(`[${getTimestamp()}] [useTutorialStatus]`, {
+      address,
+      planetId: planetId?.toString(),
+      data: result.data,
+      error: result.error?.message,
+    });
+  }, [address, planetId, result.data, result.isLoading, result.error]);
+
+  return result;
+}
+
+/**
+ * Hook to claim a tutorial quest reward
+ */
+export function useClaimTutorialQuest() {
+  const queryClient = useQueryClient();
+  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const claimQuest = (planetId: bigint, questId: number) => {
+    console.log(`[${getTimestamp()}] [useClaimTutorialQuest] Claiming quest:`, questId, 'for planet:', planetId.toString());
+    writeContract({
+      address: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbi,
+      functionName: 'claimTutorialQuest',
+      args: [planetId, BigInt(questId)],
+    });
+  };
+
+  useEffect(() => {
+    if (!hash && !error && !isSuccess) return;
+    console.log(`[${getTimestamp()}] [useClaimTutorialQuest]`, {
+      hash,
+      isPending,
+      isConfirming,
+      isSuccess,
+      error: error?.message,
+    });
+  }, [hash, isPending, isConfirming, isSuccess, error]);
+
+  useEffect(() => {
+    if (isSuccess) {
+      invalidateContractQueries(queryClient, [
+        'getTutorialStatus',
+        'calculateCurrentResources',
+        'getPlanet',
+      ]);
+    }
+  }, [isSuccess, queryClient]);
+
+  return { claimQuest, hash, isPending, isConfirming, isSuccess, error, reset };
 }

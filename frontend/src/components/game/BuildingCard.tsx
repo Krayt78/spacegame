@@ -12,6 +12,7 @@ import {
   Factory,
   FlaskConical,
   Wrench,
+  Shield,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui';
 import { Button } from '@/components/ui';
@@ -38,6 +39,7 @@ interface BuildingCardProps {
   isQueueBlocked?: boolean;
   upgradeProgress?: number;
   upgradeTimeRemaining?: number;
+  productionMultiplier?: number;
 }
 
 // Building icons based on type
@@ -57,6 +59,8 @@ const getBuildingIcon = (buildingKey: keyof Buildings) => {
       return { icon: Wrench, color: 'var(--accent-warn)' };
     case 'researchNode':
       return { icon: FlaskConical, color: 'var(--accent-tertiary)' };
+    case 'undergroundBunker':
+      return { icon: Shield, color: 'var(--accent-secondary)' };
     default:
       return { icon: Factory, color: 'var(--text-secondary)' };
   }
@@ -81,6 +85,8 @@ const getBuildingDescription = (buildingKey: keyof Buildings): string => {
       return 'Reduces ship construction time';
     case 'researchNode':
       return 'Accelerates research progress';
+    case 'undergroundBunker':
+      return 'Protects resources from being plundered during raids.';
     default:
       return 'Planetary infrastructure';
   }
@@ -148,6 +154,7 @@ export function BuildingCard({
   isQueueBlocked = false,
   upgradeProgress = 0,
   upgradeTimeRemaining = 0,
+  productionMultiplier = 100,
 }: BuildingCardProps) {
   const { icon: BuildingIcon, color: iconColor } = getBuildingIcon(buildingKey);
   const buildingName = BUILDING_NAMES[buildingKey];
@@ -170,10 +177,10 @@ export function BuildingCard({
 
   // Production info for production buildings
   const currentProduction = isProductionBuilding(buildingKey)
-    ? calculateProduction(buildingKey, currentLevel)
+    ? calculateProduction(buildingKey, currentLevel, productionMultiplier)
     : null;
   const nextProduction = isProductionBuilding(buildingKey)
-    ? calculateProduction(buildingKey, currentLevel + 1)
+    ? calculateProduction(buildingKey, currentLevel + 1, productionMultiplier)
     : null;
 
   // Storage info for storage buildings
@@ -301,7 +308,7 @@ export function BuildingCard({
               </div>
 
               <Button
-                variant={canAfford && !isQueueBlocked ? 'primary' : 'ghost'}
+                variant={canAfford && !isQueueBlocked ? 'primary' : 'secondary'}
                 size="sm"
                 onClick={onUpgrade}
                 disabled={!canAfford || isUpgrading || isQueueBlocked}

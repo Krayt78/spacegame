@@ -65,6 +65,12 @@ export const BUILDING_CONFIG = {
     baseCost: { titanium: 200, helium3: 400, darkMatter: 200 },
     costMultiplier: 2.0,
   },
+  undergroundBunker: {
+    baseCost: { titanium: 750, helium3: 450, darkMatter: 0 },
+    costMultiplier: 2.0,
+    baseCapacity: 500,
+    capacityMultiplier: 1.2,
+  },
 } as const;
 
 // Maximum number of ship types (matches contract MAX_SHIP_TYPES)
@@ -259,11 +265,6 @@ export const RESEARCH_CONFIG = {
     costMultiplier: 2.0,
     description: 'Increases hull armor strength by 10% per level',
   },
-  powerSystems: {
-    baseCost: { titanium: 0, helium3: 800, darkMatter: 400 },
-    costMultiplier: 2.0,
-    description: 'Advanced power distribution for fleet operations',
-  },
   computerTech: {
     baseCost: { titanium: 0, helium3: 400, darkMatter: 600 },
     costMultiplier: 2.0,
@@ -354,6 +355,7 @@ export const STARTING_BUILDINGS: Buildings = {
   darkMatterContainment: 0,
   shipyard: 0,
   researchNode: 0,
+  undergroundBunker: 0,
 };
 
 // Game constants
@@ -376,6 +378,7 @@ export const BUILDING_NAMES: Record<keyof Buildings, string> = {
   darkMatterContainment: 'Dark Matter Containment',
   shipyard: 'Shipyard',
   researchNode: 'Research Node',
+  undergroundBunker: 'Underground Bunker',
 };
 
 // Research names for display
@@ -386,7 +389,6 @@ export const RESEARCH_NAMES: Record<keyof Research, string> = {
   weaponTech: 'Weapon Technology',
   shieldingTech: 'Shielding Technology',
   armourTech: 'Armour Technology',
-  powerSystems: 'Power Systems',
   computerTech: 'Computer Technology',
   stealthSystems: 'Stealth Systems',
   ionTech: 'Ion Technology',

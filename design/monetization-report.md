@@ -4,7 +4,7 @@
 
 Nexus Protocol is a **fully free-to-play, zero-monetization** on-chain OGame-style space strategy game on Polkadot AssetHub. There are no tokens, no fees, no NFTs, no marketplace, and no premium mechanics. All gameplay costs are denominated in three in-game resources (Titanium, Helium-3, Dark Matter) that are earned passively through building production and actively through raiding/capturing.
 
-The game features: 8 building types, 13 ship types, 9 defense types, 14 research technologies, 4 fleet mission types, a colony system, and a 3D galaxy map. Players progress through exponential cost curves with time-gated build queues.
+The game features: 9 building types, 12 ship types, 8 defense types, 14 research technologies, 4 fleet mission types, a colony system, and a 3D galaxy map. Players progress through exponential cost curves with time-gated build queues.
 
 ---
 

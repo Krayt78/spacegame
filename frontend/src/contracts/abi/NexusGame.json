@@ -333,6 +333,24 @@
         "internalType": "uint256",
         "name": "planetId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "questId",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimTutorialQuest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "planetId",
+        "type": "uint256"
       }
     ],
     "name": "completeDefenseBuild",
@@ -1058,6 +1076,46 @@
             "internalType": "uint8",
             "name": "researchNode",
             "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "undergroundBunker",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved10",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved11",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved12",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved13",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved14",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved15",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved16",
+            "type": "uint8"
           }
         ],
         "internalType": "struct GameState.Buildings",
@@ -1388,11 +1446,6 @@
           },
           {
             "internalType": "uint8",
-            "name": "powerSystems",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint8",
             "name": "computerTech",
             "type": "uint8"
           },
@@ -1425,11 +1478,135 @@
             "internalType": "uint8",
             "name": "astrophysics",
             "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved14",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved15",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved16",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved17",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved18",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved19",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved20",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved21",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved22",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved23",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved24",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved25",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved26",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved27",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved28",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved29",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved30",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved31",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved32",
+            "type": "uint8"
           }
         ],
         "internalType": "struct GameState.ResearchLevels",
         "name": "",
         "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "planetId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPlunderableResources",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "titanium",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "helium3",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "darkMatter",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1713,6 +1890,69 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "questId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getTutorialQuestReward",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "titanium",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "helium3",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "darkMatter",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "planetId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getTutorialStatus",
+    "outputs": [
+      {
+        "internalType": "bool[17]",
+        "name": "claimed",
+        "type": "bool[17]"
+      },
+      {
+        "internalType": "bool[17]",
+        "name": "claimable",
+        "type": "bool[17]"
+      },
+      {
+        "internalType": "bool",
+        "name": "allDone",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "player",
         "type": "address"
@@ -1816,6 +2056,11 @@
       {
         "internalType": "uint8",
         "name": "researchNode",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "undergroundBunker",
         "type": "uint8"
       }
     ],
@@ -2038,11 +2283,6 @@
           },
           {
             "internalType": "uint8",
-            "name": "powerSystems",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint8",
             "name": "computerTech",
             "type": "uint8"
           },
@@ -2074,6 +2314,101 @@
           {
             "internalType": "uint8",
             "name": "astrophysics",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved14",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved15",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved16",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved17",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved18",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved19",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved20",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved21",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved22",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved23",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved24",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved25",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved26",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved27",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved28",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved29",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved30",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved31",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "__reserved32",
             "type": "uint8"
           }
         ],
@@ -2218,6 +2553,19 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_tutorialManager",
+        "type": "address"
+      }
+    ],
+    "name": "setTutorialManager",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "shipManager",
     "outputs": [
@@ -2317,6 +2665,19 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "tutorialManager",
+    "outputs": [
+      {
+        "internalType": "contract TutorialManager",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { NexusGame, GameConfig, GameState, PlanetManager, ShipManager, FleetManager, ResearchManager, DefenseManager, CombatEngine, FleetResolver } from "../../typechain-types";
+import { NexusGame, GameConfig, GameState, PlanetManager, ShipManager, FleetManager, ResearchManager, DefenseManager, CombatEngine, FleetResolver, TutorialManager } from "../../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 export interface DeployedContracts {
@@ -13,6 +13,7 @@ export interface DeployedContracts {
   fleetManager: FleetManager;
   researchManager: ResearchManager;
   defenseManager: DefenseManager;
+  tutorialManager: TutorialManager;
 }
 
 export interface TestSigners {
@@ -34,10 +35,20 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   const gameConfig = await GameConfigFactory.deploy();
   await gameConfig.waitForDeployment();
 
-  // Deploy GameState
+  // Deploy GameState behind UUPS proxy
   const GameStateFactory = await ethers.getContractFactory("GameState");
-  const gameState = await GameStateFactory.deploy();
-  await gameState.waitForDeployment();
+  const gameStateImpl = await GameStateFactory.deploy();
+  await gameStateImpl.waitForDeployment();
+
+  const ERC1967ProxyFactory = await ethers.getContractFactory("ERC1967Proxy");
+  const initData = GameStateFactory.interface.encodeFunctionData("initialize");
+  const gameStateProxy = await ERC1967ProxyFactory.deploy(
+    await gameStateImpl.getAddress(),
+    initData
+  );
+  await gameStateProxy.waitForDeployment();
+
+  const gameState = GameStateFactory.attach(await gameStateProxy.getAddress()) as GameState;
 
   // Deploy NexusGame (Router)
   const NexusGameFactory = await ethers.getContractFactory("NexusGame");
@@ -109,6 +120,15 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   );
   await defenseManager.waitForDeployment();
 
+  // Deploy TutorialManager
+  const TutorialManagerFactory = await ethers.getContractFactory("TutorialManager");
+  const tutorialManager = await TutorialManagerFactory.deploy(
+    await nexusGame.getAddress(),
+    await gameState.getAddress(),
+    await gameConfig.getAddress()
+  );
+  await tutorialManager.waitForDeployment();
+
   // Configure NexusGame with managers
   await nexusGame.updateManagers(
     await planetManager.getAddress(),
@@ -117,6 +137,7 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   );
   await nexusGame.setResearchManager(await researchManager.getAddress());
   await nexusGame.setDefenseManager(await defenseManager.getAddress());
+  await nexusGame.setTutorialManager(await tutorialManager.getAddress());
 
   // Authorize managers in GameState
   await gameState.setManager(await planetManager.getAddress(), true);
@@ -125,9 +146,10 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   await gameState.setManager(await fleetResolver.getAddress(), true);
   await gameState.setManager(await researchManager.getAddress(), true);
   await gameState.setManager(await defenseManager.getAddress(), true);
+  await gameState.setManager(await tutorialManager.getAddress(), true);
 
   return {
-    contracts: { nexusGame, gameConfig, gameState, planetManager, shipManager, combatEngine, fleetResolver, fleetManager, researchManager, defenseManager },
+    contracts: { nexusGame, gameConfig, gameState, planetManager, shipManager, combatEngine, fleetResolver, fleetManager, researchManager, defenseManager, tutorialManager },
     signers: { owner, player1, player2, player3 },
   };
 }
@@ -215,7 +237,7 @@ export async function setupPlayerWithShips(
   await advanceTime(144000); // 40 more hours (total 60 hours)
   await nexusGame.connect(player).claimResources(planetId);
 
-  await nexusGame.connect(player).startResearch(planetId, 8); // COMPUTER_TECH
+  await nexusGame.connect(player).startResearch(planetId, 7); // COMPUTER_TECH
   await advanceTime(3600); // Wait for research to complete
   await nexusGame.completeResearch(player.address);
 

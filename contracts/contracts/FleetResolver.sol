@@ -399,9 +399,14 @@ contract FleetResolver {
             if (destPlanetId != 0) {
                 _claimResourcesInternal(destPlanetId);
                 GameState.Resources memory destRes = gameState.getPlanetResources(destPlanetId);
-                availableTitanium = destRes.titanium;
-                availableHelium3 = destRes.helium3;
-                availableDarkMatter = destRes.darkMatter;
+
+                // Subtract bunker protection before calculating lootable resources
+                uint8 bunkerLevel = gameState.getBuildingLevel(destPlanetId, GameConfig.BuildingType.UNDERGROUND_BUNKER);
+                uint256 protection = gameConfig.getStorageCapacity(GameConfig.BuildingType.UNDERGROUND_BUNKER, bunkerLevel);
+
+                availableTitanium = destRes.titanium > protection ? destRes.titanium - protection : 0;
+                availableHelium3 = destRes.helium3 > protection ? destRes.helium3 - protection : 0;
+                availableDarkMatter = destRes.darkMatter > protection ? destRes.darkMatter - protection : 0;
             }
         } else if (_isOutpostPosition(fleet.destination[2])) {
             GameState.RaiderOutpost memory outpost = _getOrInitOutpost(fleet.destination[0], fleet.destination[1], fleet.destination[2]);
@@ -415,6 +420,12 @@ contract FleetResolver {
                 availableDarkMatter = outpostResources;
             }
         }
+
+        // Apply raid loot percentage cap (V-004 fix)
+        uint256 lootPct = gameConfig.raidLootPercentage();
+        availableTitanium = (availableTitanium * lootPct) / 100;
+        availableHelium3 = (availableHelium3 * lootPct) / 100;
+        availableDarkMatter = (availableDarkMatter * lootPct) / 100;
 
         uint256 totalAvailable = availableTitanium + availableHelium3 + availableDarkMatter;
         if (totalAvailable > 0) {
@@ -535,7 +546,7 @@ contract FleetResolver {
 
         GameConfig.OutpostConfig memory config = gameConfig.getOutpostConfig(outpost.outpostType);
         uint256 elapsed = block.timestamp - outpost.lastCollected;
-        uint256 produced = (config.productionRate * elapsed) / 3600;
+        uint256 produced = (config.productionRate * gameConfig.productionMultiplier() * elapsed) / (3600 * 100);
         uint256 total = outpost.storedResources + produced;
 
         if (total > config.storageCap) {
@@ -684,7 +695,7 @@ contract FleetResolver {
 
         GameConfig.OutpostConfig memory config = gameConfig.getOutpostConfig(outpost.outpostType);
         uint256 elapsed = block.timestamp - outpost.lastCollected;
-        uint256 produced = (config.productionRate * elapsed) / 3600;
+        uint256 produced = (config.productionRate * gameConfig.productionMultiplier() * elapsed) / (3600 * 100);
         uint256 total = outpost.storedResources + produced;
 
         if (total > config.storageCap) {

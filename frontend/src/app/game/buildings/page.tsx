@@ -13,6 +13,7 @@ import {
   useUpgradeBuilding,
   useBlockTimestamp,
   useBuildTime,
+  useProductionMultiplier,
   BUILDING_TYPE_MAP,
   type BuildQueue as BuildQueueData,
 } from '@/hooks';
@@ -30,6 +31,7 @@ const ALL_BUILDINGS: (keyof Buildings)[] = [
   'darkMatterContainment',
   'shipyard',
   'researchNode',
+  'undergroundBunker',
 ];
 
 // Building category helpers
@@ -55,17 +57,18 @@ type BuildingBonus =
   | { type: 'storage'; resource: string; currentCapacity: number; nextCapacity: number }
   | { type: 'shipyard'; unlockedCount: number; nextUnlock: string[] }
   | { type: 'research'; reductionPercent: number; nextReductionPercent: number }
+  | { type: 'bunker'; currentProtection: number; nextProtection: number }
   | { type: 'none' };
 
-function getBuildingBonus(buildingKey: keyof Buildings, level: number): BuildingBonus {
+function getBuildingBonus(buildingKey: keyof Buildings, level: number, productionMultiplier: number = 100): BuildingBonus {
   const resource = BUILDING_RESOURCE_LABELS[buildingKey] ?? '';
 
   if (PRODUCTION_BUILDINGS.includes(buildingKey)) {
     return {
       type: 'production',
       resource,
-      currentRate: calculateProduction(buildingKey, level),
-      nextRate: calculateProduction(buildingKey, level + 1),
+      currentRate: calculateProduction(buildingKey, level, productionMultiplier),
+      nextRate: calculateProduction(buildingKey, level + 1, productionMultiplier),
     };
   }
 
@@ -97,11 +100,17 @@ function getBuildingBonus(buildingKey: keyof Buildings, level: number): Building
     return { type: 'research', reductionPercent, nextReductionPercent };
   }
 
+  if (buildingKey === 'undergroundBunker') {
+    const currentProtection = level === 0 ? 0 : calculateStorageCapacity('undergroundBunker', level);
+    const nextProtection = calculateStorageCapacity('undergroundBunker', level + 1);
+    return { type: 'bunker', currentProtection, nextProtection };
+  }
+
   return { type: 'none' };
 }
 
-function BuildingBonusDisplay({ buildingKey, level }: { buildingKey: keyof Buildings; level: number }) {
-  const bonus = useMemo(() => getBuildingBonus(buildingKey, level), [buildingKey, level]);
+function BuildingBonusDisplay({ buildingKey, level, productionMultiplier = 100 }: { buildingKey: keyof Buildings; level: number; productionMultiplier?: number }) {
+  const bonus = useMemo(() => getBuildingBonus(buildingKey, level, productionMultiplier), [buildingKey, level, productionMultiplier]);
 
   if (bonus.type === 'none') return null;
 
@@ -163,6 +172,20 @@ function BuildingBonusDisplay({ buildingKey, level }: { buildingKey: keyof Build
           </span>
         </div>
       )}
+
+      {bonus.type === 'bunker' && (
+        <div className="text-sm">
+          <span className="text-[var(--text-muted)] text-xs">Protection: </span>
+          <span className="text-[var(--text-secondary)]">
+            {bonus.currentProtection > 0
+              ? `${formatNumber(bonus.currentProtection)} per resource`
+              : 'None'}
+          </span>
+          <span className="text-xs text-[var(--accent-primary)] ml-2">
+            → {formatNumber(bonus.nextProtection)}/resource
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -182,6 +205,7 @@ function BuildingItem({
   hasActiveQueue,
   isUpgrading,
   onUpgrade,
+  productionMultiplier = 100,
 }: {
   buildingKey: keyof Buildings;
   currentLevel: number;
@@ -189,6 +213,7 @@ function BuildingItem({
   hasActiveQueue: boolean;
   isUpgrading: boolean;
   onUpgrade: () => void;
+  productionMultiplier?: number;
 }) {
   const buildingType = BUILDING_TYPE_MAP[buildingKey] ?? 0;
   const { data: upgradeCost, isLoading: isLoadingCost } = useUpgradeCost(buildingType, currentLevel);
@@ -222,7 +247,7 @@ function BuildingItem({
         </div>
 
         {/* Current bonus */}
-        <BuildingBonusDisplay buildingKey={buildingKey} level={currentLevel} />
+        <BuildingBonusDisplay buildingKey={buildingKey} level={currentLevel} productionMultiplier={productionMultiplier} />
 
         {/* Upgrade cost */}
         <div className="space-y-1">
@@ -259,7 +284,7 @@ function BuildingItem({
 
         {/* Upgrade button */}
         <Button
-          variant="primary"
+          variant={canUpgrade ? 'primary' : 'secondary'}
           size="sm"
           className="w-full"
           disabled={!canUpgrade}
@@ -279,6 +304,8 @@ export default function BuildingsPage() {
   const { data: planetData, isLoading: isLoadingPlanet } = usePlanetData(planetId);
   const { data: currentResourcesData } = useCurrentResources(planetId);
   const { timestamp: blockTimestamp } = useBlockTimestamp();
+  const { data: prodMultiplier } = useProductionMultiplier();
+  const productionMultiplier = prodMultiplier ? Number(prodMultiplier) : 100;
 
   // Upgrade hook
   const { upgradeBuilding, isPending, isConfirming } = useUpgradeBuilding();
@@ -297,6 +324,7 @@ export default function BuildingsPage() {
       darkMatterContainment: Number(buildingsData.darkMatterContainment),
       shipyard: Number(buildingsData.shipyard),
       researchNode: Number(buildingsData.researchNode),
+      undergroundBunker: Number(buildingsData.undergroundBunker),
     } as Buildings;
   }, [planetData]);
 
@@ -431,6 +459,7 @@ export default function BuildingsPage() {
               hasActiveQueue={hasActiveQueue}
               isUpgrading={isUpgrading}
               onUpgrade={() => handleUpgrade(buildingKey)}
+              productionMultiplier={productionMultiplier}
             />
           ))}
         </div>

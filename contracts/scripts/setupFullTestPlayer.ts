@@ -65,13 +65,12 @@ const ResearchType = {
   WEAPON_TECH: 4,
   SHIELDING_TECH: 5,
   ARMOUR_TECH: 6,
-  POWER_SYSTEMS: 7,
-  COMPUTER_TECH: 8,
-  STEALTH_SYSTEMS: 9,
-  ION_TECH: 10,
-  HYPERSPACE_TECH: 11,
-  LASER_TECH: 12,
-  PLASMA_TECH: 13,
+  COMPUTER_TECH: 7,
+  STEALTH_SYSTEMS: 8,
+  ION_TECH: 9,
+  HYPERSPACE_TECH: 10,
+  LASER_TECH: 11,
+  PLASMA_TECH: 12,
 };
 
 // ============================================================

@@ -21,7 +21,8 @@ contract GameConfig is Ownable {
         HELIUM3_TANK,
         DARKMATTER_CONTAINMENT,
         SHIPYARD,
-        RESEARCH_NODE
+        RESEARCH_NODE,
+        UNDERGROUND_BUNKER
     }
 
     // Ship types - index maps directly to position in fixed-size arrays
@@ -81,14 +82,13 @@ contract GameConfig is Ownable {
         WEAPON_TECH,            // 4
         SHIELDING_TECH,         // 5
         ARMOUR_TECH,            // 6
-        POWER_SYSTEMS,          // 7
-        COMPUTER_TECH,          // 8
-        STEALTH_SYSTEMS,        // 9
-        ION_TECH,               // 10
-        HYPERSPACE_TECH,        // 11
-        LASER_TECH,             // 12
-        PLASMA_TECH,            // 13
-        ASTROPHYSICS            // 14
+        COMPUTER_TECH,          // 7
+        STEALTH_SYSTEMS,        // 8
+        ION_TECH,               // 9
+        HYPERSPACE_TECH,        // 10
+        LASER_TECH,             // 11
+        PLASMA_TECH,            // 12
+        ASTROPHYSICS            // 13
     }
 
     // Cost structure
@@ -200,6 +200,12 @@ contract GameConfig is Ownable {
     // Speed factor for travel time calculation (higher = faster travel)
     uint256 public speedFactor = 1000;
 
+    // Percentage of resources available as raid loot (50 = 50%)
+    uint256 public raidLootPercentage = 50;
+
+    // Global production multiplier (100 = 1x, 200 = 2x, 500 = 5x)
+    uint256 public productionMultiplier = 100;
+
     constructor() Ownable(msg.sender) {
         _initializeConfigs();
     }
@@ -283,6 +289,17 @@ contract GameConfig is Ownable {
             productionMultiplier: 0,
             baseCapacity: 0,
             capacityMultiplier: 0
+        });
+
+        // Underground Bunker — protects resources from raids
+        // Protection per resource = baseCapacity × (capacityMultiplier/100)^level = 500 × 1.2^level
+        buildingConfigs[BuildingType.UNDERGROUND_BUNKER] = BuildingConfig({
+            baseCost: Cost(750, 450, 0),
+            costMultiplier: 200,
+            baseProduction: 0,
+            productionMultiplier: 0,
+            baseCapacity: 500,
+            capacityMultiplier: 120
         });
 
         // Starting resources
@@ -456,11 +473,6 @@ contract GameConfig is Ownable {
 
         researchConfigs[ResearchType.ARMOUR_TECH] = ResearchConfig({
             baseCost: Cost(1000, 0, 0),
-            costMultiplier: 200
-        });
-
-        researchConfigs[ResearchType.POWER_SYSTEMS] = ResearchConfig({
-            baseCost: Cost(0, 800, 400),
             costMultiplier: 200
         });
 
@@ -841,9 +853,9 @@ contract GameConfig is Ownable {
 
         BuildingConfig memory config = buildingConfigs[buildingType];
 
-        // Production = baseProduction * (multiplier/100) ^ (level - 1)
-        uint256 multiplier = _pow(config.productionMultiplier, level - 1);
-        return (config.baseProduction * multiplier) / _pow(100, level - 1);
+        // Production = baseProduction * level * (multiplier/100) ^ level * productionMultiplier/100
+        uint256 multiplier = _pow(config.productionMultiplier, level);
+        return (config.baseProduction * level * multiplier * productionMultiplier) / (_pow(100, level) * 100);
     }
 
     /**
@@ -893,6 +905,26 @@ contract GameConfig is Ownable {
     function setSpeedFactor(uint256 _speedFactor) external onlyOwner {
         require(_speedFactor > 0, "Speed factor must be positive");
         speedFactor = _speedFactor;
+    }
+
+    /**
+     * @notice Update raid loot percentage cap (owner only, for game balancing)
+     */
+    function setRaidLootPercentage(uint256 _raidLootPercentage) external onlyOwner {
+        require(_raidLootPercentage > 0 && _raidLootPercentage <= 100, "Percentage must be 1-100");
+        raidLootPercentage = _raidLootPercentage;
+    }
+
+    event ProductionMultiplierUpdated(uint256 oldMultiplier, uint256 newMultiplier);
+
+    /**
+     * @notice Update global production multiplier (owner only, for game balancing)
+     * @param _productionMultiplier 100 = 1x, 200 = 2x, 500 = 5x. Range: 1-1000
+     */
+    function setProductionMultiplier(uint256 _productionMultiplier) external onlyOwner {
+        require(_productionMultiplier >= 1 && _productionMultiplier <= 1000, "Multiplier must be 1-1000");
+        emit ProductionMultiplierUpdated(productionMultiplier, _productionMultiplier);
+        productionMultiplier = _productionMultiplier;
     }
 
     /**

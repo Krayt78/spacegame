@@ -1,11 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
-// Create abi directory
+// Output directories
 const abiDir = path.join(__dirname, '..', 'abi');
-if (!fs.existsSync(abiDir)) {
-  fs.mkdirSync(abiDir);
-}
+const frontendAbiDir = path.join(__dirname, '..', '..', 'frontend', 'src', 'contracts', 'abi');
+
+[abiDir, frontendAbiDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 const contracts = ['NexusGame', 'GameConfig'];
 
@@ -21,9 +25,10 @@ contracts.forEach(contractName => {
 
   if (fs.existsSync(artifactPath)) {
     const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    const abiJson = JSON.stringify(artifact.abi, null, 2);
 
-    const abiPath = path.join(abiDir, `${contractName}.json`);
-    fs.writeFileSync(abiPath, JSON.stringify(artifact.abi, null, 2));
+    fs.writeFileSync(path.join(abiDir, `${contractName}.json`), abiJson);
+    fs.writeFileSync(path.join(frontendAbiDir, `${contractName}.json`), abiJson);
 
     console.log(`Exported ${contractName} ABI`);
   } else {
@@ -31,4 +36,4 @@ contracts.forEach(contractName => {
   }
 });
 
-console.log('\nABI export complete! Files in /abi directory');
+console.log('\nABI export complete! Files in /abi and frontend/src/contracts/abi');

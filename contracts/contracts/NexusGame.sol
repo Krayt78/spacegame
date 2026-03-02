@@ -10,6 +10,7 @@ import "./ShipManager.sol";
 import "./FleetManager.sol";
 import "./ResearchManager.sol";
 import "./DefenseManager.sol";
+import "./TutorialManager.sol";
 
 /**
  * @title NexusGame
@@ -26,6 +27,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
     FleetManager public fleetManager;
     ResearchManager public researchManager;
     DefenseManager public defenseManager;
+    TutorialManager public tutorialManager;
 
     // Maximum number of ship types (for ABI compatibility)
     uint256 public constant MAX_SHIP_TYPES = 13;
@@ -68,6 +70,13 @@ contract NexusGame is Ownable, ReentrancyGuard {
      */
     function setDefenseManager(address _defenseManager) external onlyOwner {
         defenseManager = DefenseManager(_defenseManager);
+    }
+
+    /**
+     * @notice Set TutorialManager contract address (owner only)
+     */
+    function setTutorialManager(address _tutorialManager) external onlyOwner {
+        tutorialManager = TutorialManager(_tutorialManager);
     }
 
     /**
@@ -322,6 +331,17 @@ contract NexusGame is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Get plunderable resources for a planet (accounts for bunker protection and 50% cap)
+     */
+    function getPlunderableResources(uint256 planetId)
+        external
+        view
+        returns (uint256 titanium, uint256 helium3, uint256 darkMatter)
+    {
+        return planetManager.getPlunderableResources(planetId);
+    }
+
+    /**
      * @notice Get player's starter planet ID
      */
     function getPlayerPlanetId(address player) external view returns (uint256) {
@@ -505,6 +525,37 @@ contract NexusGame is Ownable, ReentrancyGuard {
         return researchManager.getResearchQueue(player);
     }
 
+    // ============ TUTORIAL ROUTES ============
+
+    /**
+     * @notice Claim a tutorial quest reward
+     */
+    function claimTutorialQuest(uint256 planetId, uint256 questId) external {
+        tutorialManager.claimQuest(msg.sender, planetId, questId);
+    }
+
+    /**
+     * @notice Get full tutorial status for a player
+     */
+    function getTutorialStatus(address player, uint256 planetId)
+        external
+        view
+        returns (bool[17] memory claimed, bool[17] memory claimable, bool allDone)
+    {
+        return tutorialManager.getQuestStatus(player, planetId);
+    }
+
+    /**
+     * @notice Get reward info for a tutorial quest
+     */
+    function getTutorialQuestReward(uint256 questId)
+        external
+        view
+        returns (uint256 titanium, uint256 helium3, uint256 darkMatter)
+    {
+        return tutorialManager.getQuestReward(questId);
+    }
+
     // ============ BACKWARDS-COMPATIBLE STORAGE ACCESSORS ============
     // These delegate to GameState for tests that access storage directly
 
@@ -527,7 +578,8 @@ contract NexusGame is Ownable, ReentrancyGuard {
         uint8 helium3Tank,
         uint8 darkMatterContainment,
         uint8 shipyard,
-        uint8 researchNode
+        uint8 researchNode,
+        uint8 undergroundBunker
     ) {
         GameState.Buildings memory b = gameState.getPlanetBuildings(planetId);
         return (
@@ -538,7 +590,8 @@ contract NexusGame is Ownable, ReentrancyGuard {
             b.helium3Tank,
             b.darkMatterContainment,
             b.shipyard,
-            b.researchNode
+            b.researchNode,
+            b.undergroundBunker
         );
     }
 

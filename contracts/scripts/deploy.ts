@@ -20,13 +20,21 @@ async function main() {
   const gameConfigAddress = await gameConfig.getAddress();
   console.log("GameConfig deployed to:", gameConfigAddress);
 
-  // 2. Deploy GameState
-  console.log("\n2. Deploying GameState...");
+  // 2. Deploy GameState (UUPS Proxy)
+  console.log("\n2. Deploying GameState (UUPS Proxy)...");
   const GameState = await ethers.getContractFactory("GameState");
-  const gameState = await GameState.deploy();
-  await gameState.waitForDeployment();
-  const gameStateAddress = await gameState.getAddress();
-  console.log("GameState deployed to:", gameStateAddress);
+  const gameStateImpl = await GameState.deploy();
+  await gameStateImpl.waitForDeployment();
+  const gameStateImplAddress = await gameStateImpl.getAddress();
+  console.log("GameState implementation deployed to:", gameStateImplAddress);
+
+  const ERC1967Proxy = await ethers.getContractFactory("ERC1967Proxy");
+  const initData = GameState.interface.encodeFunctionData("initialize");
+  const gameStateProxy = await ERC1967Proxy.deploy(gameStateImplAddress, initData);
+  await gameStateProxy.waitForDeployment();
+  const gameStateAddress = await gameStateProxy.getAddress();
+  const gameState = GameState.attach(gameStateAddress);
+  console.log("GameState proxy deployed to:", gameStateAddress);
 
   // 3. Deploy NexusGame (Router) with GameState and GameConfig
   console.log("\n3. Deploying NexusGame (Router)...");
@@ -92,15 +100,24 @@ async function main() {
   const defenseManagerAddress = await defenseManager.getAddress();
   console.log("DefenseManager deployed to:", defenseManagerAddress);
 
-  // 11. Configure NexusGame with managers
-  console.log("\n11. Configuring NexusGame with managers...");
+  // 11. Deploy TutorialManager
+  console.log("\n11. Deploying TutorialManager...");
+  const TutorialManager = await ethers.getContractFactory("TutorialManager");
+  const tutorialManager = await TutorialManager.deploy(nexusGameAddress, gameStateAddress, gameConfigAddress);
+  await tutorialManager.waitForDeployment();
+  const tutorialManagerAddress = await tutorialManager.getAddress();
+  console.log("TutorialManager deployed to:", tutorialManagerAddress);
+
+  // 12. Configure NexusGame with managers
+  console.log("\n12. Configuring NexusGame with managers...");
   await nexusGame.updateManagers(planetManagerAddress, shipManagerAddress, fleetManagerAddress);
   await nexusGame.setResearchManager(researchManagerAddress);
   await nexusGame.setDefenseManager(defenseManagerAddress);
+  await nexusGame.setTutorialManager(tutorialManagerAddress);
   console.log("Managers configured in NexusGame");
 
-  // 12. Authorize managers in GameState
-  console.log("\n12. Authorizing managers in GameState...");
+  // 13. Authorize managers in GameState
+  console.log("\n13. Authorizing managers in GameState...");
   await gameState.setManager(planetManagerAddress, true);
   console.log("PlanetManager authorized");
   await gameState.setManager(shipManagerAddress, true);
@@ -113,6 +130,8 @@ async function main() {
   console.log("ResearchManager authorized");
   await gameState.setManager(defenseManagerAddress, true);
   console.log("DefenseManager authorized");
+  await gameState.setManager(tutorialManagerAddress, true);
+  console.log("TutorialManager authorized");
 
   // Save deployment info
   const network = await ethers.provider.getNetwork();
@@ -123,6 +142,7 @@ async function main() {
     contracts: {
       GameConfig: gameConfigAddress,
       GameState: gameStateAddress,
+      GameStateImplementation: gameStateImplAddress,
       NexusGame: nexusGameAddress,
       PlanetManager: planetManagerAddress,
       ShipManager: shipManagerAddress,
@@ -131,6 +151,7 @@ async function main() {
       FleetManager: fleetManagerAddress,
       ResearchManager: researchManagerAddress,
       DefenseManager: defenseManagerAddress,
+      TutorialManager: tutorialManagerAddress,
     },
     timestamp: new Date().toISOString(),
   };

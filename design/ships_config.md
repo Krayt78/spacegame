@@ -38,7 +38,7 @@ This document contains all stats for the 12 ship types in Nexus Protocol.
 | Destroyer | 9 | Hyperspace Drive 6 | Hyperspace Tech 5 |
 | Colony Ship | 4 | Impulse Drive 3 | — |
 | Recycler | 4 | Combustion Drive 6 | Shielding Tech 2 |
-| Crawler | 5 | Combustion Drive 4 | Armour Tech 4, Laser Tech 4, Collector class |
+| Crawler | 5 | Combustion Drive 4 | Armour Tech 4, Laser Tech 4 |
 
 ---
 
@@ -230,7 +230,7 @@ This document contains all stats for the 12 ship types in Nexus Protocol.
 
 #### Crawler
 - **Cost:** 2,000 Titanium / 2,000 Helium-3 / 1,000 Dark Matter
-- **Prerequisites:** Shipyard 5, Combustion Drive 4, Armour Tech 4, Laser Tech 4, Collector class
+- **Prerequisites:** Shipyard 5, Combustion Drive 4, Armour Tech 4, Laser Tech 4
 - **Structural Integrity:** 4,000
 - **Shield Power:** 1
 - **Weapon Power:** 1

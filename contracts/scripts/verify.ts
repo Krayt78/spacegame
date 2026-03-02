@@ -1,16 +1,18 @@
 import hre from "hardhat";
 
 const ADDRESSES = {
-  GameConfig: "0xcde5bacBA284223e957B20e76561a3286658b73a",
-  GameState: "0xf362fac151824277Ae7dA651d883B1ce0c311C94",
-  NexusGame: "0xD7a6d3842E98c103F7CfBa73c792EE87a925c601",
-  PlanetManager: "0x4fE083188417eF2919A1dB10103092A2704ECE4c",
-  ShipManager: "0x65AF15dfb2F4467C273908190aE3A7E049b54FdF",
-  CombatEngine: "0xcBbe7F84a89e1BfC392aD0371265c2421A7CBc09",
-  FleetResolver: "0x42E0a7CB2819a70Fd4a98C20914f24B4592F3612",
-  FleetManager: "0xD7df24Fdc4392ECfdf2C032Ea33C50f4D6fE67aF",
-  ResearchManager: "0xa7A6eC2ca23b91657a83d0e262C78E3A9A806782",
-  DefenseManager: "0x87677B686Ab46934454f8ED2d303f2e42739b7B0",
+  GameConfig: "0x7F41b7fC8DBF2909A596E2751680efccb7d189F9",
+  GameStateImplementation: "0xc30a907A2A459b5ad073D28bD8EA32B24aEdbB37",
+  GameStateProxy: "0xb6fBecfF75577b71c76eB2ca22C6f8471a513d9d",
+  NexusGame: "0xD2E15C81512238A3BFC38E37d4fb32B647f50450",
+  PlanetManager: "0x3003Bf65c45c2bEF2712d44a46CDF69d9B9EE6F9",
+  ShipManager: "0x6ECE387fe3eb38E37acc9cCF8bDfE84589f7e9F7",
+  CombatEngine: "0x7288605e6FEF8c1A44d8D7401Ae20cf1438EEb51",
+  FleetResolver: "0x3B00F589Fbc5f70BB6E3B3c0e09E0ad2d77BCA3B",
+  FleetManager: "0x1d5a7D8a2579f5d222DF99ddAeF06D1b05Dc0033",
+  ResearchManager: "0xc7fbD88E298a5e356a73296e4364d9081262FbF6",
+  DefenseManager: "0xd34F8a1b61F625d576387169b7CCD159bD7decEF",
+  TutorialManager: "0xbF80F9ec005ec043b5512f77Df5e1F073776AB19",
 };
 
 const contracts = [
@@ -21,23 +23,23 @@ const contracts = [
   },
   {
     name: "GameState",
-    address: ADDRESSES.GameState,
+    address: ADDRESSES.GameStateImplementation,
     constructorArguments: [],
   },
   {
     name: "NexusGame",
     address: ADDRESSES.NexusGame,
-    constructorArguments: [ADDRESSES.GameState, ADDRESSES.GameConfig],
+    constructorArguments: [ADDRESSES.GameStateProxy, ADDRESSES.GameConfig],
   },
   {
     name: "PlanetManager",
     address: ADDRESSES.PlanetManager,
-    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameState, ADDRESSES.GameConfig],
+    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameStateProxy, ADDRESSES.GameConfig],
   },
   {
     name: "ShipManager",
     address: ADDRESSES.ShipManager,
-    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameState, ADDRESSES.GameConfig],
+    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameStateProxy, ADDRESSES.GameConfig],
   },
   {
     name: "CombatEngine",
@@ -47,22 +49,27 @@ const contracts = [
   {
     name: "FleetResolver",
     address: ADDRESSES.FleetResolver,
-    constructorArguments: [ADDRESSES.GameState, ADDRESSES.GameConfig, ADDRESSES.CombatEngine],
+    constructorArguments: [ADDRESSES.GameStateProxy, ADDRESSES.GameConfig, ADDRESSES.CombatEngine],
   },
   {
     name: "FleetManager",
     address: ADDRESSES.FleetManager,
-    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameState, ADDRESSES.GameConfig, ADDRESSES.FleetResolver],
+    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameStateProxy, ADDRESSES.GameConfig, ADDRESSES.FleetResolver],
   },
   {
     name: "ResearchManager",
     address: ADDRESSES.ResearchManager,
-    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameState, ADDRESSES.GameConfig],
+    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameStateProxy, ADDRESSES.GameConfig],
   },
   {
     name: "DefenseManager",
     address: ADDRESSES.DefenseManager,
-    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameState, ADDRESSES.GameConfig],
+    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameStateProxy, ADDRESSES.GameConfig],
+  },
+  {
+    name: "TutorialManager",
+    address: ADDRESSES.TutorialManager,
+    constructorArguments: [ADDRESSES.NexusGame, ADDRESSES.GameStateProxy, ADDRESSES.GameConfig],
   },
 ];
 

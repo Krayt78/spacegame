@@ -3,13 +3,15 @@
 On-chain OGame-style space strategy game on Polkadot AssetHub.
 
 ## Repository Structure
-- `contracts/` — Hardhat + Solidity (8 contracts, 259+ tests)
+- `contracts/` — Hardhat + Solidity (10 contracts, 304 tests)
 - `frontend/` — Next.js 16 + React 19 frontend
 - `design/` — Game design documents (ships, defenses, research configs)
 
 ## Key Architecture Decisions
 - Multi-contract pattern to stay under 24KB bytecode limit
-- NexusGame.sol is the router; PlanetManager, ShipManager, FleetManager are the managers
+- NexusGame.sol is the router; PlanetManager, ShipManager, FleetManager, ResearchManager, DefenseManager are the managers
+- CombatEngine.sol provides combat math; FleetResolver.sol handles fleet resolution logic
+- FleetResolver.sol is at 96% of the 24KB bytecode limit — any new fleet logic must consider splitting
 - GameState.sol is the single storage contract; GameConfig.sol holds all constants
 - Frontend uses wagmi v3 hooks that import ABIs from JSON artifacts (never manually defined)
 

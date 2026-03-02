@@ -106,7 +106,17 @@ Hyperspace Drive:
 | 1 | +30% |
 Per level: +30% base speed
 
-Astrophysics: - not implemented for now
+Stealth Systems:
+
+| Level | Titanium | Helium-3 | Dark Matter |
+|---|---|---|---|
+| 1 | 200 | 1000 | 200 |
+
+(No direct per-level bonus currently — reserved for future mechanics)
+
+Each subsequent level Upgrade cost ×2
+
+Astrophysics:
 
 | Level | Titanium | Helium-3 | Dark Matter |
 |---|---|---|---|
@@ -114,7 +124,7 @@ Astrophysics: - not implemented for now
 
 | Level | Colony Slots | Expedition Slots |
 |---|---|---|
-| 1 | 2 | 0 |
+| 1 | 0 | 0 |
 Per 2 levels: +1 colony slot.
 
-Each subsequent level Upgrade cost *2
+Each subsequent level Upgrade cost ×1.75 (exception — all other research uses ×2)
