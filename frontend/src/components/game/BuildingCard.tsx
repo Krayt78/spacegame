@@ -308,7 +308,7 @@ export function BuildingCard({
               </div>
 
               <Button
-                variant={canAfford && !isQueueBlocked ? 'primary' : 'ghost'}
+                variant={canAfford && !isQueueBlocked ? 'primary' : 'secondary'}
                 size="sm"
                 onClick={onUpgrade}
                 disabled={!canAfford || isUpgrading || isQueueBlocked}

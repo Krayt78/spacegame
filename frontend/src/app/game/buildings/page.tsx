@@ -284,7 +284,7 @@ function BuildingItem({
 
         {/* Upgrade button */}
         <Button
-          variant="primary"
+          variant={canUpgrade ? 'primary' : 'secondary'}
           size="sm"
           className="w-full"
           disabled={!canUpgrade}

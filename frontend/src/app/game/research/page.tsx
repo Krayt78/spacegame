@@ -242,7 +242,7 @@ function ResearchItem({
         </div>
 
         <Button
-          variant="primary"
+          variant={canResearch ? 'primary' : 'secondary'}
           size="sm"
           className="w-full"
           disabled={!canResearch}
