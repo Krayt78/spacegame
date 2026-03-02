@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useActivePlanetId, usePlanetData, useCurrentResources, useProductionRates, useBlockTimestamp, useBuildTime, useShipQueue, useShipBuildTime, useResearchQueue, useResearchTime, type ResearchQueueResult } from '@/hooks';
+import { useActivePlanetId, usePlanetData, useCurrentResources, useProductionRates, useBlockTimestamp, useBuildTime, useShipQueue, useShipBuildTime, useResearchQueue, useResearchTime, usePlayerFleetIds, type ResearchQueueResult } from '@/hooks';
 import { GameLayout } from '@/components/layout';
-import { BuildQueue, ShipQueue, ResearchQueue } from '@/components/game';
+import { BuildQueue, ShipQueue, ResearchQueue, FleetList } from '@/components/game';
 import { Card, CardHeader, CardContent } from '@/components/ui';
 import { formatNumber, calculateStorageCapacity } from '@/lib/utils';
 
@@ -112,6 +112,9 @@ export default function GameDashboard() {
     const totalDuration = shipBuildTimeData ? Number(shipBuildTimeData) : timeRemaining;
     return { timeRemaining, totalDuration };
   }, [shipQueue, hasActiveShipQueue, blockTimestamp, shipBuildTimeData]);
+
+  // Fetch active fleet IDs
+  const { data: fleetIds } = usePlayerFleetIds();
 
   // Fetch research queue data
   const { data: researchQueueData } = useResearchQueue();
@@ -242,6 +245,11 @@ export default function GameDashboard() {
             initialTimeRemaining={researchQueueTimeInfo.timeRemaining}
             totalDuration={researchQueueTimeInfo.totalDuration}
           />
+        )}
+
+        {/* Active Fleets */}
+        {fleetIds && fleetIds.length > 0 && (
+          <FleetList fleetIds={fleetIds} blockTimestamp={blockTimestamp} />
         )}
 
         {/* Resource Overview */}
