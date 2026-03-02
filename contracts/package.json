@@ -5,7 +5,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost && node scripts/exportABI.js",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network polkadotHubTestnet",
     "upgrade:local": "hardhat run scripts/upgrade.ts --network localhost",
     "upgrade:testnet": "hardhat run scripts/upgrade.ts --network polkadotHubTestnet",
