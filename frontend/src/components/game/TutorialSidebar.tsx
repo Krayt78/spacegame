@@ -91,8 +91,6 @@ function QuestRow({
   onClaim,
   onFloatingDone,
 }: QuestRowProps) {
-  const isLocked = !isClaimed && !isClaimable;
-
   const borderColor = isClaimed
     ? 'border-[var(--bg-tertiary)]'
     : isClaimable
@@ -113,7 +111,6 @@ function QuestRow({
         borderColor,
         bgColor,
         glowClass,
-        isLocked && 'opacity-40'
       )}
     >
       {/* Floating reward animation */}
@@ -218,7 +215,7 @@ function QuestRow({
         <p
           className={cn(
             'font-mono text-[11px] leading-snug ml-5 mt-1.5',
-            isClaimable ? 'text-[var(--text-muted)]' : 'text-[var(--text-muted)]/50'
+            'text-[var(--text-muted)]'
           )}
         >
           {quest.tip}
@@ -268,8 +265,8 @@ export function TutorialSidebar() {
   } = useClaimTutorialQuest();
 
   // Derived tutorial state
-  const claimed: readonly boolean[] = tutorialData ? tutorialData[0] : Array(10).fill(false);
-  const claimable: readonly boolean[] = tutorialData ? tutorialData[1] : Array(10).fill(false);
+  const claimed: readonly boolean[] = tutorialData ? tutorialData[0] : Array(11).fill(false);
+  const claimable: readonly boolean[] = tutorialData ? tutorialData[1] : Array(11).fill(false);
   const allDone: boolean = tutorialData ? tutorialData[2] : false;
 
   const claimCount = claimed.filter(Boolean).length;

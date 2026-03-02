@@ -37,12 +37,13 @@ const QUEST_REWARDS = [
   { titanium: 50n,  helium3: 100n, darkMatter: 0n },  // Quest 1
   { titanium: 150n, helium3: 100n, darkMatter: 0n },  // Quest 2
   { titanium: 200n, helium3: 100n, darkMatter: 50n }, // Quest 3
-  { titanium: 150n, helium3: 150n, darkMatter: 0n },  // Quest 4
-  { titanium: 300n, helium3: 200n, darkMatter: 100n },// Quest 5
-  { titanium: 200n, helium3: 200n, darkMatter: 100n },// Quest 6
-  { titanium: 200n, helium3: 100n, darkMatter: 0n },  // Quest 7
-  { titanium: 300n, helium3: 200n, darkMatter: 0n },  // Quest 8
-  { titanium: 500n, helium3: 300n, darkMatter: 100n },// Quest 9
+  { titanium: 100n, helium3: 50n, darkMatter: 50n },  // Quest 4 (NEW)
+  { titanium: 150n, helium3: 150n, darkMatter: 0n },  // Quest 5 (was 4)
+  { titanium: 300n, helium3: 200n, darkMatter: 200n },// Quest 6 (was 5, DM 100->200)
+  { titanium: 200n, helium3: 200n, darkMatter: 100n },// Quest 7 (was 6)
+  { titanium: 200n, helium3: 100n, darkMatter: 0n },  // Quest 8 (was 7)
+  { titanium: 300n, helium3: 200n, darkMatter: 0n },  // Quest 9 (was 8)
+  { titanium: 500n, helium3: 300n, darkMatter: 100n },// Quest 10 (was 9)
 ];
 
 /**
@@ -191,12 +192,12 @@ describe("TutorialManager", function () {
   // ============ CANNOT CLAIM UNMET CONDITION ============
 
   describe("Cannot claim quest with unmet condition", function () {
-    it("Should revert when claiming quest 5 (shipyard) without a shipyard", async function () {
+    it("Should revert when claiming quest 6 (shipyard) without a shipyard", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
       // Starter planet has no shipyard
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 5)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 6)
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
 
@@ -209,11 +210,11 @@ describe("TutorialManager", function () {
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
 
-    it("Should revert when claiming quest 8 (LightFighter) without ships", async function () {
+    it("Should revert when claiming quest 9 (LightFighter) without ships", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 8)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 9)
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
   });
@@ -221,7 +222,7 @@ describe("TutorialManager", function () {
   // ============ NON-LINEAR CLAIMING ============
 
   describe("Non-linear quest claiming", function () {
-    it("Should allow claiming quest 5 (shipyard) before quest 0", async function () {
+    it("Should allow claiming quest 6 (shipyard) before quest 0", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       // Build a shipyard (needs DM collector first for resources)
@@ -238,16 +239,16 @@ describe("TutorialManager", function () {
       await advanceTime(3600);
       await contracts.nexusGame.completeUpgrade(planetId);
 
-      const reward = QUEST_REWARDS[5];
+      const reward = QUEST_REWARDS[6];
 
-      // Claim quest 5 directly, skipping quests 0-4
+      // Claim quest 6 directly, skipping quests 0-5
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 5)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 6)
       ).to.emit(contracts.tutorialManager, "QuestClaimed")
-        .withArgs(signers.player1.address, 5, reward.titanium, reward.helium3, reward.darkMatter);
+        .withArgs(signers.player1.address, 6, reward.titanium, reward.helium3, reward.darkMatter);
 
       const [claimed, , ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      expect(claimed[5]).to.be.true;
+      expect(claimed[6]).to.be.true;
       // Earlier quests still unclaimed
       expect(claimed[0]).to.be.false;
       expect(claimed[1]).to.be.false;
@@ -304,11 +305,11 @@ describe("TutorialManager", function () {
   // ============ INVALID QUEST ID ============
 
   describe("Invalid quest ID", function () {
-    it("Should revert when claiming quest 10 (out of bounds)", async function () {
+    it("Should revert when claiming quest 11 (out of bounds)", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 10)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 11)
       ).to.be.revertedWith("TutorialManager: invalid quest");
     });
 
@@ -320,29 +321,33 @@ describe("TutorialManager", function () {
       ).to.be.revertedWith("TutorialManager: invalid quest");
     });
 
-    it("Should accept quest 9 as valid (last valid quest ID)", async function () {
+    it("Should accept quest 10 as valid (last valid quest ID)", async function () {
       // Just verify the revert is not "invalid quest" but something else (condition not met)
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 9)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 10)
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
   });
 
-  // ============ QUEST 4: SAFE STORAGE (OR CONDITION) ============
+  // ============ QUEST 4: DARK EXPANSION ============
 
-  describe("Quest 4: Safe Storage (storage building OR condition)", function () {
-    it("Should claim quest 4 by building only a Titanium Vault", async function () {
+  describe("Quest 4: Dark Expansion (darkMatterCollector >= 2)", function () {
+    it("Should claim quest 4 after upgrading Dark Matter Collector to level 2", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
-      // Titanium Vault costs 1000 Ti, 0 He3. Starter has 500 Ti + level-1 extractor (30 Ti/hr).
-      // Accumulate for 20 hours (30 Ti/hr * 20 = 600 Ti) → total ~1100 Ti before build.
-      await advanceTime(72000); // 20 hours
+      // Build Dark Matter Collector to level 1
+      await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.DARKMATTER_COLLECTOR);
+      await advanceTime(3600);
+      await contracts.nexusGame.completeUpgrade(planetId);
+
+      // Accumulate resources for level 2 upgrade
+      await advanceTime(36000);
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
 
-      // Build Titanium Vault (costs 1000 Ti, 0 He3, 0 DM)
-      await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.TITANIUM_VAULT);
+      // Upgrade to level 2
+      await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.DARKMATTER_COLLECTOR);
       await advanceTime(3600);
       await contracts.nexusGame.completeUpgrade(planetId);
 
@@ -357,7 +362,49 @@ describe("TutorialManager", function () {
       expect(claimed[4]).to.be.true;
     });
 
-    it("Should claim quest 4 with only a Helium-3 Tank", async function () {
+    it("Should NOT be claimable with darkMatterCollector at level 1", async function () {
+      const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
+
+      // Build DM collector to level 1 only
+      await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.DARKMATTER_COLLECTOR);
+      await advanceTime(3600);
+      await contracts.nexusGame.completeUpgrade(planetId);
+
+      // Quest 4 requires >= 2, so this should fail
+      await expect(
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 4)
+      ).to.be.revertedWith("TutorialManager: quest condition not met");
+    });
+  });
+
+  // ============ QUEST 5: SAFE STORAGE (OR CONDITION) ============
+
+  describe("Quest 5: Safe Storage (storage building OR condition)", function () {
+    it("Should claim quest 5 by building only a Titanium Vault", async function () {
+      const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
+
+      // Titanium Vault costs 1000 Ti, 0 He3. Starter has 500 Ti + level-1 extractor (30 Ti/hr).
+      // Accumulate for 20 hours (30 Ti/hr * 20 = 600 Ti) → total ~1100 Ti before build.
+      await advanceTime(72000); // 20 hours
+      await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
+
+      // Build Titanium Vault (costs 1000 Ti, 0 He3, 0 DM)
+      await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.TITANIUM_VAULT);
+      await advanceTime(3600);
+      await contracts.nexusGame.completeUpgrade(planetId);
+
+      const reward = QUEST_REWARDS[5];
+
+      await expect(
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 5)
+      ).to.emit(contracts.tutorialManager, "QuestClaimed")
+        .withArgs(signers.player1.address, 5, reward.titanium, reward.helium3, reward.darkMatter);
+
+      const [claimed, , ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
+      expect(claimed[5]).to.be.true;
+    });
+
+    it("Should claim quest 5 with only a Helium-3 Tank", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       // Helium-3 Tank costs 1000 Ti, 500 He3. Accumulate 20 hours first.
@@ -369,28 +416,28 @@ describe("TutorialManager", function () {
       await advanceTime(3600);
       await contracts.nexusGame.completeUpgrade(planetId);
 
-      const reward = QUEST_REWARDS[4];
+      const reward = QUEST_REWARDS[5];
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 4)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 5)
       ).to.emit(contracts.tutorialManager, "QuestClaimed")
-        .withArgs(signers.player1.address, 4, reward.titanium, reward.helium3, reward.darkMatter);
+        .withArgs(signers.player1.address, 5, reward.titanium, reward.helium3, reward.darkMatter);
     });
 
-    it("Should revert for quest 4 when no storage buildings exist", async function () {
+    it("Should revert for quest 5 when no storage buildings exist", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
       // No storage buildings built on starter planet
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 4)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 5)
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
   });
 
-  // ============ QUEST 7: FIRST RESEARCH (COMBUSTION DRIVE) ============
+  // ============ QUEST 8: FIRST RESEARCH (COMBUSTION DRIVE) ============
 
-  describe("Quest 7: First Research (combustionDrive >= 1)", function () {
-    it("Should claim quest 7 after researching Combustion Drive", async function () {
+  describe("Quest 8: First Research (combustionDrive >= 1)", function () {
+    it("Should claim quest 8 after researching Combustion Drive", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       // Build DM collector to get dark matter
@@ -420,28 +467,28 @@ describe("TutorialManager", function () {
       const research = await contracts.nexusGame.getPlayerResearch(signers.player1.address);
       expect(research.combustionDrive).to.equal(1);
 
-      const reward = QUEST_REWARDS[7];
+      const reward = QUEST_REWARDS[8];
 
-      // Claim quest 7
+      // Claim quest 8
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 7)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 8)
       ).to.emit(contracts.tutorialManager, "QuestClaimed")
-        .withArgs(signers.player1.address, 7, reward.titanium, reward.helium3, reward.darkMatter);
+        .withArgs(signers.player1.address, 8, reward.titanium, reward.helium3, reward.darkMatter);
 
       const [claimed, , ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      expect(claimed[7]).to.be.true;
+      expect(claimed[8]).to.be.true;
     });
 
-    it("Should revert for quest 7 without Combustion Drive research", async function () {
+    it("Should revert for quest 8 without Combustion Drive research", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 7)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 8)
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
 
     it("Should check research per-player, not per-planet", async function () {
-      // Player1 completes research, player2 should not be able to claim quest 7
+      // Player1 completes research, player2 should not be able to claim quest 8
       const planetId1 = await claimPlanet(contracts.nexusGame, signers.player1, "Planet One");
       const planetId2 = await claimPlanet(contracts.nexusGame, signers.player2, "Planet Two");
 
@@ -464,7 +511,7 @@ describe("TutorialManager", function () {
 
       // Player2 should still fail (their own research is 0)
       await expect(
-        contracts.nexusGame.connect(signers.player2).claimTutorialQuest(planetId2, 7)
+        contracts.nexusGame.connect(signers.player2).claimTutorialQuest(planetId2, 8)
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
   });
@@ -534,7 +581,7 @@ describe("TutorialManager", function () {
 
       // Initially: no claims, no conditions met except starter planet has Ti=1 (quest 0 needs >= 2)
       let [claimed, claimable, allDone] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 11; i++) {
         expect(claimed[i]).to.be.false;
       }
       expect(allDone).to.be.false;
@@ -565,7 +612,7 @@ describe("TutorialManager", function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       const [claimed, , allDone] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 11; i++) {
         expect(claimed[i]).to.be.false;
       }
       expect(allDone).to.be.false;
@@ -595,8 +642,8 @@ describe("TutorialManager", function () {
   // ============ QUEST REWARD VIEW ============
 
   describe("getTutorialQuestReward view function", function () {
-    it("Should return correct rewards for all 10 quests", async function () {
-      for (let i = 0; i < 10; i++) {
+    it("Should return correct rewards for all 11 quests", async function () {
+      for (let i = 0; i < 11; i++) {
         const [ti, he3, dm] = await contracts.nexusGame.getTutorialQuestReward(i);
         const expected = QUEST_REWARDS[i];
         expect(ti).to.equal(expected.titanium, `Quest ${i} titanium mismatch`);
@@ -605,24 +652,24 @@ describe("TutorialManager", function () {
       }
     });
 
-    it("Should revert for invalid quest ID (10+)", async function () {
+    it("Should revert for invalid quest ID (11+)", async function () {
       await expect(
-        contracts.nexusGame.getTutorialQuestReward(10)
+        contracts.nexusGame.getTutorialQuestReward(11)
       ).to.be.revertedWith("TutorialManager: invalid quest");
     });
 
-    it("Should return correct reward for quest 9 (largest reward)", async function () {
-      const [ti, he3, dm] = await contracts.nexusGame.getTutorialQuestReward(9);
+    it("Should return correct reward for quest 10 (largest reward)", async function () {
+      const [ti, he3, dm] = await contracts.nexusGame.getTutorialQuestReward(10);
       expect(ti).to.equal(500n);
       expect(he3).to.equal(300n);
       expect(dm).to.equal(100n);
     });
   });
 
-  // ============ QUESTS 8 & 9: SHIP-BASED QUESTS ============
+  // ============ QUESTS 9 & 10: SHIP-BASED QUESTS ============
 
-  describe("Quest 8: Maiden Voyage (LightFighter >= 1)", function () {
-    it("Should claim quest 8 after building 1 LightFighter", async function () {
+  describe("Quest 9: Maiden Voyage (LightFighter >= 1)", function () {
+    it("Should claim quest 9 after building 1 LightFighter", async function () {
       const planetId = await setupPlayerWithShips(
         contracts.nexusGame,
         contracts.gameConfig,
@@ -633,44 +680,6 @@ describe("TutorialManager", function () {
 
       const ships = await contracts.nexusGame.getShips(planetId);
       expect(ships[SHIP.LIGHT_FIGHTER]).to.equal(1n);
-
-      const reward = QUEST_REWARDS[8];
-
-      await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 8)
-      ).to.emit(contracts.tutorialManager, "QuestClaimed")
-        .withArgs(signers.player1.address, 8, reward.titanium, reward.helium3, reward.darkMatter);
-
-      const [claimed, , ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      expect(claimed[8]).to.be.true;
-    });
-
-    it("Should show quest 8 as claimable when condition is met", async function () {
-      const planetId = await setupPlayerWithShips(
-        contracts.nexusGame,
-        contracts.gameConfig,
-        signers.player1,
-        SHIP.LIGHT_FIGHTER,
-        1
-      );
-
-      const [, claimable, ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      expect(claimable[8]).to.be.true;
-    });
-  });
-
-  describe("Quest 9: Battle Ready (LightFighter >= 5)", function () {
-    it("Should claim quest 9 after building 5 LightFighters", async function () {
-      const planetId = await setupPlayerWithShips(
-        contracts.nexusGame,
-        contracts.gameConfig,
-        signers.player1,
-        SHIP.LIGHT_FIGHTER,
-        5
-      );
-
-      const ships = await contracts.nexusGame.getShips(planetId);
-      expect(ships[SHIP.LIGHT_FIGHTER]).to.equal(5n);
 
       const reward = QUEST_REWARDS[9];
 
@@ -683,7 +692,45 @@ describe("TutorialManager", function () {
       expect(claimed[9]).to.be.true;
     });
 
-    it("Should revert for quest 9 when only 4 LightFighters exist", async function () {
+    it("Should show quest 9 as claimable when condition is met", async function () {
+      const planetId = await setupPlayerWithShips(
+        contracts.nexusGame,
+        contracts.gameConfig,
+        signers.player1,
+        SHIP.LIGHT_FIGHTER,
+        1
+      );
+
+      const [, claimable, ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
+      expect(claimable[9]).to.be.true;
+    });
+  });
+
+  describe("Quest 10: Battle Ready (LightFighter >= 5)", function () {
+    it("Should claim quest 10 after building 5 LightFighters", async function () {
+      const planetId = await setupPlayerWithShips(
+        contracts.nexusGame,
+        contracts.gameConfig,
+        signers.player1,
+        SHIP.LIGHT_FIGHTER,
+        5
+      );
+
+      const ships = await contracts.nexusGame.getShips(planetId);
+      expect(ships[SHIP.LIGHT_FIGHTER]).to.equal(5n);
+
+      const reward = QUEST_REWARDS[10];
+
+      await expect(
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 10)
+      ).to.emit(contracts.tutorialManager, "QuestClaimed")
+        .withArgs(signers.player1.address, 10, reward.titanium, reward.helium3, reward.darkMatter);
+
+      const [claimed, , ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
+      expect(claimed[10]).to.be.true;
+    });
+
+    it("Should revert for quest 10 when only 4 LightFighters exist", async function () {
       const planetId = await setupPlayerWithShips(
         contracts.nexusGame,
         contracts.gameConfig,
@@ -696,11 +743,11 @@ describe("TutorialManager", function () {
       expect(ships[SHIP.LIGHT_FIGHTER]).to.equal(4n);
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 9)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 10)
       ).to.be.revertedWith("TutorialManager: quest condition not met");
     });
 
-    it("Should allow claiming quest 8 and quest 9 independently with 5 fighters", async function () {
+    it("Should allow claiming quest 9 and quest 10 independently with 5 fighters", async function () {
       const planetId = await setupPlayerWithShips(
         contracts.nexusGame,
         contracts.gameConfig,
@@ -711,26 +758,26 @@ describe("TutorialManager", function () {
 
       // Both quests should be claimable
       const [, claimable, ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      expect(claimable[8]).to.be.true;
       expect(claimable[9]).to.be.true;
+      expect(claimable[10]).to.be.true;
 
-      // Claim quest 8 first
-      await contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 8);
-      // Claim quest 9
+      // Claim quest 9 first
       await contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 9);
+      // Claim quest 10
+      await contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 10);
 
       const [claimed, , ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      expect(claimed[8]).to.be.true;
       expect(claimed[9]).to.be.true;
+      expect(claimed[10]).to.be.true;
     });
   });
 
   // ============ ALL QUESTS COMPLETED ============
 
   describe("All quests completed — tutorial completion", function () {
-    it("Should complete all 10 quests, emit TutorialCompleted, set tutorialCompleted=true, and prevent further claims", async function () {
+    it("Should complete all 11 quests, emit TutorialCompleted, set tutorialCompleted=true, and prevent further claims", async function () {
       // Use setupPlayerWithShips to get 5 LightFighters + research + shipyard + research node
-      // This covers quests 5, 6, 7, 8, 9 prerequisites
+      // This covers quests 6, 7, 8, 9, 10 prerequisites
       const planetId = await setupPlayerWithShips(
         contracts.nexusGame,
         contracts.gameConfig,
@@ -740,20 +787,28 @@ describe("TutorialManager", function () {
       );
 
       // At this point we have:
-      // - titaniumExtractor >= 2 (from setup) -> quest 0 claimable
-      // - helium3Harvester >= 2 (from setup)  -> quest 1 claimable
-      // - darkMatterCollector >= 1 (from setup)-> quest 2 claimable
-      // - shipyard >= 1 (from setup)           -> quest 5 claimable
-      // - researchNode >= 1 (from setup)       -> quest 6 claimable
-      // - combustionDrive >= 1 (from setup)    -> quest 7 claimable
-      // - LightFighters = 5                    -> quests 8 and 9 claimable
+      // - titaniumExtractor >= 2 (from setup)  -> quest 0 claimable
+      // - helium3Harvester >= 2 (from setup)   -> quest 1 claimable
+      // - darkMatterCollector >= 1 (from setup) -> quest 2 claimable
+      // - shipyard >= 1 (from setup)            -> quest 6 claimable
+      // - researchNode >= 1 (from setup)        -> quest 7 claimable
+      // - combustionDrive >= 1 (from setup)     -> quest 8 claimable
+      // - LightFighters = 5                     -> quests 9 and 10 claimable
 
       // Still need for quest 3: Ti >= 3 AND He3 >= 3
       // Setup brings them both to level 2, so upgrade each one more time
       await upgradeToLevel(contracts.nexusGame, signers.player1, planetId, BUILDING.TITANIUM_EXTRACTOR, 3, 2);
       await upgradeToLevel(contracts.nexusGame, signers.player1, planetId, BUILDING.HELIUM3_HARVESTER, 3, 2);
 
-      // Still need for quest 4: any storage building >= 1
+      // Still need for quest 4: darkMatterCollector >= 2
+      // Setup builds DM collector to level 1, so upgrade it to level 2
+      await advanceTime(36000);
+      await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
+      await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.DARKMATTER_COLLECTOR);
+      await advanceTime(3600);
+      await contracts.nexusGame.completeUpgrade(planetId);
+
+      // Still need for quest 5: any storage building >= 1
       // Build a Titanium Vault
       await advanceTime(72000);
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
@@ -763,22 +818,22 @@ describe("TutorialManager", function () {
 
       // Verify all conditions are met by checking claimable status
       const [, claimable, ] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 11; i++) {
         expect(claimable[i]).to.be.true;
       }
 
-      // Claim quests 0 through 8 (non-final)
-      for (let questId = 0; questId < 9; questId++) {
+      // Claim quests 0 through 9 (non-final)
+      for (let questId = 0; questId < 10; questId++) {
         await contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, questId);
       }
 
-      // Claiming quest 9 (the final quest) should emit both QuestClaimed and TutorialCompleted
-      const lastReward = QUEST_REWARDS[9];
-      const tx = await contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 9);
+      // Claiming quest 10 (the final quest) should emit both QuestClaimed and TutorialCompleted
+      const lastReward = QUEST_REWARDS[10];
+      const tx = await contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 10);
 
       await expect(tx)
         .to.emit(contracts.tutorialManager, "QuestClaimed")
-        .withArgs(signers.player1.address, 9, lastReward.titanium, lastReward.helium3, lastReward.darkMatter);
+        .withArgs(signers.player1.address, 10, lastReward.titanium, lastReward.helium3, lastReward.darkMatter);
 
       await expect(tx)
         .to.emit(contracts.tutorialManager, "TutorialCompleted")
@@ -791,7 +846,7 @@ describe("TutorialManager", function () {
       // getTutorialStatus should show allDone = true
       const [claimedFinal, , allDone] = await contracts.nexusGame.getTutorialStatus(signers.player1.address, planetId);
       expect(allDone).to.be.true;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 11; i++) {
         expect(claimedFinal[i]).to.be.true;
       }
 
@@ -810,17 +865,24 @@ describe("TutorialManager", function () {
         5
       );
 
-      // Upgrade buildings for quests 3 and 4
+      // Upgrade buildings for quests 3, 4, and 5
       await upgradeToLevel(contracts.nexusGame, signers.player1, planetId, BUILDING.TITANIUM_EXTRACTOR, 3, 2);
       await upgradeToLevel(contracts.nexusGame, signers.player1, planetId, BUILDING.HELIUM3_HARVESTER, 3, 2);
+      // Upgrade DM collector from level 1 to level 2 (for quest 4)
+      await advanceTime(36000);
+      await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
+      await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.DARKMATTER_COLLECTOR);
+      await advanceTime(3600);
+      await contracts.nexusGame.completeUpgrade(planetId);
+      // Build Titanium Vault (for quest 5)
       await advanceTime(72000);
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
       await contracts.nexusGame.connect(signers.player1).upgradeBuilding(planetId, BUILDING.TITANIUM_VAULT);
       await advanceTime(3600);
       await contracts.nexusGame.completeUpgrade(planetId);
 
-      // Claim quests 0-8 (9 out of 10)
-      for (let questId = 0; questId < 9; questId++) {
+      // Claim quests 0-9 (10 out of 11)
+      for (let questId = 0; questId < 10; questId++) {
         await contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, questId);
       }
 
@@ -890,10 +952,10 @@ describe("TutorialManager", function () {
     });
   });
 
-  // ============ QUEST 5: THE FORGE ============
+  // ============ QUEST 6: THE FORGE ============
 
-  describe("Quest 5: The Forge (shipyard >= 1)", function () {
-    it("Should claim quest 5 after building a Shipyard", async function () {
+  describe("Quest 6: The Forge (shipyard >= 1)", function () {
+    it("Should claim quest 6 after building a Shipyard", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       // Build DM collector first for resource ramp-up
@@ -909,19 +971,19 @@ describe("TutorialManager", function () {
       await advanceTime(3600);
       await contracts.nexusGame.completeUpgrade(planetId);
 
-      const reward = QUEST_REWARDS[5];
+      const reward = QUEST_REWARDS[6];
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 5)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 6)
       ).to.emit(contracts.tutorialManager, "QuestClaimed")
-        .withArgs(signers.player1.address, 5, reward.titanium, reward.helium3, reward.darkMatter);
+        .withArgs(signers.player1.address, 6, reward.titanium, reward.helium3, reward.darkMatter);
     });
   });
 
-  // ============ QUEST 6: KNOWLEDGE IS POWER ============
+  // ============ QUEST 7: KNOWLEDGE IS POWER ============
 
-  describe("Quest 6: Knowledge is Power (researchNode >= 1)", function () {
-    it("Should claim quest 6 after building a Research Node", async function () {
+  describe("Quest 7: Knowledge is Power (researchNode >= 1)", function () {
+    it("Should claim quest 7 after building a Research Node", async function () {
       const planetId = await claimPlanet(contracts.nexusGame, signers.player1, "Test Planet");
 
       // Build DM collector first
@@ -937,12 +999,12 @@ describe("TutorialManager", function () {
       await advanceTime(3600);
       await contracts.nexusGame.completeUpgrade(planetId);
 
-      const reward = QUEST_REWARDS[6];
+      const reward = QUEST_REWARDS[7];
 
       await expect(
-        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 6)
+        contracts.nexusGame.connect(signers.player1).claimTutorialQuest(planetId, 7)
       ).to.emit(contracts.tutorialManager, "QuestClaimed")
-        .withArgs(signers.player1.address, 6, reward.titanium, reward.helium3, reward.darkMatter);
+        .withArgs(signers.player1.address, 7, reward.titanium, reward.helium3, reward.darkMatter);
     });
   });
 
