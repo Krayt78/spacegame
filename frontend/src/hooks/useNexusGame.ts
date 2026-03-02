@@ -1220,6 +1220,7 @@ export function usePlayerFleetCount() {
     args: address ? [address] : undefined,
     query: {
       enabled: !!address && !!NEXUS_GAME_ADDRESS,
+      refetchOnMount: 'always',
     },
   }) as ReturnType<typeof useReadContract> & { data: bigint | undefined };
 }
