@@ -9,7 +9,6 @@ Armour Technology (Level 2)
 Impulse Drive (Level 2)
 Astrophysics (Level 3)
 Stealth Systems (Level 3)
-Power Systems (Level 4)
 Ion Technology (Level 4)
 Plasma Technology (Level 4)
 Weapon Technology (Level 4)
@@ -41,9 +40,6 @@ Allows colonizing more planets and sending more expeditions. Every 2 levels gran
 
 Stealth Systems:
 Advanced cloaking and electronic warfare capabilities for covert operations.
-
-Power Systems:
-Enhanced energy generation and distribution systems for advanced ship and station operations.
 
 Ion Technology:
 Enables concentrated ion beams for damage.

@@ -59,7 +59,6 @@ export default function ShipyardPage() {
       weaponTech: Number(data.weaponTech),
       shieldingTech: Number(data.shieldingTech),
       armourTech: Number(data.armourTech),
-      powerSystems: Number(data.powerSystems),
       computerTech: Number(data.computerTech),
       stealthSystems: Number(data.stealthSystems),
       ionTech: Number(data.ionTech),

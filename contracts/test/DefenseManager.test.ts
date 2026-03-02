@@ -677,7 +677,7 @@ describe("DefenseManager", function () {
       for (let i = 0; i < 3; i++) {
         await advanceTime(360000);
         await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
-        await contracts.nexusGame.connect(signers.player1).startResearch(planetId, 12); // LASER_TECH
+        await contracts.nexusGame.connect(signers.player1).startResearch(planetId, 11); // LASER_TECH
         await advanceTime(3600);
         await contracts.nexusGame.completeResearch(signers.player1.address);
       }
@@ -749,7 +749,7 @@ describe("DefenseManager", function () {
       for (let i = 0; i < 3; i++) {
         await advanceTime(360000);
         await contracts.nexusGame.connect(signers.player1).claimResources(planetId);
-        await contracts.nexusGame.connect(signers.player1).startResearch(planetId, 12);
+        await contracts.nexusGame.connect(signers.player1).startResearch(planetId, 11);
         await advanceTime(3600);
         await contracts.nexusGame.completeResearch(signers.player1.address);
       }

@@ -82,14 +82,13 @@ contract GameConfig is Ownable {
         WEAPON_TECH,            // 4
         SHIELDING_TECH,         // 5
         ARMOUR_TECH,            // 6
-        POWER_SYSTEMS,          // 7
-        COMPUTER_TECH,          // 8
-        STEALTH_SYSTEMS,        // 9
-        ION_TECH,               // 10
-        HYPERSPACE_TECH,        // 11
-        LASER_TECH,             // 12
-        PLASMA_TECH,            // 13
-        ASTROPHYSICS            // 14
+        COMPUTER_TECH,          // 7
+        STEALTH_SYSTEMS,        // 8
+        ION_TECH,               // 9
+        HYPERSPACE_TECH,        // 10
+        LASER_TECH,             // 11
+        PLASMA_TECH,            // 12
+        ASTROPHYSICS            // 13
     }
 
     // Cost structure
@@ -471,11 +470,6 @@ contract GameConfig is Ownable {
 
         researchConfigs[ResearchType.ARMOUR_TECH] = ResearchConfig({
             baseCost: Cost(1000, 0, 0),
-            costMultiplier: 200
-        });
-
-        researchConfigs[ResearchType.POWER_SYSTEMS] = ResearchConfig({
-            baseCost: Cost(0, 800, 400),
             costMultiplier: 200
         });
 

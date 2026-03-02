@@ -27,7 +27,6 @@ struct Buildings {
     uint8 titaniumExtractor;
     uint8 helium3Harvester;
     uint8 darkMatterCollector;
-    uint8 fusionReactor;
     uint8 titaniumVault;
     uint8 helium3Tank;
     uint8 darkMatterContainment;
@@ -90,8 +89,7 @@ function calculateCurrentResources(uint256 planetId) external view returns (
 function getProductionRates(uint256 planetId) external view returns (
     uint256 titaniumPerHour,
     uint256 helium3PerHour,
-    uint256 darkMatterPerHour,
-    uint256 energy
+    uint256 darkMatterPerHour
 );
 ```
 
@@ -124,12 +122,12 @@ enum BuildingType {
     TITANIUM_EXTRACTOR,      // 1
     HELIUM3_HARVESTER,       // 2
     DARKMATTER_COLLECTOR,    // 3
-    FUSION_REACTOR,          // 4
-    TITANIUM_VAULT,          // 5
-    HELIUM3_TANK,            // 6
-    DARKMATTER_CONTAINMENT,  // 7
-    ASSEMBLY_BAY,            // 8
-    RESEARCH_NODE            // 9
+    TITANIUM_VAULT,          // 4
+    HELIUM3_TANK,            // 5
+    DARKMATTER_CONTAINMENT,  // 6
+    SHIPYARD,                // 7
+    RESEARCH_NODE,           // 8
+    UNDERGROUND_BUNKER       // 9
 }
 ```
 
@@ -217,7 +215,6 @@ export const nexusGameAbi = [
           { name: 'titaniumExtractor', type: 'uint8' },
           { name: 'helium3Harvester', type: 'uint8' },
           { name: 'darkMatterCollector', type: 'uint8' },
-          { name: 'fusionReactor', type: 'uint8' },
           { name: 'titaniumVault', type: 'uint8' },
           { name: 'helium3Tank', type: 'uint8' },
           { name: 'darkMatterContainment', type: 'uint8' },
@@ -268,7 +265,6 @@ export const nexusGameAbi = [
       { name: 'titaniumPerHour', type: 'uint256' },
       { name: 'helium3PerHour', type: 'uint256' },
       { name: 'darkMatterPerHour', type: 'uint256' },
-      { name: 'energy', type: 'uint256' },
     ],
     stateMutability: 'view',
     type: 'function',

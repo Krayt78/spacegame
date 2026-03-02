@@ -315,7 +315,7 @@ describe("ResearchBonuses", function () {
       // Research Hyperspace Tech level 1
       await advanceTime(360000);
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId1);
-      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 11); // HYPERSPACE_TECH
+      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 10); // HYPERSPACE_TECH
       await advanceTime(360000);
       await contracts.nexusGame.completeResearch(signers.player1.address);
 
@@ -372,7 +372,7 @@ describe("ResearchBonuses", function () {
       // Research Hyperspace Tech level 1
       await advanceTime(360000);
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId1);
-      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 11); // HYPERSPACE_TECH
+      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 10); // HYPERSPACE_TECH
       await advanceTime(360000);
       await contracts.nexusGame.completeResearch(signers.player1.address);
 

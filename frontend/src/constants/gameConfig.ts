@@ -265,11 +265,6 @@ export const RESEARCH_CONFIG = {
     costMultiplier: 2.0,
     description: 'Increases hull armor strength by 10% per level',
   },
-  powerSystems: {
-    baseCost: { titanium: 0, helium3: 800, darkMatter: 400 },
-    costMultiplier: 2.0,
-    description: 'Advanced power distribution for fleet operations',
-  },
   computerTech: {
     baseCost: { titanium: 0, helium3: 400, darkMatter: 600 },
     costMultiplier: 2.0,
@@ -394,7 +389,6 @@ export const RESEARCH_NAMES: Record<keyof Research, string> = {
   weaponTech: 'Weapon Technology',
   shieldingTech: 'Shielding Technology',
   armourTech: 'Armour Technology',
-  powerSystems: 'Power Systems',
   computerTech: 'Computer Technology',
   stealthSystems: 'Stealth Systems',
   ionTech: 'Ion Technology',

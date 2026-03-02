@@ -1393,11 +1393,6 @@
           },
           {
             "internalType": "uint8",
-            "name": "powerSystems",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint8",
             "name": "computerTech",
             "type": "uint8"
           },
@@ -2073,11 +2068,6 @@
           {
             "internalType": "uint8",
             "name": "armourTech",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint8",
-            "name": "powerSystems",
             "type": "uint8"
           },
           {

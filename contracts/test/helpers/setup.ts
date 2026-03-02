@@ -215,7 +215,7 @@ export async function setupPlayerWithShips(
   await advanceTime(144000); // 40 more hours (total 60 hours)
   await nexusGame.connect(player).claimResources(planetId);
 
-  await nexusGame.connect(player).startResearch(planetId, 8); // COMPUTER_TECH
+  await nexusGame.connect(player).startResearch(planetId, 7); // COMPUTER_TECH
   await advanceTime(3600); // Wait for research to complete
   await nexusGame.completeResearch(player.address);
 

@@ -161,7 +161,7 @@ const { data: resources } = useCurrentResources(planetId);
 
 // Get production rates per hour
 const { data: production } = useProductionRates(planetId);
-// production = [titaniumPerHour, helium3PerHour, darkMatterPerHour, energy]
+// production = [titaniumPerHour, helium3PerHour, darkMatterPerHour]
 
 // Get upgrade cost for building
 const { data: cost } = useUpgradeCost(buildingType, currentLevel);
@@ -320,7 +320,6 @@ interface Buildings {
   titaniumExtractor: number;
   helium3Harvester: number;
   darkMatterCollector: number;
-  fusionReactor: number;
   titaniumVault: number;
   helium3Tank: number;
   darkMatterContainment: number;
@@ -332,7 +331,6 @@ interface Resources {
   titanium: number;
   helium3: number;
   darkMatter: number;
-  energy: number;
 }
 
 interface BuildQueue {

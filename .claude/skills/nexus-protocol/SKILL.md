@@ -38,7 +38,6 @@ On-chain space strategy game inspired by OGame, built on Polkadot AssetHub.
 | Titanium | `titanium` | Titanium Extractor | Titanium Vault |
 | Helium-3 | `helium3` | Helium-3 Harvester | Helium-3 Tank |
 | Dark Matter | `darkMatter` | Dark Matter Collector | Dark Matter Containment |
-| Energy | calculated | Fusion Reactor | (none - instant) |
 
 ### Building Type Enum (Contract)
 ```solidity
@@ -47,12 +46,12 @@ enum BuildingType {
     TITANIUM_EXTRACTOR,      // 1
     HELIUM3_HARVESTER,       // 2
     DARKMATTER_COLLECTOR,    // 3
-    FUSION_REACTOR,          // 4
-    TITANIUM_VAULT,          // 5
-    HELIUM3_TANK,            // 6
-    DARKMATTER_CONTAINMENT,  // 7
-    ASSEMBLY_BAY,            // 8
-    RESEARCH_NODE            // 9
+    TITANIUM_VAULT,          // 4
+    HELIUM3_TANK,            // 5
+    DARKMATTER_CONTAINMENT,  // 6
+    SHIPYARD,                // 7
+    RESEARCH_NODE,           // 8
+    UNDERGROUND_BUNKER       // 9
 }
 ```
 
@@ -62,12 +61,12 @@ const BUILDING_TYPE_MAP: Record<string, number> = {
   titaniumExtractor: 1,
   helium3Harvester: 2,
   darkMatterCollector: 3,
-  fusionReactor: 4,
-  titaniumVault: 5,
-  helium3Tank: 6,
-  darkMatterContainment: 7,
-  assemblyBay: 8,
-  researchNode: 9,
+  titaniumVault: 4,
+  helium3Tank: 5,
+  darkMatterContainment: 6,
+  shipyard: 7,
+  researchNode: 8,
+  undergroundBunker: 9,
 };
 ```
 
@@ -232,7 +231,6 @@ export default function FeaturePage() {
 --resource-titanium: #60a5fa;   /* Blue */
 --resource-helium3: #34d399;    /* Green */
 --resource-darkMatter: #a78bfa; /* Purple */
---resource-energy: #fbbf24;     /* Yellow */
 ```
 
 ## File Locations

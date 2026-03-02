@@ -104,7 +104,6 @@ ABIs will be saved to `/abi` directory for frontend integration.
 - **Titanium** - Common structural material
 - **Helium-3** - Rare isotope for advanced tech
 - **Dark Matter** - Exotic fuel source
-- **Energy** - Powers buildings (calculated, not stored)
 
 ### Buildings
 
@@ -113,7 +112,6 @@ ABIs will be saved to `/abi` directory for frontend integration.
 | Titanium Extractor | Production | Produces titanium |
 | Helium-3 Harvester | Production | Produces helium-3 |
 | Dark Matter Collector | Production | Produces dark matter |
-| Fusion Reactor | Production | Generates energy |
 | Titanium Vault | Storage | Stores titanium |
 | Helium-3 Tank | Storage | Stores helium-3 |
 | Dark Matter Containment | Storage | Stores dark matter |

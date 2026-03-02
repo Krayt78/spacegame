@@ -11,7 +11,6 @@ OGame-inspired formulas and balance decisions for Nexus Protocol.
 | Titanium | Primary building material | Titanium Extractor |
 | Helium-3 | Advanced tech, ships | Helium-3 Harvester |
 | Dark Matter | End-game, special units | Dark Matter Collector |
-| Energy | Powers buildings | Fusion Reactor (instant) |
 
 ### Production Formulas
 
@@ -27,7 +26,6 @@ production = baseProduction × (productionMultiplier / 100) ^ (level - 1)
 | Titanium Extractor | 30/hr | 1.1x |
 | Helium-3 Harvester | 20/hr | 1.1x |
 | Dark Matter Collector | 10/hr | 1.1x |
-| Fusion Reactor | 20 energy | 1.1x |
 
 **Example progression (Titanium Extractor):**
 | Level | Production/hr |
@@ -67,7 +65,6 @@ cost = baseCost × (costMultiplier / 100) ^ level
 | Titanium Extractor | 60 | 15 | 0 | 1.5x |
 | Helium-3 Harvester | 48 | 24 | 0 | 1.6x |
 | Dark Matter Collector | 225 | 75 | 0 | 1.5x |
-| Fusion Reactor | 75 | 30 | 0 | 1.5x |
 | Titanium Vault | 1000 | 0 | 0 | 2.0x |
 | Helium-3 Tank | 1000 | 500 | 0 | 2.0x |
 | Dark Matter Containment | 1000 | 1000 | 0 | 2.0x |
@@ -88,7 +85,6 @@ Where `totalCost = titaniumCost + helium3Cost + darkMatterCost`
 | Titanium Extractor | 30 |
 | Helium-3 Harvester | 30 |
 | Dark Matter Collector | 60 |
-| Fusion Reactor | 30 |
 | Storage Buildings | 60 |
 | Assembly Bay | 120 |
 | Research Node | 120 |
@@ -135,7 +131,6 @@ buildTime = baseTime × quantity / (1 + assemblyBayLevel × 0.5)
 - Hull Reinforcement
 
 **Technology:**
-- Power Systems
 - AI Command Networks
 - Stealth Systems
 
@@ -213,7 +208,6 @@ position = (planetId - 1) % 15 + 1;
 - 0 Dark Matter
 - Titanium Extractor level 1
 - Helium-3 Harvester level 1
-- Fusion Reactor level 1
 
 ## Balance Considerations
 
@@ -221,7 +215,6 @@ position = (planetId - 1) % 15 + 1;
 
 Focus: Resource production buildings
 - Upgrade extractors first
-- Build reactor to maintain energy surplus
 - Save for Assembly Bay to speed future builds
 
 ### Mid Game (Levels 5-15)

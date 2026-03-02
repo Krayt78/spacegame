@@ -119,7 +119,6 @@ contract GameState is Ownable {
         uint8 weaponTech;          // was offensiveSystems
         uint8 shieldingTech;       // was defensiveArrays
         uint8 armourTech;          // was hullReinforcement
-        uint8 powerSystems;        // kept
         uint8 computerTech;        // was aiCommandNetworks
         uint8 stealthSystems;      // kept
         uint8 ionTech;             // NEW
@@ -717,7 +716,6 @@ contract GameState is Ownable {
         if (researchType == GameConfig.ResearchType.WEAPON_TECH) return research.weaponTech;
         if (researchType == GameConfig.ResearchType.SHIELDING_TECH) return research.shieldingTech;
         if (researchType == GameConfig.ResearchType.ARMOUR_TECH) return research.armourTech;
-        if (researchType == GameConfig.ResearchType.POWER_SYSTEMS) return research.powerSystems;
         if (researchType == GameConfig.ResearchType.COMPUTER_TECH) return research.computerTech;
         if (researchType == GameConfig.ResearchType.STEALTH_SYSTEMS) return research.stealthSystems;
         if (researchType == GameConfig.ResearchType.ION_TECH) return research.ionTech;
@@ -757,7 +755,6 @@ contract GameState is Ownable {
         else if (researchType == GameConfig.ResearchType.WEAPON_TECH) research.weaponTech++;
         else if (researchType == GameConfig.ResearchType.SHIELDING_TECH) research.shieldingTech++;
         else if (researchType == GameConfig.ResearchType.ARMOUR_TECH) research.armourTech++;
-        else if (researchType == GameConfig.ResearchType.POWER_SYSTEMS) research.powerSystems++;
         else if (researchType == GameConfig.ResearchType.COMPUTER_TECH) research.computerTech++;
         else if (researchType == GameConfig.ResearchType.STEALTH_SYSTEMS) research.stealthSystems++;
         else if (researchType == GameConfig.ResearchType.ION_TECH) research.ionTech++;

@@ -402,9 +402,9 @@ describe("FleetManager", function () {
 
       // Verify Computer Tech is level 1
       // Note: research array index is enum_value - 1 (because NONE is not in the struct)
-      // COMPUTER_TECH = enum 8, so it's at array index 7
+      // COMPUTER_TECH = enum 7, so it's at array index 6
       let research = await contracts.nexusGame.getPlayerResearch(signers.player1.address);
-      expect(research[7]).to.equal(1);
+      expect(research[6]).to.equal(1);
 
       // Dispatch first fleet with Computer Tech level 1
       let ships = [0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n];
@@ -416,13 +416,13 @@ describe("FleetManager", function () {
       // Computer Tech level 2: 0 Ti, 800 He3, 1200 DM (2x multiplier)
       await advanceTime(360000); // 100 hours to accumulate resources
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId1);
-      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 8); // COMPUTER_TECH level 2
+      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 7); // COMPUTER_TECH level 2
       await advanceTime(360000); // Wait for research
       await contracts.nexusGame.completeResearch(signers.player1.address);
 
       // Verify Computer Tech is level 2
       research = await contracts.nexusGame.getPlayerResearch(signers.player1.address);
-      expect(research[7]).to.equal(2); // COMPUTER_TECH is at index 7 (enum 8 - 1)
+      expect(research[6]).to.equal(2); // COMPUTER_TECH is at index 6 (enum 7 - 1)
 
       // Now dispatch second fleet - should succeed
       ships = [0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n];
@@ -666,7 +666,7 @@ describe("FleetManager", function () {
       // Research COMPUTER_TECH level 1
       await advanceTime(360000);
       await contracts.nexusGame.connect(signers.player1).claimResources(planetId1);
-      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 8);
+      await contracts.nexusGame.connect(signers.player1).startResearch(planetId1, 7);
       await advanceTime(360000);
       await contracts.nexusGame.completeResearch(signers.player1.address);
 

@@ -23,7 +23,7 @@ describe("Colonization", function () {
       await nexusGame.connect(player1).claimResources(planetId);
 
       // Research Astrophysics (type 14)
-      await nexusGame.connect(player1).startResearch(planetId, 14);
+      await nexusGame.connect(player1).startResearch(planetId, 13);
       await advanceTime(360000);
       await nexusGame.completeResearch(player1.address);
 
@@ -77,7 +77,7 @@ describe("Colonization", function () {
       for (let i = 0; i < 2; i++) {
         await advanceTime(2880000); // 800 hours - DM at 10/hr is bottleneck
         await nexusGame.connect(player1).claimResources(planet1Id);
-        await nexusGame.connect(player1).startResearch(planet1Id, 14); // ASTROPHYSICS
+        await nexusGame.connect(player1).startResearch(planet1Id, 13); // ASTROPHYSICS
         await advanceTime(360000);
         await nexusGame.completeResearch(player1.address);
       }
@@ -205,7 +205,7 @@ describe("Colonization", function () {
       for (let i = 0; i < 2; i++) {
         await advanceTime(720000);
         await nexusGame.connect(player1).claimResources(planet1Id);
-        await nexusGame.connect(player1).startResearch(planet1Id, 14);
+        await nexusGame.connect(player1).startResearch(planet1Id, 13);
         await advanceTime(720000);
         await nexusGame.completeResearch(player1.address);
       }
@@ -346,7 +346,7 @@ describe("Colonization", function () {
       for (let i = 0; i < 2; i++) {
         await advanceTime(2880000); // 800 hours - DM at 10/hr is bottleneck
         await nexusGame.connect(player2).claimResources(planet2Id);
-        await nexusGame.connect(player2).startResearch(planet2Id, 14);
+        await nexusGame.connect(player2).startResearch(planet2Id, 13);
         await advanceTime(360000);
         await nexusGame.completeResearch(player2.address);
       }
@@ -399,7 +399,7 @@ describe("Colonization", function () {
       for (let i = 0; i < 2; i++) {
         await advanceTime(720000);
         await nexusGame.connect(player1).claimResources(planet1Id);
-        await nexusGame.connect(player1).startResearch(planet1Id, 14);
+        await nexusGame.connect(player1).startResearch(planet1Id, 13);
         await advanceTime(720000);
         await nexusGame.completeResearch(player1.address);
       }

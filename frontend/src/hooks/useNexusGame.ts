@@ -1527,14 +1527,13 @@ export const RESEARCH_TYPE_MAP: Record<string, number> = {
   weaponTech: 4,
   shieldingTech: 5,
   armourTech: 6,
-  powerSystems: 7,
-  computerTech: 8,
-  stealthSystems: 9,
-  ionTech: 10,
-  hyperspaceTech: 11,
-  laserTech: 12,
-  plasmaTech: 13,
-  astrophysics: 14,
+  computerTech: 7,
+  stealthSystems: 8,
+  ionTech: 9,
+  hyperspaceTech: 10,
+  laserTech: 11,
+  plasmaTech: 12,
+  astrophysics: 13,
 };
 
 export const RESEARCH_TYPE_REVERSE_MAP: Record<number, string> = {
@@ -1544,14 +1543,13 @@ export const RESEARCH_TYPE_REVERSE_MAP: Record<number, string> = {
   4: 'weaponTech',
   5: 'shieldingTech',
   6: 'armourTech',
-  7: 'powerSystems',
-  8: 'computerTech',
-  9: 'stealthSystems',
-  10: 'ionTech',
-  11: 'hyperspaceTech',
-  12: 'laserTech',
-  13: 'plasmaTech',
-  14: 'astrophysics',
+  7: 'computerTech',
+  8: 'stealthSystems',
+  9: 'ionTech',
+  10: 'hyperspaceTech',
+  11: 'laserTech',
+  12: 'plasmaTech',
+  13: 'astrophysics',
 };
 
 /** ResearchLevels struct from GameState contract */
@@ -1562,7 +1560,6 @@ export interface ResearchLevels {
   weaponTech: number;
   shieldingTech: number;
   armourTech: number;
-  powerSystems: number;
   computerTech: number;
   stealthSystems: number;
   ionTech: number;

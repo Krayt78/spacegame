@@ -106,16 +106,6 @@ Hyperspace Drive:
 | 1 | +30% |
 Per level: +30% base speed
 
-Power Systems:
-
-| Level | Titanium | Helium-3 | Dark Matter |
-|---|---|---|---|
-| 1 | 0 | 800 | 400 |
-
-(No direct per-level bonus currently — reserved for future mechanics)
-
-Each subsequent level Upgrade cost ×2
-
 Stealth Systems:
 
 | Level | Titanium | Helium-3 | Dark Matter |

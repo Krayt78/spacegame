@@ -83,7 +83,6 @@ export interface Research {
   armourTech: number;
 
   // Technology
-  powerSystems: number;
   computerTech: number;
   stealthSystems: number;
   ionTech: number;

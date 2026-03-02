@@ -37,7 +37,7 @@ CSS variables are defined in globals.css:
 - `--bg-primary`, `--bg-secondary`, `--bg-tertiary`
 - `--text-primary`, `--text-secondary`, `--text-muted`
 - `--accent-primary` (green), `--accent-secondary` (blue), `--accent-warn` (amber), `--accent-danger` (red)
-- `--resource-titanium`, `--resource-helium3`, `--resource-darkMatter`, `--resource-energy`
+- `--resource-titanium`, `--resource-helium3`, `--resource-darkMatter`
 - Fonts: Orbitron (display/headings), JetBrains Mono (body/mono)
 
 ## Component Library (space-empire/src/components/ui/)
