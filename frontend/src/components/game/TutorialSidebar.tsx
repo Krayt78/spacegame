@@ -229,6 +229,18 @@ function QuestRow({
 // Main component
 // ============================================================
 
+const ACADEMY_COMPLETED_KEY = 'nexus_academy_completed';
+
+function isAcademyDismissed(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(ACADEMY_COMPLETED_KEY) === 'true';
+}
+
+function markAcademyDismissed(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ACADEMY_COMPLETED_KEY, 'true');
+}
+
 export function TutorialSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   // Track which quest just succeeded so we can show the floating reward
@@ -239,8 +251,8 @@ export function TutorialSidebar() {
   const [claimError, setClaimError] = useState<string | null>(null);
   // Whether to show the congratulations banner instead of quests
   const [showCongrats, setShowCongrats] = useState(false);
-  // Whether the component should stop rendering entirely
-  const [hidden, setHidden] = useState(false);
+  // Whether the component should stop rendering entirely — start hidden if already dismissed
+  const [hidden, setHidden] = useState(isAcademyDismissed);
 
   const { data: hasPlanetData } = useHasPlanet();
   const { data: rawPlanetId } = usePlayerPlanetId();
@@ -309,9 +321,16 @@ export function TutorialSidebar() {
   const prevAllDone = useRef(false);
   useEffect(() => {
     if (allDone && !prevAllDone.current) {
+      // If already dismissed in a previous session, skip the congrats entirely
+      if (isAcademyDismissed()) {
+        setHidden(true);
+        prevAllDone.current = allDone;
+        return undefined;
+      }
       setShowCongrats(true);
       prevAllDone.current = allDone;
       const timer = setTimeout(() => {
+        markAcademyDismissed();
         setHidden(true);
       }, 5000);
       return () => clearTimeout(timer);
