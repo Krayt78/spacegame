@@ -227,6 +227,77 @@ describe("GameConfig", function () {
     });
   });
 
+  describe("Production Multiplier", function () {
+    it("Should have default productionMultiplier of 100", async function () {
+      const multiplier = await contracts.gameConfig.productionMultiplier();
+      expect(multiplier).to.equal(100);
+    });
+
+    it("Should return baseline production at 1x multiplier", async function () {
+      // TITANIUM_EXTRACTOR level 1: 30 * 1 * 1.1 = 33
+      const production = await contracts.gameConfig.getProduction(1, 1);
+      expect(production).to.equal(33n);
+    });
+
+    it("Should double production at 2x multiplier (200)", async function () {
+      await contracts.gameConfig.setProductionMultiplier(200);
+      const production = await contracts.gameConfig.getProduction(1, 1);
+      // 33 * 2 = 66
+      expect(production).to.equal(66n);
+    });
+
+    it("Should scale production correctly at 5x (500)", async function () {
+      await contracts.gameConfig.setProductionMultiplier(500);
+      const production = await contracts.gameConfig.getProduction(1, 1);
+      // 33 * 5 = 165
+      expect(production).to.equal(165n);
+    });
+
+    it("Should reject multiplier of 0", async function () {
+      await expect(
+        contracts.gameConfig.setProductionMultiplier(0)
+      ).to.be.revertedWith("Multiplier must be 1-1000");
+    });
+
+    it("Should reject multiplier above 1000", async function () {
+      await expect(
+        contracts.gameConfig.setProductionMultiplier(1001)
+      ).to.be.revertedWith("Multiplier must be 1-1000");
+    });
+
+    it("Should allow multiplier of 1 (0.01x floor)", async function () {
+      await contracts.gameConfig.setProductionMultiplier(1);
+      const multiplier = await contracts.gameConfig.productionMultiplier();
+      expect(multiplier).to.equal(1);
+    });
+
+    it("Should allow multiplier of 1000 (10x ceiling)", async function () {
+      await contracts.gameConfig.setProductionMultiplier(1000);
+      const multiplier = await contracts.gameConfig.productionMultiplier();
+      expect(multiplier).to.equal(1000);
+    });
+
+    it("Should reject non-owner setting productionMultiplier", async function () {
+      await expect(
+        contracts.gameConfig.connect(signers.player1).setProductionMultiplier(200)
+      ).to.be.reverted;
+    });
+
+    it("Should emit ProductionMultiplierUpdated event", async function () {
+      await expect(
+        contracts.gameConfig.setProductionMultiplier(300)
+      ).to.emit(contracts.gameConfig, "ProductionMultiplierUpdated")
+        .withArgs(100, 300);
+    });
+
+    it("Should NOT affect getStorageCapacity", async function () {
+      const capBefore = await contracts.gameConfig.getStorageCapacity(4, 1); // TITANIUM_VAULT level 1
+      await contracts.gameConfig.setProductionMultiplier(500);
+      const capAfter = await contracts.gameConfig.getStorageCapacity(4, 1);
+      expect(capAfter).to.equal(capBefore);
+    });
+  });
+
   describe("Fleet Fuel Consumption", function () {
     it("Should calculate fuel for single SmallCargo at short distance", async function () {
       // SmallCargo baseFuel=10, distance=1005 (adjacent positions)

@@ -39,6 +39,7 @@ interface BuildingCardProps {
   isQueueBlocked?: boolean;
   upgradeProgress?: number;
   upgradeTimeRemaining?: number;
+  productionMultiplier?: number;
 }
 
 // Building icons based on type
@@ -153,6 +154,7 @@ export function BuildingCard({
   isQueueBlocked = false,
   upgradeProgress = 0,
   upgradeTimeRemaining = 0,
+  productionMultiplier = 100,
 }: BuildingCardProps) {
   const { icon: BuildingIcon, color: iconColor } = getBuildingIcon(buildingKey);
   const buildingName = BUILDING_NAMES[buildingKey];
@@ -175,10 +177,10 @@ export function BuildingCard({
 
   // Production info for production buildings
   const currentProduction = isProductionBuilding(buildingKey)
-    ? calculateProduction(buildingKey, currentLevel)
+    ? calculateProduction(buildingKey, currentLevel, productionMultiplier)
     : null;
   const nextProduction = isProductionBuilding(buildingKey)
-    ? calculateProduction(buildingKey, currentLevel + 1)
+    ? calculateProduction(buildingKey, currentLevel + 1, productionMultiplier)
     : null;
 
   // Storage info for storage buildings

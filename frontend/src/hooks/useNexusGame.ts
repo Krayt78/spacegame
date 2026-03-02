@@ -457,6 +457,20 @@ export function useProductionRates(planetId: bigint | undefined) {
 }
 
 /**
+ * Hook to get the global production multiplier (100 = 1x, 200 = 2x)
+ */
+export function useProductionMultiplier() {
+  return useReadContract({
+    address: GAME_CONFIG_ADDRESS,
+    abi: gameConfigAbi,
+    functionName: 'productionMultiplier',
+    query: {
+      enabled: !!GAME_CONFIG_ADDRESS,
+    },
+  }) as ReturnType<typeof useReadContract> & { data: bigint | undefined };
+}
+
+/**
  * Hook to get upgrade cost from GameConfig contract
  */
 export function useUpgradeCost(buildingType: number, currentLevel: number) {

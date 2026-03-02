@@ -203,6 +203,9 @@ contract GameConfig is Ownable {
     // Percentage of resources available as raid loot (50 = 50%)
     uint256 public raidLootPercentage = 50;
 
+    // Global production multiplier (100 = 1x, 200 = 2x, 500 = 5x)
+    uint256 public productionMultiplier = 100;
+
     constructor() Ownable(msg.sender) {
         _initializeConfigs();
     }
@@ -850,9 +853,9 @@ contract GameConfig is Ownable {
 
         BuildingConfig memory config = buildingConfigs[buildingType];
 
-        // Production = baseProduction * level * (multiplier/100) ^ level
+        // Production = baseProduction * level * (multiplier/100) ^ level * productionMultiplier/100
         uint256 multiplier = _pow(config.productionMultiplier, level);
-        return (config.baseProduction * level * multiplier) / _pow(100, level);
+        return (config.baseProduction * level * multiplier * productionMultiplier) / (_pow(100, level) * 100);
     }
 
     /**
@@ -910,6 +913,18 @@ contract GameConfig is Ownable {
     function setRaidLootPercentage(uint256 _raidLootPercentage) external onlyOwner {
         require(_raidLootPercentage > 0 && _raidLootPercentage <= 100, "Percentage must be 1-100");
         raidLootPercentage = _raidLootPercentage;
+    }
+
+    event ProductionMultiplierUpdated(uint256 oldMultiplier, uint256 newMultiplier);
+
+    /**
+     * @notice Update global production multiplier (owner only, for game balancing)
+     * @param _productionMultiplier 100 = 1x, 200 = 2x, 500 = 5x. Range: 1-1000
+     */
+    function setProductionMultiplier(uint256 _productionMultiplier) external onlyOwner {
+        require(_productionMultiplier >= 1 && _productionMultiplier <= 1000, "Multiplier must be 1-1000");
+        emit ProductionMultiplierUpdated(productionMultiplier, _productionMultiplier);
+        productionMultiplier = _productionMultiplier;
     }
 
     /**

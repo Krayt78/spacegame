@@ -50,7 +50,7 @@ export function getBuildingTime(
 /**
  * Calculate resource production for a planet based on buildings
  */
-export function calculateProduction(buildings: Buildings): ResourceProduction {
+export function calculateProduction(buildings: Buildings, serverMultiplier: number = 100): ResourceProduction {
   const {
     titaniumExtractor,
     helium3Harvester,
@@ -63,13 +63,13 @@ export function calculateProduction(buildings: Buildings): ResourceProduction {
 
   // Production formulas
   const titaniumProduction = Math.floor(
-    titaniumConfig.baseProduction * titaniumExtractor * Math.pow(titaniumConfig.productionMultiplier, titaniumExtractor)
+    titaniumConfig.baseProduction * titaniumExtractor * Math.pow(titaniumConfig.productionMultiplier, titaniumExtractor) * serverMultiplier / 100
   );
   const helium3Production = Math.floor(
-    helium3Config.baseProduction * helium3Harvester * Math.pow(helium3Config.productionMultiplier, helium3Harvester)
+    helium3Config.baseProduction * helium3Harvester * Math.pow(helium3Config.productionMultiplier, helium3Harvester) * serverMultiplier / 100
   );
   const darkMatterProduction = Math.floor(
-    darkMatterConfig.baseProduction * darkMatterCollector * Math.pow(darkMatterConfig.productionMultiplier, darkMatterCollector)
+    darkMatterConfig.baseProduction * darkMatterCollector * Math.pow(darkMatterConfig.productionMultiplier, darkMatterCollector) * serverMultiplier / 100
   );
 
   return {

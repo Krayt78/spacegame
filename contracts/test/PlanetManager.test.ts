@@ -141,6 +141,36 @@ describe("PlanetManager", function () {
       expect(helium3Rate).to.be.gt(0n);
       expect(darkMatterRate).to.equal(0n); // No collector
     });
+
+    it("Should accumulate resources at double rate with 2x multiplier", async function () {
+      const planetId = await contracts.nexusGame.playerPlanet(signers.player1.address);
+
+      // Set multiplier to 2x
+      await contracts.gameConfig.setProductionMultiplier(200);
+
+      // Fast forward 30 minutes (1800 seconds)
+      await advanceTime(1800);
+
+      const [titanium, helium3] = await contracts.nexusGame.calculateCurrentResources(planetId);
+
+      // At 2x: titanium production = 66/hr, so 30 min = 33 titanium. Starting 500 -> 533
+      expect(titanium).to.equal(533n);
+
+      // At 2x: helium3 production = 44/hr, so 30 min = 22 helium3. Starting 500 -> 522
+      expect(helium3).to.equal(522n);
+    });
+
+    it("Should double production rates with 2x multiplier", async function () {
+      const planetId = await contracts.nexusGame.playerPlanet(signers.player1.address);
+
+      const [titaniumRate1x] = await contracts.nexusGame.getProductionRates(planetId);
+
+      await contracts.gameConfig.setProductionMultiplier(200);
+
+      const [titaniumRate2x] = await contracts.nexusGame.getProductionRates(planetId);
+
+      expect(titaniumRate2x).to.equal(titaniumRate1x * 2n);
+    });
   });
 
   describe("Building Upgrades", function () {

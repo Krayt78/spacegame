@@ -77,7 +77,7 @@ contract FleetManager {
 
         GameConfig.OutpostConfig memory config = gameConfig.getOutpostConfig(outpost.outpostType);
         uint256 elapsed = block.timestamp - outpost.lastCollected;
-        uint256 produced = (config.productionRate * elapsed) / 3600;
+        uint256 produced = (config.productionRate * gameConfig.productionMultiplier() * elapsed) / (3600 * 100);
         uint256 total = outpost.storedResources + produced;
 
         if (total > config.storageCap) {
