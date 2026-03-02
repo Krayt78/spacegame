@@ -17,8 +17,10 @@ OGame-inspired formulas and balance decisions for Nexus Protocol.
 Production per hour for resource buildings:
 
 ```
-production = baseProduction × (productionMultiplier / 100) ^ (level - 1)
+production = baseProduction * level * (productionMultiplier / 100) ^ level
 ```
+
+Note: The `* level` linear factor ensures good early-game progression.
 
 **Current values:**
 | Building | Base Production | Multiplier |
@@ -27,19 +29,10 @@ production = baseProduction × (productionMultiplier / 100) ^ (level - 1)
 | Helium-3 Harvester | 20/hr | 1.1x |
 | Dark Matter Collector | 10/hr | 1.1x |
 
-**Example progression (Titanium Extractor):**
-| Level | Production/hr |
-|-------|---------------|
-| 1 | 30 |
-| 5 | 43 |
-| 10 | 70 |
-| 15 | 114 |
-| 20 | 184 |
-
 ### Storage Capacity
 
 ```
-capacity = baseCapacity × (capacityMultiplier / 100) ^ level
+capacity = baseCapacity * (capacityMultiplier / 100) ^ level
 ```
 
 **Current values:**
@@ -56,7 +49,7 @@ Default capacity (no storage buildings): 100,000
 ### Cost Formulas
 
 ```
-cost = baseCost × (costMultiplier / 100) ^ level
+cost = baseCost * (costMultiplier / 100) ^ level
 ```
 
 **Current base costs:**
@@ -68,26 +61,17 @@ cost = baseCost × (costMultiplier / 100) ^ level
 | Titanium Vault | 1000 | 0 | 0 | 2.0x |
 | Helium-3 Tank | 1000 | 500 | 0 | 2.0x |
 | Dark Matter Containment | 1000 | 1000 | 0 | 2.0x |
-| Assembly Bay | 400 | 200 | 100 | 2.0x |
+| Shipyard | 400 | 200 | 100 | 2.0x |
 | Research Node | 200 | 400 | 200 | 2.0x |
+| Underground Bunker | 750 | 450 | 0 | 2.0x |
 
 ### Build Time Formula
 
 ```
-buildTime = baseTime × (level + 1) × totalCost / 1000
+buildTime = totalCost / 25
 ```
 
 Where `totalCost = titaniumCost + helium3Cost + darkMatterCost`
-
-**Base times (seconds):**
-| Building | Base Time |
-|----------|-----------|
-| Titanium Extractor | 30 |
-| Helium-3 Harvester | 30 |
-| Dark Matter Collector | 60 |
-| Storage Buildings | 60 |
-| Assembly Bay | 120 |
-| Research Node | 120 |
 
 ### Building Queue Rules
 
@@ -96,80 +80,147 @@ Where `totalCost = titaniumCost + helium3Cost + darkMatterCost`
 - Cancel refunds 50% of resources
 - Anyone can call `completeUpgrade()` after timer
 
-## Ships (NOT YET IMPLEMENTED)
+### Underground Bunker
 
-### Planned Ship Types
-
-Based on OGame archetypes:
-
-| Ship | Role | Speed | Cargo | Attack | Defense |
-|------|------|-------|-------|--------|---------|
-| Light Hauler | Transport | Fast | 5,000 | 5 | 10 |
-| Heavy Freighter | Bulk transport | Slow | 25,000 | 5 | 25 |
-| Interceptor | Scout/Fast attack | Very fast | 50 | 50 | 15 |
-| Strike Craft | Combat | Medium | 100 | 100 | 40 |
-| Destroyer | Heavy combat | Slow | 500 | 400 | 200 |
-| Dreadnought | Capital ship | Very slow | 1,000 | 1,000 | 500 |
-
-### Ship Cost Formula (Planned)
+Protects resources from raids. Protection per resource type:
 
 ```
-shipCost = baseCost  // No scaling, fixed cost per unit
-buildTime = baseTime × quantity / (1 + assemblyBayLevel × 0.5)
+protection = 500 * (1.2) ^ level
 ```
 
-## Research (NOT YET IMPLEMENTED)
+Plunder is capped at 50% of plunderable resources (total - protected).
 
-### Planned Research Trees
+## Ships (12 Types)
 
-**Propulsion:**
-- Impulse Drive → Warp Drive → Quantum Shift Drive
+| # | Ship | Role |
+|---|------|------|
+| 1 | Small Cargo | Transport (5,000 cargo) |
+| 2 | Large Cargo | Bulk transport (25,000 cargo) |
+| 3 | Light Fighter | Fast attack |
+| 4 | Heavy Fighter | Combat |
+| 5 | Cruiser | Mid-range combat |
+| 6 | Battleship | Heavy combat |
+| 7 | Battlecruiser | Anti-cruiser |
+| 8 | Bomber | Anti-defense |
+| 9 | Destroyer | Capital ship |
+| 10 | Colony Ship | Colonization |
+| 11 | Recycler | Debris collection |
+| 12 | Crawler | Slow resource unit |
 
-**Combat:**
-- Offensive Systems
-- Defensive Arrays
-- Hull Reinforcement
+### Ship Cost Formula
 
-**Technology:**
-- AI Command Networks
-- Stealth Systems
+Ships have fixed per-unit costs (no scaling). Total cost = cost * quantity.
 
-### Research Cost Formula (Planned)
-
-```
-cost = baseCost × (1.75) ^ level
-time = baseTime × (1.5) ^ level / (1 + researchNodeLevel × 0.25)
-```
-
-## Fleet & Combat (NOT YET IMPLEMENTED)
-
-### Fleet Movement
-
-Travel time based on:
-- Distance (galaxy/system/position)
-- Slowest ship in fleet
-- Drive technology levels
+### Ship Build Time Formula
 
 ```
-distance = sqrt((g2-g1)² × 1000000 + (s2-s1)² × 1000 + (p2-p1)²)
-speed = baseSpeed × (1 + driveLevel × 0.2)
-travelTime = distance / speed
+shipBuildTime = totalCost * quantity / (25 * (1 + shipyardLevel))
 ```
 
-### Combat System (Planned)
+Where `totalCost = titaniumCost + helium3Cost + darkMatterCost` per unit.
+Higher shipyard level = faster build time.
 
-Round-based combat:
-1. Each ship fires at random enemy
-2. Damage = attack × (1 + offensiveSystemsLevel × 0.1)
-3. Defense reduces damage
-4. Ships destroyed when hull depleted
-5. Repeat until one side eliminated or 6 rounds
+### Ship Combat Stats
 
-### Plunder Rules (Planned)
+Each ship has: structural integrity, shield power, weapon power, speed, cargo capacity, fuel consumption.
+Ships also have combat advantage/disadvantage matrices (e.g., Destroyer is strong vs Light Laser & Battlecruiser).
 
-- Attacker wins: Take up to 50% of resources (cargo limit)
+## Defenses (8 Types)
+
+| # | Defense | Notes |
+|---|--------|-------|
+| 1 | Rocket Launcher | Basic, cheap |
+| 2 | Light Laser | |
+| 3 | Heavy Laser | |
+| 4 | Ion Cannon | |
+| 5 | Gauss Cannon | |
+| 6 | Plasma Turret | Most powerful |
+| 7 | Small Shield Dome | Limit: 1 per planet |
+| 8 | Large Shield Dome | Limit: 1 per planet |
+
+Defense build time uses the same formula as ships (totalCost * quantity / (25 * (1 + shipyardLevel))).
+
+## Research (13 Technologies)
+
+| # | Technology | Effect |
+|---|-----------|--------|
+| 1 | Combustion Drive | +10% ship speed, unlocks basic ships |
+| 2 | Impulse Drive | +20% ship speed, unlocks mid-tier ships |
+| 3 | Hyperspace Drive | +30% ship speed, unlocks late-game ships |
+| 4 | Weapon Tech | +10% weapon power per level |
+| 5 | Shielding Tech | +10% shield power per level |
+| 6 | Armour Tech | +10% structural integrity per level |
+| 7 | Computer Tech | +1 max active fleet per level |
+| 8 | Stealth Systems | Cloaking and electronic warfare |
+| 9 | Ion Tech | Enables ion-based weapons |
+| 10 | Hyperspace Tech | +5% cargo capacity per level |
+| 11 | Laser Tech | Enables laser weapons |
+| 12 | Plasma Tech | Enables plasma weapons |
+| 13 | Astrophysics | +1 colony slot per 2 levels |
+
+### Research Cost Formula
+
+```
+cost = baseCost * (costMultiplier / 100) ^ level
+```
+
+### Research Time Formula
+
+```
+baseTime = (titaniumCost + helium3Cost) * 3600 / 10000
+time = baseTime * 10 / (10 + researchNodeLevel * 3)
+minimum = 60 seconds
+```
+
+Research is per-player (not per-planet). One research queue at a time.
+
+## Fleet & Combat
+
+### Fleet Missions
+
+| Mission | Description |
+|---------|-------------|
+| RAID | Attack a planet, plunder resources (up to 50% of plunderable) |
+| CAPTURE | Attack a raider outpost to take control |
+| MOVE | Transfer ships to another planet |
+| COLONIZE | Establish a new colony (requires Colony Ship + Astrophysics research) |
+
+### Fleet Statuses
+
+- TRAVELING — fleet en route to destination
+- RETURNING — fleet heading back to origin
+
+### Combat System (6-Round Iterative)
+
+1. Each round: compute total attacker and defender firepower
+2. Apply research bonuses: Weapon Tech (+10%/level), Shielding Tech (+10%/level), Armour Tech (+10%/level)
+3. Apply combat advantage/disadvantage multipliers between ship types
+4. Distribute damage proportionally across enemy units
+5. Ships/defenses destroyed when structural integrity depleted
+6. Combat ends after 6 rounds or when one side is eliminated
+7. Attacker wins if defender has no surviving ships/defenses
+
+### Plunder Rules
+
+- Attacker wins: can steal up to 50% of plunderable resources
+- Plunderable = total resources - bunker-protected amount
 - Resources capped by fleet cargo capacity
-- Debris field created from destroyed ships (30% materials)
+
+### Raider Outposts
+
+Located at system positions 11-15. Three types:
+- Titanium Mine (produces titanium)
+- Helium-3 Lab (produces helium-3)
+- Dark Matter Refinery (produces dark matter)
+
+Players can CAPTURE outposts, station ships as garrison, and collect accumulated resources.
+
+### Battle Reports
+
+Full battle reports are stored on-chain for both attacker and defender, including:
+- Ship/defense counts before and after combat
+- Resources plundered
+- Combat round details
 
 ## Galaxy Structure
 
@@ -177,27 +228,23 @@ Round-based combat:
 
 ```
 [Galaxy:System:Position]
-  1-5    1-499    1-15
 
-Example: [1:42:7] = Galaxy 1, System 42, Position 7
+Example: [1:5:7] = Galaxy 1, System 5, Position 7
 ```
 
-### Current Assignment
+- **Positions 1-10**: Colonizable planets
+- **Positions 11-15**: Raider outpost slots
 
-Sequential coordinates on planet claim:
+### Coordinate Assignment
+
+Coordinates are calculated from planet ID:
 ```solidity
-galaxy = 1;  // Fixed for now
-system = (planetId - 1) / 15 + 1;
-position = (planetId - 1) % 15 + 1;
+galaxy = (planetId - 1) / 150 + 1
+system = ((planetId - 1) % 150) / 10 + 1
+position = (planetId - 1) % 10 + 1
 ```
 
-### Distance Calculation
-
-| Same... | Distance Factor |
-|---------|-----------------|
-| Position | 5 |
-| System | 50 |
-| Galaxy | 500 |
+Each galaxy has 150 systems, each system has 10 planet slots.
 
 ## Starting Conditions
 
@@ -215,45 +262,49 @@ position = (planetId - 1) % 15 + 1;
 
 Focus: Resource production buildings
 - Upgrade extractors first
-- Save for Assembly Bay to speed future builds
+- Save for Shipyard to enable ship construction
 
 ### Mid Game (Levels 5-15)
 
-Focus: Infrastructure and ships
+Focus: Infrastructure, ships, and research
 - Storage buildings become important
-- Assembly Bay essential for reasonable build times
-- Research Node unlocks technology
+- Shipyard level affects ship build time
+- Research Node unlocks technologies
 - First fleet for raids
 
 ### Late Game (Levels 15+)
 
-Focus: Fleet and expansion
+Focus: Fleet, expansion, and combat
 - Dark Matter becomes bottleneck
 - Capital ships require massive resources
-- Multiple planets (future feature)
+- Multiple planets via colonization (Astrophysics research)
 - Alliance warfare (future feature)
 
 ## Formula Summary
 
 ```
-// Production
-production = base × multiplier^(level-1)
+// Production (with linear level scaling)
+production = baseProduction * level * (multiplier/100)^level
 
-// Cost
-cost = baseCost × costMultiplier^level
+// Building upgrade cost
+cost = baseCost * (costMultiplier/100)^level
 
-// Build time
-time = baseTime × (level+1) × totalCost / 1000
+// Building build time
+time = totalCost / 25
 
-// Storage
-capacity = baseCapacity × capacityMultiplier^level
+// Storage capacity
+capacity = baseCapacity * (capacityMultiplier/100)^level
 
-// Ship build time (planned)
-time = baseTime × quantity / (1 + assemblyBayLevel × 0.5)
+// Bunker protection per resource
+protection = 500 * 1.2^level
 
-// Research time (planned)
-time = baseTime × 1.5^level / (1 + researchNodeLevel × 0.25)
+// Ship/defense build time
+time = totalCost * quantity / (25 * (1 + shipyardLevel))
 
-// Travel time (planned)
-time = distance / (baseSpeed × (1 + driveLevel × 0.2))
+// Research time
+time = (titaniumCost + helium3Cost) * 3600 / 10000 * 10 / (10 + researchNodeLevel * 3)
+minimum = 60 seconds
+
+// Research cost
+cost = baseCost * (costMultiplier/100)^level
 ```

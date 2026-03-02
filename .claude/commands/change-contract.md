@@ -37,7 +37,7 @@ Use the **abi-bridge** agent to:
 Use the **frontend-dev** agent to:
 - Update any UI elements affected by the contract change
 - Handle new data fields, changed types, or new interactions
-- Verify the frontend compiles: `cd space-empire && npm run build`
+- Verify the frontend compiles: `cd frontend && npm run build`
 
 ## Step 6: Final Review
 Use the **qa-reviewer** agent to:

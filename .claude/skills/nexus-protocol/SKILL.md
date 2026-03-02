@@ -15,18 +15,26 @@ On-chain space strategy game inspired by OGame, built on Polkadot AssetHub.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Frontend (space-empire)                 │
-│  Next.js 16 + React 19 + wagmi + viem + ConnectKit          │
-│  ├── /app/game/*        → Game pages                        │
-│  ├── /hooks/*           → Contract interaction hooks        │
-│  ├── /components/*      → UI components                     │
-│  └── /lib/contracts.ts  → ABIs + addresses                  │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ JSON-RPC
-┌─────────────────────────▼───────────────────────────────────┐
-│                 Smart Contracts (Solidity)                   │
-│  ├── NexusGame.sol      → Core game logic                   │
-│  └── GameConfig.sol     → Tunable parameters (costs, rates) │
+│                      Frontend (frontend/)                    │
+│  Next.js 16 + React 19 + wagmi v3 + viem v2 + ConnectKit   │
+│  ├── /app/game/*          → 9 Game pages                   │
+│  ├── /hooks/*             → 54 contract interaction hooks   │
+│  ├── /components/game/*   → 15 game components              │
+│  └── /lib/contracts.ts    → ABIs + addresses                │
+└─────────────────────────────┬───────────────────────────────┘
+                              │ JSON-RPC
+┌─────────────────────────────▼───────────────────────────────┐
+│              Smart Contracts (10 Solidity files)             │
+│  NexusGame.sol       → Router (delegates to managers)       │
+│  GameState.sol       → Single storage contract              │
+│  GameConfig.sol      → All costs, rates, enums, formulas    │
+│  PlanetManager.sol   → Planets, buildings, resources        │
+│  ShipManager.sol     → Ship building queue                  │
+│  FleetManager.sol    → Fleet dispatch, movement, outposts   │
+│  FleetResolver.sol   → Fleet resolution, combat integration │
+│  CombatEngine.sol    → 6-round iterative combat math        │
+│  ResearchManager.sol → Research queue (13 technologies)     │
+│  DefenseManager.sol  → Defense building (8 types)           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -72,19 +80,29 @@ const BUILDING_TYPE_MAP: Record<string, number> = {
 
 ## Contract Patterns
 
-### Adding New Features to NexusGame.sol
+### Multi-Contract Router Pattern
+NexusGame.sol is the router. All calls go through it and are delegated to the appropriate manager.
+Managers use `onlyRouter` modifier. GameState uses `onlyManager` modifier.
 
-1. **Define structs** at the top with other structs
-2. **Add storage mappings** with existing mappings
-3. **Create events** following naming: `EntityAction(indexed id, ...params)`
-4. **Add modifiers** if needed for access control
-5. **Implement functions** following existing patterns:
+### Adding New Features to the Contracts
+
+1. **Add implementation** in the appropriate Manager contract
+2. **Add route** in NexusGame.sol that delegates to the manager
+3. **Add storage** in GameState.sol if needed
+4. **Add config** in GameConfig.sol if needed
+5. **Compile** and check all contracts stay under 24KB
+6. **Export ABIs** via `npm run export-abi`
 
 ```solidity
-function doSomething(uint256 planetId) external nonReentrant {
-    require(planets[planetId].owner == msg.sender, "Not planet owner");
+// Manager function pattern
+function doSomething(uint256 planetId, ...) external onlyRouter {
     // ... logic
     emit SomethingDone(planetId, ...);
+}
+
+// Router delegation pattern
+function doSomething(uint256 planetId, ...) external nonReentrant {
+    manager.doSomething(planetId, ...);
 }
 ```
 
@@ -93,8 +111,14 @@ function doSomething(uint256 planetId) external nonReentrant {
 // Cost scales exponentially: baseCost * (multiplier/100)^level
 cost = baseCost * _pow(costMultiplier, level) / _pow(100, level);
 
-// Production scales: baseProduction * (multiplier/100)^(level-1)
-production = baseProduction * _pow(productionMultiplier, level - 1) / _pow(100, level - 1);
+// Production includes linear level factor: baseProduction * level * (multiplier/100)^level
+production = (baseProduction * level * _pow(productionMultiplier, level)) / _pow(100, level);
+
+// Build time: totalCost / 25
+buildTime = totalCost / 25;
+
+// Ship build time: totalCost * qty / (25 * (1 + shipyardLevel))
+shipBuildTime = totalCost * quantity / (25 * (1 + shipyardLevel));
 ```
 
 ## Frontend Patterns
@@ -118,7 +142,7 @@ export function useFeatureData(param: bigint | undefined) {
 export function useDoAction() {
   const queryClient = useQueryClient();
   const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  
+
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const doAction = (param: bigint) => {
@@ -143,7 +167,7 @@ export function useDoAction() {
 
 ### Creating a New Page
 
-1. Create file at `src/app/game/[feature]/page.tsx`
+1. Create file at `frontend/src/app/game/[feature]/page.tsx`
 2. Use `'use client';` directive
 3. Wrap with `<GameLayout>` component
 4. Follow existing page structure:
@@ -190,16 +214,6 @@ export default function FeaturePage() {
 </Card>
 ```
 
-**Resource display:**
-```tsx
-<div className="flex items-center gap-2">
-  <span className="text-2xl">💎</span>
-  <span className="font-mono text-[var(--resource-titanium)]">
-    {formatNumber(amount)}
-  </span>
-</div>
-```
-
 **Action button:**
 ```tsx
 <Button
@@ -237,37 +251,41 @@ export default function FeaturePage() {
 
 | Purpose | Location |
 |---------|----------|
-| Contract ABIs | `space-empire/src/lib/contracts.ts` |
-| Wagmi hooks | `space-empire/src/hooks/useNexusGame.ts` |
-| Game types | `space-empire/src/types/game.ts` |
-| UI components | `space-empire/src/components/ui/` |
-| Game components | `space-empire/src/components/game/` |
-| Game config constants | `space-empire/src/constants/gameConfig.ts` |
-| Utility functions | `space-empire/src/lib/utils.ts` |
-| Smart contracts | `contracts/` (separate repo) |
+| Contract ABIs | `frontend/src/contracts/abi/` (JSON artifacts) |
+| ABI imports | `frontend/src/lib/contracts.ts` |
+| Wagmi hooks | `frontend/src/hooks/useNexusGame.ts` |
+| Active planet hook | `frontend/src/hooks/useActivePlanetId.ts` |
+| Game types | `frontend/src/types/game.ts` |
+| UI components | `frontend/src/components/ui/` |
+| Game components | `frontend/src/components/game/` |
+| Game config constants | `frontend/src/constants/gameConfig.ts` |
+| Utility functions | `frontend/src/lib/utils.ts` |
+| Smart contracts | `contracts/contracts/` |
 
 ## Implementation Status
 
-### ✅ Implemented
-- Planet claiming (one per player)
-- Building system (9 types, upgrade queue)
-- Resource production & accumulation
-- Building upgrade/complete/cancel
-- Frontend: Dashboard, Buildings, Onboarding
+### Fully Implemented
+- Planet claiming (one per player, plus colonization for additional planets)
+- Building system (9 types including Underground Bunker, upgrade queue)
+- Resource production & accumulation (with linear level scaling)
+- Ship system (12 ship types, build queue)
+- Defense system (8 defense types, build queue, shield dome limits)
+- Research tree (13 technologies, per-player research)
+- Fleet mechanics (RAID, CAPTURE, MOVE, COLONIZE missions)
+- Combat engine (6-round iterative combat with research bonuses and advantage matrices)
+- Raider outposts (3 types at positions 11-15)
+- Battle reports (on-chain storage)
+- Galaxy view with 3D system scene
+- Frontend: All 9 game pages (buildings, shipyard, fortifications, fleet, galaxy, research, reports, settings, onboarding)
 
-### 🔲 Not Implemented
-- Ships & Shipyard
-- Fleet movement & missions
-- Combat system
-- Research tree
-- Galaxy view
-- Multi-planet expansion
+### Not Yet Implemented
 - Alliances
-- Messaging/Reports
+- Messaging between players
+- Leaderboards/rankings
 
 ## Reference Files
 
 For detailed information, see:
-- [contracts.md](references/contracts.md) - Full contract ABIs and function signatures
-- [frontend.md](references/frontend.md) - Component library and hook patterns
+- [contracts.md](references/contracts.md) - Full contract ABIs, structs, and function signatures
+- [frontend.md](references/frontend.md) - Component library, hook patterns, and project structure
 - [game-mechanics.md](references/game-mechanics.md) - OGame-style formulas and balance

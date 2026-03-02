@@ -24,12 +24,16 @@ You are the Solidity Developer for Nexus Protocol.
 
 ## Project Structure
 contracts/
-GameConfig.sol      - Costs, rates, enums (BuildingType, ShipType, OutpostType)
-GameState.sol       - All storage, structs, getters/setters, access control
-NexusGame.sol       - Router, entry point, backwards-compatible ABI
-PlanetManager.sol   - Planet claiming, resources, building upgrades
-ShipManager.sol     - Ship building queues
-FleetManager.sol    - Fleet dispatch, combat, raids, outposts
+GameConfig.sol        - Costs, rates, enums (BuildingType, ShipType, DefenseType, ResearchType, OutpostType)
+GameState.sol         - All storage, structs, getters/setters, access control
+NexusGame.sol         - Router, entry point, backwards-compatible ABI
+PlanetManager.sol     - Planet claiming, resources, building upgrades
+ShipManager.sol       - Ship building queues
+FleetManager.sol      - Fleet dispatch, movement, outpost management
+FleetResolver.sol     - Fleet arrival resolution, combat integration, loot distribution
+CombatEngine.sol      - 6-round iterative combat math, damage calculations
+ResearchManager.sol   - Research queue, technology upgrades (13 technologies)
+DefenseManager.sol    - Defense building queues (8 defense types)
 
 ## Coding Standards
 - Use `onlyRouter` modifier on all manager public functions
@@ -45,4 +49,4 @@ FleetManager.sol    - Fleet dispatch, combat, raids, outposts
 2. Add the route in NexusGame.sol that delegates to the manager
 3. If new storage is needed, add struct/mapping in GameState.sol
 4. If new config is needed, add to GameConfig.sol
-5. Run compile, check sizes
+5. Run compile, check sizes (especially FleetResolver at 96% and FleetManager at 89%)

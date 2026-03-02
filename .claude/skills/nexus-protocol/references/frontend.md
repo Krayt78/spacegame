@@ -3,52 +3,79 @@
 ## Project Structure
 
 ```
-space-empire/
+frontend/
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx              # Landing page (wallet connect)
-│   │   ├── layout.tsx            # Root layout with providers
+│   │   ├── page.tsx                  # Landing page (wallet connect)
+│   │   ├── layout.tsx                # Root layout with providers
 │   │   └── game/
-│   │       ├── page.tsx          # Dashboard
-│   │       ├── buildings/page.tsx
-│   │       ├── shipyard/page.tsx  # TODO
-│   │       ├── fleet/page.tsx     # TODO
-│   │       ├── galaxy/page.tsx    # TODO
-│   │       ├── research/page.tsx  # TODO
-│   │       ├── reports/page.tsx   # TODO
-│   │       └── onboarding/page.tsx
+│   │       ├── layout.tsx            # Game layout wrapper
+│   │       ├── page.tsx              # Dashboard
+│   │       ├── buildings/page.tsx    # Building upgrades
+│   │       ├── shipyard/page.tsx     # Ship construction
+│   │       ├── fortifications/page.tsx # Defense building
+│   │       ├── fleet/page.tsx        # Fleet dispatch + active fleets
+│   │       ├── galaxy/page.tsx       # 3D galaxy map
+│   │       ├── research/page.tsx     # Research tree
+│   │       ├── reports/page.tsx      # Battle reports
+│   │       ├── settings/page.tsx     # Settings
+│   │       └── onboarding/page.tsx   # New player planet claiming
 │   ├── components/
-│   │   ├── ui/                   # Base UI components
+│   │   ├── ui/                       # Base UI components
 │   │   │   ├── Button.tsx
 │   │   │   ├── Card.tsx
 │   │   │   ├── ProgressBar.tsx
+│   │   │   ├── ResourceDisplay.tsx
+│   │   │   ├── ContractConfigWarning.tsx
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   ├── NetworkGuard.tsx
 │   │   │   └── index.ts
-│   │   ├── layout/               # Layout components
+│   │   ├── layout/                   # Layout components
 │   │   │   ├── GameLayout.tsx
 │   │   │   ├── GameHeader.tsx
 │   │   │   ├── Navigation.tsx
-│   │   │   └── ResourceHeader.tsx
-│   │   ├── game/                 # Game-specific components
-│   │   │   └── BuildingCard.tsx
+│   │   │   ├── ResourceHeader.tsx
+│   │   │   ├── PlanetSelector.tsx
+│   │   │   └── index.ts
+│   │   ├── game/                     # Game-specific components
+│   │   │   ├── BuildingCard.tsx
+│   │   │   ├── BuildQueue.tsx
+│   │   │   ├── ShipCard.tsx
+│   │   │   ├── ShipQueue.tsx
+│   │   │   ├── DefenseCard.tsx
+│   │   │   ├── DefenseQueue.tsx
+│   │   │   ├── FleetDispatchForm.tsx
+│   │   │   ├── FleetCard.tsx
+│   │   │   ├── FleetList.tsx
+│   │   │   ├── QuickFleetModal.tsx
+│   │   │   ├── GalaxyActionPanel.tsx
+│   │   │   ├── SystemScene.tsx       # Three.js system view
+│   │   │   ├── BattleReportCard.tsx
+│   │   │   ├── BattleReportList.tsx
+│   │   │   └── index.ts
 │   │   ├── auth/
-│   │   │   └── ProtectedRoute.tsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   └── index.ts
 │   │   └── providers/
-│   │       └── Web3Provider.tsx
+│   │       ├── Web3Provider.tsx
+│   │       └── index.ts
 │   ├── hooks/
-│   │   ├── useNexusGame.ts       # All contract hooks
+│   │   ├── useNexusGame.ts           # All contract interaction hooks (54 hooks)
+│   │   ├── useActivePlanetId.ts      # Multi-planet selection
 │   │   └── index.ts
 │   ├── lib/
-│   │   ├── contracts.ts          # ABIs and addresses
-│   │   ├── wagmiConfig.ts        # Chain config
-│   │   ├── utils.ts              # Utility functions
-│   │   └── gameLogic.ts          # Client-side calculations
+│   │   ├── contracts.ts              # ABIs and addresses
+│   │   ├── wagmiConfig.ts            # Chain config
+│   │   ├── utils.ts                  # Utility functions
+│   │   ├── gameLogic.ts              # Client-side calculations
+│   │   └── transactionErrors.ts      # Error parsing
 │   ├── stores/
-│   │   ├── planetStore.ts        # Zustand store (legacy)
+│   │   ├── planetStore.ts            # Zustand store
 │   │   └── userStore.ts
 │   ├── types/
-│   │   └── game.ts               # TypeScript interfaces
+│   │   └── game.ts                   # TypeScript interfaces
 │   └── constants/
-│       └── gameConfig.ts         # Game constants
+│       └── gameConfig.ts             # Game constants (names, configs, costs)
 ```
 
 ## UI Components
@@ -64,9 +91,6 @@ import { Button } from '@/components/ui';
 <Button variant="primary" size="md" onClick={fn} disabled={false} isLoading={false}>
   Click Me
 </Button>
-
-// Full width
-<Button variant="primary" className="w-full">Submit</Button>
 ```
 
 ### Card
@@ -77,17 +101,9 @@ import { Card, CardHeader, CardContent } from '@/components/ui';
 <Card className="hover:border-[var(--accent-primary)] transition-colors">
   <CardHeader>
     <h3 className="font-display text-lg">Title</h3>
-    <p className="text-[var(--text-muted)] text-sm">Subtitle</p>
   </CardHeader>
   <CardContent>
     <p>Content goes here</p>
-  </CardContent>
-</Card>
-
-// Card without header
-<Card>
-  <CardContent>
-    <p>Simple card content</p>
   </CardContent>
 </Card>
 ```
@@ -97,12 +113,20 @@ import { Card, CardHeader, CardContent } from '@/components/ui';
 ```tsx
 import { ProgressBar } from '@/components/ui';
 
-<ProgressBar 
-  progress={75}           // 0-100
-  variant="primary"       // 'primary' | 'secondary' | 'warning'
-  size="md"               // 'sm' | 'md' | 'lg'
-  showLabel={true}        // Show percentage label
+<ProgressBar
+  progress={75}
+  variant="primary"
+  size="md"
+  showLabel={true}
 />
+```
+
+### ResourceDisplay
+
+```tsx
+import { ResourceDisplay } from '@/components/ui';
+
+// Displays resource amounts with color-coded styling
 ```
 
 ## Layout Components
@@ -125,6 +149,10 @@ export default function MyPage() {
 }
 ```
 
+### PlanetSelector
+
+Allows players with multiple planets (via colonization) to switch active planet.
+
 ### Navigation Items
 
 Current nav items (in Navigation.tsx):
@@ -133,6 +161,7 @@ const navItems = [
   { label: 'Overview', href: '/game', icon: Home },
   { label: 'Buildings', href: '/game/buildings', icon: Building2 },
   { label: 'Shipyard', href: '/game/shipyard', icon: Ship },
+  { label: 'Fortifications', href: '/game/fortifications', icon: ShieldAlert },
   { label: 'Fleet', href: '/game/fleet', icon: Rocket },
   { label: 'Galaxy', href: '/game/galaxy', icon: Globe },
   { label: 'Research', href: '/game/research', icon: FlaskConical },
@@ -140,55 +169,109 @@ const navItems = [
 ];
 ```
 
-## Hooks Reference
+## Hooks Reference (frontend/src/hooks/useNexusGame.ts)
 
-### Read Hooks
+### Planet Hooks
 
 ```typescript
-// Check if player has a planet
-const { hasPlanet, isLoading, isError } = useHasPlanet();
-
-// Get player's planet ID
+const { hasPlanet, isLoading } = useHasPlanet();
 const { data: planetId } = usePlayerPlanetId();
-
-// Get full planet data (buildings, resources, queue)
-const { data: planetData, isLoading } = usePlanetData(planetId);
-// planetData = [planet, buildings, resources, queue]
-
-// Get current resources (calculated, not stored)
-const { data: resources } = useCurrentResources(planetId);
-// resources = [titanium, helium3, darkMatter]
-
-// Get production rates per hour
-const { data: production } = useProductionRates(planetId);
-// production = [titaniumPerHour, helium3PerHour, darkMatterPerHour]
-
-// Get upgrade cost for building
-const { data: cost } = useUpgradeCost(buildingType, currentLevel);
-// cost = { titanium, helium3, darkMatter }
-
-// Get build time for upgrade
-const { data: buildTime } = useBuildTime(buildingType, currentLevel);
+const { data: planets } = usePlayerPlanets();          // All player planets
+const { data: count } = usePlayerPlanetCount();
+const { data: planetData } = usePlanetData(planetId);  // [planet, buildings, resources, queue]
 ```
 
-### Write Hooks
+### Resource Hooks
 
 ```typescript
-// Claim starter planet
-const { claimPlanet, isPending, isConfirming, isSuccess, error, reset } = useClaimStarterPlanet();
-claimPlanet('My Planet Name');
+const { data: resources } = useCurrentResources(planetId);  // [titanium, helium3, darkMatter]
+const { data: production } = useProductionRates(planetId);   // [perHour, perHour, perHour]
+const { data: cost } = useUpgradeCost(buildingType, level);
+const { data: time } = useBuildTime(buildingType, level);
+```
 
-// Upgrade a building
-const { upgradeBuilding, isPending, isConfirming, isSuccess, error, reset } = useUpgradeBuilding();
-upgradeBuilding(BUILDING_TYPE_MAP.titaniumExtractor); // Pass number
+### Building Hooks (Write)
 
-// Complete upgrade
-const { completeUpgrade, isPending, isConfirming, isSuccess } = useCompleteUpgrade();
-completeUpgrade(planetId);
+```typescript
+const { claimPlanet, isPending, isConfirming, isSuccess } = useClaimStarterPlanet();
+const { upgradeBuilding, ... } = useUpgradeBuilding();
+const { completeUpgrade, ... } = useCompleteUpgrade();
+const { cancelUpgrade, ... } = useCancelUpgrade();
+const { claimResources, ... } = useClaimResources();
+```
 
-// Cancel upgrade
-const { cancelUpgrade, isPending, isConfirming } = useCancelUpgrade();
-cancelUpgrade();
+### Ship Hooks
+
+```typescript
+const { data: ships } = useShips(planetId);           // uint256[13] array
+const { data: queue } = useShipQueue(planetId);        // ShipQueue struct
+const { data: cost } = useShipCost(shipType);
+const { data: time } = useShipBuildTime(shipType, quantity, shipyardLevel);
+const { buildShips, ... } = useBuildShips();
+const { completeShipBuild, ... } = useCompleteShipBuild();
+const { cancelShipBuild, ... } = useCancelShipBuild();
+```
+
+### Defense Hooks
+
+```typescript
+const { data: defenses } = useDefenses(planetId);      // uint256[9] array
+const { data: queue } = useDefenseQueue(planetId);
+const { data: time } = useDefenseBuildTime(defenseType, quantity, shipyardLevel);
+const { buildDefenses, ... } = useBuildDefenses();
+const { completeDefenseBuild, ... } = useCompleteDefenseBuild();
+const { cancelDefenseBuild, ... } = useCancelDefenseBuild();
+```
+
+### Research Hooks
+
+```typescript
+const { data: research } = usePlayerResearch();         // ResearchLevels struct
+const { data: queue } = useResearchQueue();
+const { data: cost } = useResearchCost(researchType, level);
+const { data: time } = useResearchTime(researchType, level, nodeLevel);
+const { startResearch, ... } = useStartResearch();
+const { completeResearch, ... } = useCompleteResearch();
+const { cancelResearch, ... } = useCancelResearch();
+```
+
+### Fleet Hooks
+
+```typescript
+const { data: fleetIds } = usePlayerFleetIds();
+const { data: fleet } = useFleet(fleetId);
+const { data: count } = usePlayerFleetCount();
+const { data: stationed } = useStationedShips(galaxy, system, position);
+const { dispatchFleet, ... } = useDispatchFleet();
+const { dispatchFleetFromOutpost, ... } = useDispatchFleetFromOutpost();
+const { resolveFleet, ... } = useResolveFleet();
+const { completeFleet, ... } = useCompleteFleet();
+```
+
+### Galaxy & Outpost Hooks
+
+```typescript
+const { data: planets } = useSystemPlanets(galaxy, system);
+const { data: outpost } = useOutpost(galaxy, system, position);
+const { data: outposts } = useSystemOutposts(galaxy, system);
+const { data: resources } = useCalculateOutpostResources(galaxy, system, position);
+const { data: playerOutposts } = usePlayerOutposts();
+```
+
+### Battle Report Hooks
+
+```typescript
+const { data: report } = useBattleReport(reportId);
+const { data: reportIds } = usePlayerReportIds();
+const { data: count } = usePlayerReportCount();
+const { data: recentIds } = usePlayerRecentReports(10);
+```
+
+### Utility Hooks
+
+```typescript
+const { data: timestamp } = useBlockTimestamp();
+const activePlanetId = useActivePlanetId();  // From useActivePlanetId.ts
 ```
 
 ### Hook State Pattern
@@ -247,35 +330,6 @@ const getStatus = () => {
 };
 ```
 
-### Timer/Progress Updates
-
-```tsx
-const [progress, setProgress] = useState(0);
-const [timeRemaining, setTimeRemaining] = useState(0);
-
-useEffect(() => {
-  if (!completionTime || completionTime === 0) return;
-  
-  const interval = setInterval(() => {
-    const now = Math.floor(Date.now() / 1000);
-    const remaining = completionTime - now;
-    
-    if (remaining <= 0) {
-      setProgress(100);
-      setTimeRemaining(0);
-      clearInterval(interval);
-    } else {
-      const totalTime = completionTime - startTime;
-      const elapsed = now - startTime;
-      setProgress(Math.min(100, (elapsed / totalTime) * 100));
-      setTimeRemaining(remaining);
-    }
-  }, 1000);
-  
-  return () => clearInterval(interval);
-}, [completionTime, startTime]);
-```
-
 ### Query Invalidation After Mutations
 
 ```tsx
@@ -283,7 +337,6 @@ const queryClient = useQueryClient();
 
 useEffect(() => {
   if (isSuccess) {
-    // Invalidate all contract reads to refetch fresh data
     queryClient.invalidateQueries({ queryKey: ['readContract'] });
   }
 }, [isSuccess, queryClient]);
@@ -300,68 +353,13 @@ formatCoordinates([1, 5, 3])  // "[1:5:3]"
 cn('base-class', condition && 'conditional-class')  // Tailwind class merge
 ```
 
-## Type Definitions
-
-```typescript
-// src/types/game.ts
-
-interface Planet {
-  id: string;
-  owner: string;
-  name: string;
-  coordinates: [number, number, number];
-  buildings: Buildings;
-  resources: Resources;
-  production: ResourceProduction;
-  lastUpdated: number;
-}
-
-interface Buildings {
-  titaniumExtractor: number;
-  helium3Harvester: number;
-  darkMatterCollector: number;
-  titaniumVault: number;
-  helium3Tank: number;
-  darkMatterContainment: number;
-  assemblyBay: number;
-  researchNode: number;
-}
-
-interface Resources {
-  titanium: number;
-  helium3: number;
-  darkMatter: number;
-}
-
-interface BuildQueue {
-  buildingType: keyof Buildings;
-  targetLevel: number;
-  startTime: number;
-  endTime: number;
-}
-
-type FleetMission = 'assault' | 'transfer' | 'station' | 'recon';
-
-interface Fleet {
-  id: string;
-  owner: string;
-  ships: ShipComposition;
-  origin: [number, number, number];
-  destination: [number, number, number];
-  mission: FleetMission;
-  departureTime: number;
-  arrivalTime: number;
-  cargo?: Resources;
-}
-```
-
 ## Adding a New Feature (Checklist)
 
-1. [ ] Define types in `src/types/game.ts`
-2. [ ] Add constants to `src/constants/gameConfig.ts`
-3. [ ] Update ABI in `src/lib/contracts.ts`
-4. [ ] Create hooks in `src/hooks/useNexusGame.ts`
-5. [ ] Export hooks from `src/hooks/index.ts`
-6. [ ] Create page at `src/app/game/[feature]/page.tsx`
-7. [ ] Create components in `src/components/game/`
-8. [ ] Update navigation in `src/components/layout/Navigation.tsx`
+1. [ ] Define types in `frontend/src/types/game.ts`
+2. [ ] Add constants to `frontend/src/constants/gameConfig.ts`
+3. [ ] Update ABI: `npm run export-abi` in contracts, copy to `frontend/src/contracts/abi/`
+4. [ ] Create hooks in `frontend/src/hooks/useNexusGame.ts`
+5. [ ] Export hooks from `frontend/src/hooks/index.ts`
+6. [ ] Create page at `frontend/src/app/game/[feature]/page.tsx`
+7. [ ] Create components in `frontend/src/components/game/`
+8. [ ] Update navigation in `frontend/src/components/layout/Navigation.tsx`
