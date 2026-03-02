@@ -685,6 +685,7 @@ export function useCompleteUpgrade() {
     invalidateContractQueries(queryClient, [
       'getPlanet', // Building levels updated
       'getProductionRates', // Production changes with building levels
+      'getTutorialStatus', // Quest conditions may now be met
     ]);
   }
 
@@ -921,6 +922,7 @@ export function useCompleteShipBuild() {
       invalidateContractQueries(queryClient, [
         'shipQueues',
         'getShips',
+        'getTutorialStatus', // Quest conditions may now be met
       ]);
     }
   }, [isSuccess, queryClient]);
@@ -1717,6 +1719,7 @@ export function useCompleteResearch() {
       invalidateContractQueries(queryClient, [
         'getPlayerResearch',
         'researchQueues',
+        'getTutorialStatus', // Quest conditions may now be met
       ]);
     }
   }, [isSuccess, queryClient]);
@@ -1785,4 +1788,80 @@ export function useBlockTimestamp() {
   const timestamp = block?.timestamp ? Number(block.timestamp) : Math.floor(Date.now() / 1000);
 
   return { timestamp };
+}
+
+// ========== Tutorial Hooks ==========
+
+/**
+ * Hook to get the full tutorial quest status for the current player
+ */
+export function useTutorialStatus(planetId: bigint | undefined) {
+  const { address } = useAccount();
+
+  const result = useReadContract({
+    address: NEXUS_GAME_ADDRESS,
+    abi: nexusGameAbi,
+    functionName: 'getTutorialStatus',
+    args: address && planetId !== undefined ? [address, planetId] : undefined,
+    query: {
+      enabled: !!address && planetId !== undefined && !!NEXUS_GAME_ADDRESS,
+    },
+  });
+
+  useEffect(() => {
+    if (result.isLoading) return;
+    console.log(`[${getTimestamp()}] [useTutorialStatus]`, {
+      address,
+      planetId: planetId?.toString(),
+      data: result.data,
+      error: result.error?.message,
+    });
+  }, [address, planetId, result.data, result.isLoading, result.error]);
+
+  return result;
+}
+
+/**
+ * Hook to claim a tutorial quest reward
+ */
+export function useClaimTutorialQuest() {
+  const queryClient = useQueryClient();
+  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const claimQuest = (planetId: bigint, questId: number) => {
+    console.log(`[${getTimestamp()}] [useClaimTutorialQuest] Claiming quest:`, questId, 'for planet:', planetId.toString());
+    writeContract({
+      address: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbi,
+      functionName: 'claimTutorialQuest',
+      args: [planetId, BigInt(questId)],
+    });
+  };
+
+  useEffect(() => {
+    if (!hash && !error && !isSuccess) return;
+    console.log(`[${getTimestamp()}] [useClaimTutorialQuest]`, {
+      hash,
+      isPending,
+      isConfirming,
+      isSuccess,
+      error: error?.message,
+    });
+  }, [hash, isPending, isConfirming, isSuccess, error]);
+
+  useEffect(() => {
+    if (isSuccess) {
+      invalidateContractQueries(queryClient, [
+        'getTutorialStatus',
+        'calculateCurrentResources',
+        'getPlanet',
+      ]);
+    }
+  }, [isSuccess, queryClient]);
+
+  return { claimQuest, hash, isPending, isConfirming, isSuccess, error, reset };
 }

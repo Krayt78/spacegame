@@ -333,6 +333,24 @@
         "internalType": "uint256",
         "name": "planetId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "questId",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimTutorialQuest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "planetId",
+        "type": "uint256"
       }
     ],
     "name": "completeDefenseBuild",
@@ -1742,6 +1760,69 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "questId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getTutorialQuestReward",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "titanium",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "helium3",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "darkMatter",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "planetId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getTutorialStatus",
+    "outputs": [
+      {
+        "internalType": "bool[10]",
+        "name": "claimed",
+        "type": "bool[10]"
+      },
+      {
+        "internalType": "bool[10]",
+        "name": "claimable",
+        "type": "bool[10]"
+      },
+      {
+        "internalType": "bool",
+        "name": "allDone",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "player",
         "type": "address"
@@ -2247,6 +2328,19 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_tutorialManager",
+        "type": "address"
+      }
+    ],
+    "name": "setTutorialManager",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "shipManager",
     "outputs": [
@@ -2346,6 +2440,19 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "tutorialManager",
+    "outputs": [
+      {
+        "internalType": "contract TutorialManager",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

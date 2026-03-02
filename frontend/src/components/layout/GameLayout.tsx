@@ -6,6 +6,7 @@ import { useAccount } from 'wagmi';
 import { GameHeader } from './GameHeader';
 import { Navigation } from './Navigation';
 import { usePlanetStore } from '@/stores/planetStore';
+import { TutorialSidebar } from '@/components/game/TutorialSidebar';
 import { cn } from '@/lib/utils';
 
 interface GameLayoutProps {
@@ -97,6 +98,9 @@ export function GameLayout({ children, className }: GameLayoutProps) {
             {children}
           </motion.div>
         </main>
+
+        {/* Tutorial Quest Sidebar */}
+        <TutorialSidebar />
       </div>
 
       {/* Footer */}

@@ -92,15 +92,24 @@ async function main() {
   const defenseManagerAddress = await defenseManager.getAddress();
   console.log("DefenseManager deployed to:", defenseManagerAddress);
 
-  // 11. Configure NexusGame with managers
-  console.log("\n11. Configuring NexusGame with managers...");
+  // 11. Deploy TutorialManager
+  console.log("\n11. Deploying TutorialManager...");
+  const TutorialManager = await ethers.getContractFactory("TutorialManager");
+  const tutorialManager = await TutorialManager.deploy(nexusGameAddress, gameStateAddress, gameConfigAddress);
+  await tutorialManager.waitForDeployment();
+  const tutorialManagerAddress = await tutorialManager.getAddress();
+  console.log("TutorialManager deployed to:", tutorialManagerAddress);
+
+  // 12. Configure NexusGame with managers
+  console.log("\n12. Configuring NexusGame with managers...");
   await nexusGame.updateManagers(planetManagerAddress, shipManagerAddress, fleetManagerAddress);
   await nexusGame.setResearchManager(researchManagerAddress);
   await nexusGame.setDefenseManager(defenseManagerAddress);
+  await nexusGame.setTutorialManager(tutorialManagerAddress);
   console.log("Managers configured in NexusGame");
 
-  // 12. Authorize managers in GameState
-  console.log("\n12. Authorizing managers in GameState...");
+  // 13. Authorize managers in GameState
+  console.log("\n13. Authorizing managers in GameState...");
   await gameState.setManager(planetManagerAddress, true);
   console.log("PlanetManager authorized");
   await gameState.setManager(shipManagerAddress, true);
@@ -113,6 +122,8 @@ async function main() {
   console.log("ResearchManager authorized");
   await gameState.setManager(defenseManagerAddress, true);
   console.log("DefenseManager authorized");
+  await gameState.setManager(tutorialManagerAddress, true);
+  console.log("TutorialManager authorized");
 
   // Save deployment info
   const network = await ethers.provider.getNetwork();
@@ -131,6 +142,7 @@ async function main() {
       FleetManager: fleetManagerAddress,
       ResearchManager: researchManagerAddress,
       DefenseManager: defenseManagerAddress,
+      TutorialManager: tutorialManagerAddress,
     },
     timestamp: new Date().toISOString(),
   };
