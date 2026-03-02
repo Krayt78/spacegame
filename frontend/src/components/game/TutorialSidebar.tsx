@@ -265,8 +265,8 @@ export function TutorialSidebar() {
   } = useClaimTutorialQuest();
 
   // Derived tutorial state
-  const claimed: readonly boolean[] = tutorialData ? tutorialData[0] : Array(11).fill(false);
-  const claimable: readonly boolean[] = tutorialData ? tutorialData[1] : Array(11).fill(false);
+  const claimed: readonly boolean[] = tutorialData ? tutorialData[0] : Array(16).fill(false);
+  const claimable: readonly boolean[] = tutorialData ? tutorialData[1] : Array(16).fill(false);
   const allDone: boolean = tutorialData ? tutorialData[2] : false;
 
   const claimCount = claimed.filter(Boolean).length;

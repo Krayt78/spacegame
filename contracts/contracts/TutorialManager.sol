@@ -15,7 +15,7 @@ contract TutorialManager {
     GameConfig public immutable gameConfig;
     address public immutable router;
 
-    uint256 public constant TOTAL_QUESTS = 11;
+    uint256 public constant TOTAL_QUESTS = 16;
 
     struct QuestReward {
         uint256 titanium;
@@ -30,7 +30,7 @@ contract TutorialManager {
     mapping(address => bool) public tutorialCompleted;
 
     // Quest rewards (set in constructor)
-    QuestReward[11] private _questRewards;
+    QuestReward[16] private _questRewards;
 
     event QuestClaimed(address indexed player, uint256 indexed questId, uint256 titanium, uint256 helium3, uint256 darkMatter);
     event TutorialCompleted(address indexed player);
@@ -48,25 +48,35 @@ contract TutorialManager {
         // Quest 0: Power Up — Titanium Extractor >= 2
         _questRewards[0] = QuestReward(100, 50, 0);
         // Quest 1: Fuel Reserves — Helium-3 Harvester >= 2
-        _questRewards[1] = QuestReward(50, 100, 0);
+        _questRewards[1] = QuestReward(100, 50, 0);
         // Quest 2: Into the Void — Dark Matter Collector >= 1
-        _questRewards[2] = QuestReward(150, 100, 0);
+        _questRewards[2] = QuestReward(100, 50, 0);
         // Quest 3: Growing Economy — Ti Extractor >= 3 AND He3 Harvester >= 3
-        _questRewards[3] = QuestReward(200, 100, 50);
+        _questRewards[3] = QuestReward(350, 100, 100);
         // Quest 4: Dark Expansion — Dark Matter Collector >= 2
-        _questRewards[4] = QuestReward(100, 50, 50);
-        // Quest 5: Safe Storage — Any storage building >= 1
-        _questRewards[5] = QuestReward(150, 150, 0);
-        // Quest 6: The Forge — Shipyard >= 1
-        _questRewards[6] = QuestReward(300, 200, 200);
-        // Quest 7: Knowledge is Power — Research Node >= 1
-        _questRewards[7] = QuestReward(200, 200, 100);
-        // Quest 8: First Research — Combustion Drive >= 1
-        _questRewards[8] = QuestReward(200, 100, 0);
-        // Quest 9: Maiden Voyage — Own >= 1 Light Fighter
-        _questRewards[9] = QuestReward(300, 200, 0);
-        // Quest 10: Battle Ready — Own >= 5 Light Fighters
-        _questRewards[10] = QuestReward(500, 300, 100);
+        _questRewards[4] = QuestReward(400, 50, 200);
+        // Quest 5: Industrial Might — Ti Extractor >= 4 AND He3 Harvester >= 4
+        _questRewards[5] = QuestReward(500, 50, 100);
+        // Quest 6: Dark Mastery — Dark Matter Collector >= 3
+        _questRewards[6] = QuestReward(500, 250, 100);
+        // Quest 7: The Forge — Shipyard >= 1
+        _questRewards[7] = QuestReward(250, 450, 200);
+        // Quest 8: Knowledge is Power — Research Node >= 1
+        _questRewards[8] = QuestReward(450, 50, 300);
+        // Quest 9: First Research — Combustion Drive >= 1
+        _questRewards[9] = QuestReward(700, 300, 0);
+        // Quest 10: Economic Powerhouse — Ti Extractor >= 5 AND He3 Harvester >= 5
+        _questRewards[10] = QuestReward(800, 300, 0);
+        // Quest 11: Dark Dominion — Dark Matter Collector >= 4
+        _questRewards[11] = QuestReward(500, 150, 0);
+        // Quest 12: Titanium Empire — Ti Extractor >= 6
+        _questRewards[12] = QuestReward(1100, 100, 0);
+        // Quest 13: Safe Storage — Any storage building >= 1
+        _questRewards[13] = QuestReward(3200, 1200, 0);
+        // Quest 14: Maiden Voyage — Own >= 1 Light Fighter
+        _questRewards[14] = QuestReward(12500, 4500, 0);
+        // Quest 15: Battle Ready — Own >= 5 Light Fighters
+        _questRewards[15] = QuestReward(5000, 3000, 1000);
     }
 
     // ============ QUEST CLAIMING ============
@@ -114,7 +124,7 @@ contract TutorialManager {
     function getQuestStatus(address player, uint256 planetId)
         external
         view
-        returns (bool[11] memory claimed, bool[11] memory claimable, bool allDone)
+        returns (bool[16] memory claimed, bool[16] memory claimable, bool allDone)
     {
         allDone = tutorialCompleted[player];
         uint256 mask = questCompletion[player];
@@ -143,7 +153,7 @@ contract TutorialManager {
         view
         returns (bool)
     {
-        if (questId <= 7) {
+        if (questId <= 8) {
             GameState.Buildings memory b = gameState.getPlanetBuildings(planetId);
 
             if (questId == 0) return b.titaniumExtractor >= 2;
@@ -151,21 +161,31 @@ contract TutorialManager {
             if (questId == 2) return b.darkMatterCollector >= 1;
             if (questId == 3) return b.titaniumExtractor >= 3 && b.helium3Harvester >= 3;
             if (questId == 4) return b.darkMatterCollector >= 2;
-            if (questId == 5) return b.titaniumVault >= 1 || b.helium3Tank >= 1 || b.darkMatterContainment >= 1;
-            if (questId == 6) return b.shipyard >= 1;
-            if (questId == 7) return b.researchNode >= 1;
+            if (questId == 5) return b.titaniumExtractor >= 4 && b.helium3Harvester >= 4;
+            if (questId == 6) return b.darkMatterCollector >= 3;
+            if (questId == 7) return b.shipyard >= 1;
+            if (questId == 8) return b.researchNode >= 1;
         }
 
-        if (questId == 8) {
+        if (questId == 9) {
             GameState.ResearchLevels memory r = gameState.getPlayerResearch(player);
             return r.combustionDrive >= 1;
         }
 
-        if (questId == 9) {
+        if (questId >= 10 && questId <= 13) {
+            GameState.Buildings memory b = gameState.getPlanetBuildings(planetId);
+
+            if (questId == 10) return b.titaniumExtractor >= 5 && b.helium3Harvester >= 5;
+            if (questId == 11) return b.darkMatterCollector >= 4;
+            if (questId == 12) return b.titaniumExtractor >= 6;
+            if (questId == 13) return b.titaniumVault >= 1 || b.helium3Tank >= 1 || b.darkMatterContainment >= 1;
+        }
+
+        if (questId == 14) {
             return gameState.getPlanetShipCount(planetId, 3) >= 1;
         }
 
-        if (questId == 10) {
+        if (questId == 15) {
             return gameState.getPlanetShipCount(planetId, 3) >= 5;
         }
 
