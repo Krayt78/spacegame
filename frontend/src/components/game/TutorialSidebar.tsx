@@ -283,6 +283,15 @@ export function TutorialSidebar() {
 
   const claimCount = claimed.filter(Boolean).length;
 
+  // If contract says tutorial is NOT complete but localStorage says dismissed,
+  // the deployment was likely reset — clear the stale flag and show sidebar
+  useEffect(() => {
+    if (tutorialData && !allDone && hidden) {
+      localStorage.removeItem(ACADEMY_COMPLETED_KEY);
+      setHidden(false);
+    }
+  }, [tutorialData, allDone, hidden]);
+
   // ---- isSuccess: trigger floating animation then reset hook state ----
   const prevIsSuccess = useRef(false);
   useEffect(() => {
