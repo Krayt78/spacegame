@@ -1802,14 +1802,14 @@
     "name": "getTutorialStatus",
     "outputs": [
       {
-        "internalType": "bool[10]",
+        "internalType": "bool[11]",
         "name": "claimed",
-        "type": "bool[10]"
+        "type": "bool[11]"
       },
       {
-        "internalType": "bool[10]",
+        "internalType": "bool[11]",
         "name": "claimable",
-        "type": "bool[10]"
+        "type": "bool[11]"
       },
       {
         "internalType": "bool",
