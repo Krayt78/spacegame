@@ -137,7 +137,8 @@ export function DefenseCard({
     onBuild(quantity);
   };
 
-  const isDisabled = !isUnlocked || !canAfford || isBuilding || isQueueBlocked || isAtLimit || shipyardLevel < 1;
+  const isQuantityDisabled = !isUnlocked || isBuilding || isQueueBlocked || isAtLimit || shipyardLevel < 1;
+  const isDisabled = isQuantityDisabled || !canAfford;
 
   return (
     <Card
@@ -246,7 +247,7 @@ export function DefenseCard({
                     variant="ghost"
                     size="sm"
                     onClick={handleDecrement}
-                    disabled={quantity <= 1 || isDisabled}
+                    disabled={quantity <= 1 || isQuantityDisabled}
                     className="w-8 h-8 p-0"
                   >
                     <Minus className="w-4 h-4" />
@@ -257,14 +258,14 @@ export function DefenseCard({
                     max={maxQuantity}
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, Math.min(maxQuantity, parseInt(e.target.value) || 1)))}
-                    disabled={isDisabled}
+                    disabled={isQuantityDisabled}
                     className="w-16 h-8 text-center bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded text-[var(--text-primary)] font-mono text-sm"
                   />
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleIncrement}
-                    disabled={quantity >= maxQuantity || isDisabled}
+                    disabled={quantity >= maxQuantity || isQuantityDisabled}
                     className="w-8 h-8 p-0"
                   >
                     <Plus className="w-4 h-4" />

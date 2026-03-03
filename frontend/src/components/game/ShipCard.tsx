@@ -134,7 +134,8 @@ export function ShipCard({
     onBuild(quantity);
   };
 
-  const isDisabled = !isUnlocked || !canAfford || isBuilding || isQueueBlocked || shipyardLevel < 1;
+  const isQuantityDisabled = !isUnlocked || isBuilding || isQueueBlocked || shipyardLevel < 1;
+  const isDisabled = isQuantityDisabled || !canAfford;
 
   return (
     <Card
@@ -249,7 +250,7 @@ export function ShipCard({
                     variant="ghost"
                     size="sm"
                     onClick={handleDecrement}
-                    disabled={quantity <= 1 || isDisabled}
+                    disabled={quantity <= 1 || isQuantityDisabled}
                     className="w-8 h-8 p-0"
                   >
                     <Minus className="w-4 h-4" />
@@ -260,14 +261,14 @@ export function ShipCard({
                     max="999"
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, Math.min(999, parseInt(e.target.value) || 1)))}
-                    disabled={isDisabled}
+                    disabled={isQuantityDisabled}
                     className="w-16 h-8 text-center bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded text-[var(--text-primary)] font-mono text-sm"
                   />
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleIncrement}
-                    disabled={quantity >= 999 || isDisabled}
+                    disabled={quantity >= 999 || isQuantityDisabled}
                     className="w-8 h-8 p-0"
                   >
                     <Plus className="w-4 h-4" />
