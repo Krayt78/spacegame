@@ -37,6 +37,17 @@ function setSnapshot(next: Partial<SpektrSnapshot>) {
   notify();
 }
 
+function accountsEqual(
+  a: InjectedPolkadotAccount[],
+  b: InjectedPolkadotAccount[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i]?.address !== b[i]?.address) return false;
+  }
+  return true;
+}
+
 async function ensureInit(): Promise<void> {
   if (initPromise) return initPromise;
   initPromise = (async () => {
@@ -62,9 +73,28 @@ async function ensureInit(): Promise<void> {
       const accounts = ext.getAccounts();
       setSnapshot({ status: 'connected', accounts });
       unsub?.();
-      unsub = ext.subscribe((updated) => {
+
+      // Two-pronged update: PJS subscription is the canonical channel, but
+      // the product-sdk → dot.li bridge doesn't always fire it on later
+      // auth-state changes (e.g. when the user logs in *after* the dApp
+      // has loaded). Poll getAccounts() once a second as a safety net.
+      const subUnsub = ext.subscribe((updated) => {
         setSnapshot({ accounts: updated });
       });
+      const pollHandle = window.setInterval(() => {
+        try {
+          const latest = ext.getAccounts();
+          if (!accountsEqual(latest, cachedSnapshot.accounts)) {
+            setSnapshot({ accounts: latest });
+          }
+        } catch {
+          /* ignore — extension may be tearing down */
+        }
+      }, 1000);
+      unsub = () => {
+        subUnsub();
+        clearInterval(pollHandle);
+      };
     } catch (e) {
       console.error('[useSpektrAccounts] init failed:', e);
       setSnapshot({ status: 'failed' });
