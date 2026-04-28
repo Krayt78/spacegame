@@ -21,10 +21,6 @@ const nextConfig: NextConfig = {
         output: "export" as const,
         // Next/image requires the runtime image optimizer; it's gone in static mode.
         images: { unoptimized: true },
-        // IPFS gateways serve from a CID-rooted path, but we also want the
-        // bundle to work at any subdomain (e.g. <name>.dot.li). Keep base
-        // empty so links remain root-relative.
-        trailingSlash: true,
       }
     : {}),
 };

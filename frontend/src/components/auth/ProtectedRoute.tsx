@@ -33,9 +33,18 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [isConnected, isConnecting, isReconnecting, hasPlanet, checkingPlanet, isError, pathname, router]);
 
-  // Show loading state while checking connection or planet status
-  // Skip planet check loading for onboarding page (it has its own loading state)
-  if (isConnecting || isReconnecting || (isConnected && checkingPlanet && pathname !== '/game/onboarding')) {
+  // Show a loading state any time we're transitioning rather than ready
+  // to render children. Returning `null` here causes a black-screen window
+  // while a redirect is in flight (Next App Router + static export can take
+  // seconds to swap routes), so always render the spinner instead.
+  const shouldShowLoading =
+    isConnecting ||
+    isReconnecting ||
+    !isConnected ||
+    (isConnected && checkingPlanet && pathname !== '/game/onboarding') ||
+    (isConnected && hasPlanet !== true && pathname !== '/game/onboarding');
+
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <motion.div
@@ -53,21 +62,17 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
             />
           </div>
           <p className="font-display text-lg text-text-secondary tracking-wide">
-            {isConnecting || isReconnecting ? 'Connecting to network...' : 'Loading game data...'}
+            {isConnecting || isReconnecting
+              ? 'Connecting to network...'
+              : !isConnected
+              ? 'Waiting for host pairing...'
+              : checkingPlanet
+              ? 'Loading game data...'
+              : 'Redirecting...'}
           </p>
         </motion.div>
       </div>
     );
-  }
-
-  // Show nothing while redirecting
-  if (!isConnected) {
-    return null;
-  }
-
-  // Show nothing while redirecting to onboarding
-  if (hasPlanet !== true && pathname !== '/game/onboarding') {
-    return null;
   }
 
   return <>{children}</>;
