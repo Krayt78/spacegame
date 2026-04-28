@@ -55,3 +55,6 @@ next-env.d.ts
 !.yarn/releases
 !.yarn/versions
 frontend/out/
+frontend/out.car
+frontend/out.bulletin.car
+frontend/.papi/descriptors/node_modules/

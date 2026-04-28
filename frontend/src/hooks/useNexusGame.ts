@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useBlock } from 'wagmi';
 import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
+import { useSpektrAccounts } from '@/hooks/useSpektrAccounts';
+import { reviveCall } from '@/hooks/useReviveCall';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   NEXUS_GAME_ADDRESS,
@@ -541,47 +543,97 @@ export function useBuildTime(buildingType: number, currentLevel: number) {
 // ========== Write Hooks ==========
 
 /**
- * Hook to claim a starter planet with transaction tracking
+ * Hook to claim a starter planet, signed by the Polkadot Host's substrate
+ * account through `pallet_revive::call`. msg.sender is the host account's
+ * revive-mapped H160 (= the same address useHasPlanet etc. read against).
+ *
+ * On the first claim per host account, this also fires `Revive.map_account`
+ * one time — the user will see two phone prompts back-to-back. Subsequent
+ * claims (or any other Revive::call from the same account) are one prompt.
  */
 export function useClaimStarterPlanet() {
   const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const { accounts } = useSpektrAccounts();
+  const host = accounts[0];
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const [hash, setHash] = useState<`0x${string}` | undefined>(undefined);
+  const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<Error | undefined>(undefined);
+  const [progress, setProgress] = useState<string | undefined>(undefined);
 
-  const claimPlanet = (planetName: string) => {
-    console.log(`[${getTimestamp()}] [useClaimStarterPlanet] Calling claimPlanet with name:`, planetName);
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'claimStarterPlanet',
-      args: [planetName],
-    });
-  };
+  const reset = useCallback(() => {
+    setHash(undefined);
+    setIsPending(false);
+    setIsConfirming(false);
+    setIsSuccess(false);
+    setError(undefined);
+    setProgress(undefined);
+  }, []);
 
-  // Debug logging - only log when there's activity (not idle/pending)
+  const claimPlanet = useCallback(
+    async (planetName: string) => {
+      console.log(`[${getTimestamp()}] [useClaimStarterPlanet] claim`, planetName);
+      if (!host) {
+        setError(new Error('No Polkadot Host account paired'));
+        return;
+      }
+      setError(undefined);
+      setIsSuccess(false);
+      setHash(undefined);
+      setIsPending(true);
+      try {
+        const { result } = await reviveCall({
+          signer: host.polkadotSigner,
+          originSs58: host.address,
+          contractAddress: NEXUS_GAME_ADDRESS as `0x${string}`,
+          abi: nexusGameAbi as unknown as import('viem').Abi,
+          functionName: 'claimStarterPlanet',
+          args: [planetName],
+          onProgress: (stage) => {
+            setProgress(stage);
+            // Heuristic: once the tx broadcasts we're "confirming"; before
+            // that the user is still being asked to sign on their phone.
+            if (stage.includes('broadcasted') || stage.includes('best block')) {
+              setIsPending(false);
+              setIsConfirming(true);
+            }
+          },
+        });
+        setIsConfirming(false);
+        if (!result.ok) {
+          throw new Error(`Revive.call failed: ${JSON.stringify(result.dispatchError)}`);
+        }
+        setHash(result.txHash as `0x${string}`);
+        setIsSuccess(true);
+        invalidateContractQueries(queryClient, [
+          'hasPlanet',
+          'getPlayerPlanetId',
+          'getPlayerPlanets',
+          'getPlayerPlanetCount',
+        ]);
+      } catch (e) {
+        console.error(`[${getTimestamp()}] [useClaimStarterPlanet]`, e);
+        setError(e instanceof Error ? e : new Error(String(e)));
+        setIsPending(false);
+        setIsConfirming(false);
+      }
+    },
+    [host, queryClient],
+  );
+
   useEffect(() => {
-    if (!hash && !error && !isSuccess) return;
+    if (!progress && !error && !isSuccess) return;
     console.log(`[${getTimestamp()}] [useClaimStarterPlanet]`, {
+      progress,
       hash,
       isPending,
       isConfirming,
       isSuccess,
       error: error?.message,
     });
-  }, [hash, isPending, isConfirming, isSuccess, error]);
-
-  // Invalidate queries on success to refetch planet data
-  if (isSuccess) {
-    invalidateContractQueries(queryClient, [
-      'hasPlanet',
-      'getPlayerPlanetId',
-      'getPlayerPlanets',
-      'getPlayerPlanetCount',
-    ]);
-  }
+  }, [progress, hash, isPending, isConfirming, isSuccess, error]);
 
   return {
     claimPlanet,
@@ -591,6 +643,7 @@ export function useClaimStarterPlanet() {
     isSuccess,
     error,
     reset,
+    progress,
   };
 }
 

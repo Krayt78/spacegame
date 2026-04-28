@@ -15,6 +15,7 @@
     "@novasamatech/host-papp": "0.6.18",
     "@novasamatech/product-sdk": "^0.6.12",
     "@novasamatech/statement-store": "0.6.18",
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
     "@polkadot-api/substrate-bindings": "^0.16.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
