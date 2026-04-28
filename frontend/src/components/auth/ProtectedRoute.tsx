@@ -2,9 +2,9 @@
 
 import { ReactNode, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAccount } from 'wagmi';
 import { motion } from 'framer-motion';
 import { useHasPlanet } from '@/hooks/useNexusGame';
+import { useHostAddress } from '@/hooks/useHostAddress';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isConnected, isConnecting, isReconnecting } = useAccount();
+  const { isConnected, isConnecting, isReconnecting } = useHostAddress();
   const { hasPlanet, isLoading: checkingPlanet, isError } = useHasPlanet();
 
   useEffect(() => {

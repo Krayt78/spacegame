@@ -1,6 +1,7 @@
 'use client';
 
-import { useAccount, useChainId, useSwitchChain } from 'wagmi';
+import { useChainId, useSwitchChain } from 'wagmi';
+import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import { activeChain } from '@/lib/wagmiConfig';
 import { Button } from './Button';
 

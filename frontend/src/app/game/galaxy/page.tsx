@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useAccount } from 'wagmi';
+import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import { GameLayout } from '@/components/layout';
 import { Card, CardHeader, CardContent, Button } from '@/components/ui';
 import { SystemScene, PlanetData, GalaxyActionPanel, QuickFleetModal, FLEET_ACTION_WITHDRAW } from '@/components/game';

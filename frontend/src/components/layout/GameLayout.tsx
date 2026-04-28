@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useAccount } from 'wagmi';
+import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import { GameHeader } from './GameHeader';
 import { Navigation } from './Navigation';
 import { usePlanetStore } from '@/stores/planetStore';

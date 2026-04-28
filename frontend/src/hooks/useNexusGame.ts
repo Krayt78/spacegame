@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBlock } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useBlock } from 'wagmi';
+import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   NEXUS_GAME_ADDRESS,

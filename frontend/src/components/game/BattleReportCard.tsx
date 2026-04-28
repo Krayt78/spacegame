@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useAccount } from 'wagmi';
+import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import {
   Swords,
   Flag,

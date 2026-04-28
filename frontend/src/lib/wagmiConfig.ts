@@ -1,4 +1,3 @@
-import { getDefaultConfig } from 'connectkit';
 import { createConfig, http } from 'wagmi';
 import { defineChain } from 'viem';
 
@@ -51,21 +50,15 @@ export const polkadotHubTestnet = defineChain({
 // Environment-driven chain selection: set NEXT_PUBLIC_CHAIN=testnet for Polkadot Hub TestNet
 export const activeChain = process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? polkadotHubTestnet : localhost;
 
-export const config = createConfig(
-  getDefaultConfig({
-    // Required
-    chains: [activeChain],
-    transports: {
-      [activeChain.id]: http(),
-    },
-
-    // WalletConnect
-    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
-
-    // App Info
-    appName: 'Nexus Protocol',
-    appDescription: 'Decentralized Space Strategy on Polkadot',
-    appUrl: typeof window !== 'undefined' ? window.location.origin : 'https://nexusprotocol.io',
-    appIcon: '/favicon.ico',
-  })
-);
+// No connectors configured — wagmi is used only for read hooks and chain
+// metadata. The signer comes from the Polkadot Host (Spektr / dot.li) and is
+// surfaced separately via `useHostAddress` / `useSpektrAccounts`.
+export const config = createConfig({
+  chains: [localhost, polkadotHubTestnet],
+  connectors: [],
+  transports: {
+    [localhost.id]: http(),
+    [polkadotHubTestnet.id]: http(),
+  },
+  ssr: true,
+});

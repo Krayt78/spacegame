@@ -3,7 +3,6 @@
 import { ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ConnectKitProvider } from 'connectkit';
 import { config } from '@/lib/wagmiConfig';
 
 const queryClient = new QueryClient({
@@ -18,68 +17,21 @@ const queryClient = new QueryClient({
   },
 });
 
-// Custom ConnectKit theme to match Nexus Protocol aesthetic
-const connectKitTheme = {
-  '--ck-font-family': 'var(--font-orbitron), var(--font-jetbrains), monospace',
-  '--ck-border-radius': '2px',
-
-  // Background colors
-  '--ck-body-background': 'var(--bg-secondary)',
-  '--ck-body-background-secondary': 'var(--bg-tertiary)',
-  '--ck-body-background-tertiary': 'var(--bg-card)',
-
-  // Text colors
-  '--ck-body-color': 'var(--text-primary)',
-  '--ck-body-color-muted': 'var(--text-secondary)',
-  '--ck-body-color-muted-hover': 'var(--text-primary)',
-
-  // Accent colors
-  '--ck-primary-button-background': 'var(--accent-primary)',
-  '--ck-primary-button-color': 'var(--bg-primary)',
-  '--ck-primary-button-hover-background': 'var(--accent-secondary)',
-  '--ck-primary-button-border-radius': '2px',
-
-  '--ck-secondary-button-background': 'var(--bg-tertiary)',
-  '--ck-secondary-button-color': 'var(--text-primary)',
-  '--ck-secondary-button-border-radius': '2px',
-
-  // Focus/hover states
-  '--ck-focus-color': 'var(--accent-primary)',
-  '--ck-body-action-color': 'var(--accent-primary)',
-
-  // Modal styling
-  '--ck-modal-box-shadow': '0 10px 40px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 255, 136, 0.2)',
-
-  // Connector button styling
-  '--ck-connectbutton-background': 'var(--bg-tertiary)',
-  '--ck-connectbutton-color': 'var(--text-primary)',
-  '--ck-connectbutton-hover-background': 'var(--bg-card)',
-  '--ck-connectbutton-border-radius': '2px',
-};
-
 interface Web3ProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Wagmi is kept around exclusively for read hooks (`useReadContract`,
+ * `useChainId`, `useBlock` etc.) — they reach an HTTP transport directly and
+ * don't require any wallet connector. The connect / sign UI is provided by
+ * the Polkadot Host through `useSpektrAccounts` + `useHostAddress`, not
+ * ConnectKit.
+ */
 export function Web3Provider({ children }: Web3ProviderProps) {
   return (
     <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider
-          mode="dark"
-          customTheme={connectKitTheme}
-          options={{
-            embedGoogleFonts: false,
-            language: 'en-US',
-            hideNoWalletCTA: false,
-            hideQuestionMarkCTA: false,
-            hideRecentBadge: false,
-            avoidLayoutShift: true,
-          }}
-        >
-          {children}
-        </ConnectKitProvider>
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   );
 }

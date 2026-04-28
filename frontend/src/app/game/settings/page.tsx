@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import { GameLayout } from '@/components/layout';
-import { Card, CardHeader, CardContent, Button } from '@/components/ui';
-import { Settings, Wallet, Globe, FileCode, Copy, Check, LogOut } from 'lucide-react';
+import { Card, CardHeader, CardContent } from '@/components/ui';
+import { Settings, Wallet, Globe, FileCode, Copy, Check } from 'lucide-react';
 import { activeChain } from '@/lib/wagmiConfig';
 
 const nexusGameAddress = process.env.NEXT_PUBLIC_NEXUS_GAME_ADDRESS || '';
@@ -64,8 +64,7 @@ function InfoRow({ label, value, copyValue }: { label: string; value: string; co
 }
 
 export default function SettingsPage() {
-  const { address, connector } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { address, ss58Address } = useAccount();
 
   return (
     <GameLayout>
@@ -100,21 +99,20 @@ export default function SettingsPage() {
                   copyValue={address}
                 />
                 <InfoRow
-                  label="Connector"
-                  value={connector?.name || 'None'}
+                  label="Source"
+                  value="Polkadot Host (dot.li)"
                 />
+                {ss58Address && (
+                  <InfoRow
+                    label="SS58"
+                    value={truncateAddress(ss58Address)}
+                    copyValue={ss58Address}
+                  />
+                )}
               </div>
-              <div className="mt-4">
-                <Button
-                  variant="danger"
-                  size="sm"
-                  leftIcon={<LogOut className="w-4 h-4" />}
-                  onClick={() => disconnect()}
-                  disabled={!address}
-                >
-                  Disconnect Wallet
-                </Button>
-              </div>
+              <p className="mt-4 text-xs text-[var(--text-muted)]">
+                Disconnect by closing this dApp in the host&apos;s wallet UI.
+              </p>
             </CardContent>
           </Card>
 

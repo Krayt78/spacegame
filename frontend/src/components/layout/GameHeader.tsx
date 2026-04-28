@@ -3,9 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings, LogOut, ChevronDown, Wallet, Copy, Check, ExternalLink } from 'lucide-react';
-import { useAccount, useDisconnect, useEnsName } from 'wagmi';
-import { ConnectKitButton } from 'connectkit';
+import { User, Settings, ChevronDown, Wallet, Copy, Check, ExternalLink } from 'lucide-react';
+import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import { ResourceHeader } from './ResourceHeader';
 import { PlanetSelector } from './PlanetSelector';
 import { cn } from '@/lib/utils';
@@ -24,8 +23,6 @@ function truncateAddress(address: string): string {
 
 export function GameHeader({ className, showResources = true }: GameHeaderProps) {
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { data: ensName } = useEnsName({ address });
   const { playerName } = useUserStore();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -62,12 +59,7 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
     }
   };
 
-  const handleDisconnect = () => {
-    disconnect();
-    setIsMenuOpen(false);
-  };
-
-  const displayName = playerName || ensName || (address ? truncateAddress(address) : 'Unknown');
+  const displayName = playerName || (address ? truncateAddress(address) : 'Unknown');
 
   const dropdownVariants = {
     hidden: {
@@ -241,39 +233,25 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
                         <span className="text-sm">Settings</span>
                       </Link>
 
-                      <button
-                        onClick={handleDisconnect}
-                        className={cn(
-                          'flex items-center gap-3 w-full px-4 py-2',
-                          'text-[var(--accent-danger)] hover:text-[var(--accent-danger)]',
-                          'hover:bg-[var(--accent-danger)]/10 transition-colors'
-                        )}
-                      >
-                        <LogOut className="w-4 h-4" />
-                        <span className="text-sm">Disconnect</span>
-                      </button>
+                      <p className="px-4 py-2 text-xs text-[var(--text-muted)]">
+                        Signed in via Polkadot Host. Close the host to disconnect.
+                      </p>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </>
           ) : (
-            <ConnectKitButton.Custom>
-              {({ show }) => (
-                <button
-                  onClick={show}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-sm',
-                    'bg-[var(--accent-primary)] text-[var(--bg-primary)]',
-                    'font-medium hover:shadow-[0_0_20px_rgba(0,255,136,0.3)]',
-                    'transition-all duration-200 clip-angular-sm'
-                  )}
-                >
-                  <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Connect Wallet</span>
-                </button>
+            <div
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-sm',
+                'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]',
+                'font-medium clip-angular-sm'
               )}
-            </ConnectKitButton.Custom>
+            >
+              <Wallet className="w-4 h-4" />
+              <span className="text-sm">Awaiting host pairing…</span>
+            </div>
           )}
         </div>
       </div>
