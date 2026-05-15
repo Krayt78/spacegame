@@ -1,18 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useBlock } from 'wagmi';
+import { useEffect } from 'react';
+import { useReadContract, useBlock } from 'wagmi';
+import type { Abi } from 'viem';
 import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
-import { useSpektrAccounts } from '@/hooks/useSpektrAccounts';
-import { reviveCall } from '@/hooks/useReviveCall';
-import { useQueryClient } from '@tanstack/react-query';
+import { useReviveContractWrite } from '@/hooks/useReviveContractWrite';
 import {
   NEXUS_GAME_ADDRESS,
   GAME_CONFIG_ADDRESS,
   nexusGameAbi,
   gameConfigAbi,
 } from '@/lib/contracts';
-import type { QueryClient } from '@tanstack/react-query';
+
+const nexusGameAbiTyped = nexusGameAbi as unknown as Abi;
 
 // ========== Contract Type Definitions ==========
 
@@ -135,19 +135,6 @@ export type ShipsResult = readonly [bigint, bigint, bigint, bigint, bigint, bigi
 
 /** Return type for shipQueues */
 export type ShipQueueResult = readonly [number, bigint, number];
-
-// ========== Query Invalidation Helpers ==========
-/**
- * Helper to invalidate specific contract read queries instead of all queries
- * This prevents the "thundering herd" problem where every transaction refetches everything
- */
-function invalidateContractQueries(queryClient: QueryClient, functionNames: string[]) {
-  functionNames.forEach((functionName) => {
-    queryClient.invalidateQueries({
-      queryKey: ['readContract', { functionName }],
-    });
-  });
-}
 
 // ========== Logging Helpers ==========
 const getTimestamp = () => new Date().toISOString();
@@ -552,311 +539,96 @@ export function useBuildTime(buildingType: number, currentLevel: number) {
  * claims (or any other Revive::call from the same account) are one prompt.
  */
 export function useClaimStarterPlanet() {
-  const queryClient = useQueryClient();
-  const { accounts } = useSpektrAccounts();
-  const host = accounts[0];
-
-  const [hash, setHash] = useState<`0x${string}` | undefined>(undefined);
-  const [isPending, setIsPending] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState<Error | undefined>(undefined);
-  const [progress, setProgress] = useState<string | undefined>(undefined);
-
-  const reset = useCallback(() => {
-    setHash(undefined);
-    setIsPending(false);
-    setIsConfirming(false);
-    setIsSuccess(false);
-    setError(undefined);
-    setProgress(undefined);
-  }, []);
-
-  const claimPlanet = useCallback(
-    async (planetName: string) => {
-      console.log(`[${getTimestamp()}] [useClaimStarterPlanet] claim`, planetName);
-      if (!host) {
-        setError(new Error('No Polkadot Host account paired'));
-        return;
-      }
-      setError(undefined);
-      setIsSuccess(false);
-      setHash(undefined);
-      setIsPending(true);
-      try {
-        const { result } = await reviveCall({
-          signer: host.polkadotSigner,
-          originSs58: host.address,
-          contractAddress: NEXUS_GAME_ADDRESS as `0x${string}`,
-          abi: nexusGameAbi as unknown as import('viem').Abi,
-          functionName: 'claimStarterPlanet',
-          args: [planetName],
-          onProgress: (stage) => {
-            setProgress(stage);
-            // Heuristic: once the tx broadcasts we're "confirming"; before
-            // that the user is still being asked to sign on their phone.
-            if (stage.includes('broadcasted') || stage.includes('best block')) {
-              setIsPending(false);
-              setIsConfirming(true);
-            }
-          },
-        });
-        setIsConfirming(false);
-        if (!result.ok) {
-          throw new Error(`Revive.call failed: ${JSON.stringify(result.dispatchError)}`);
-        }
-        setHash(result.txHash as `0x${string}`);
-        setIsSuccess(true);
-        invalidateContractQueries(queryClient, [
-          'hasPlanet',
-          'getPlayerPlanetId',
-          'getPlayerPlanets',
-          'getPlayerPlanetCount',
-        ]);
-      } catch (e) {
-        console.error(`[${getTimestamp()}] [useClaimStarterPlanet]`, e);
-        setError(e instanceof Error ? e : new Error(String(e)));
-        setIsPending(false);
-        setIsConfirming(false);
-      }
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: [
+        'hasPlanet',
+        'getPlayerPlanetId',
+        'getPlayerPlanets',
+        'getPlayerPlanetCount',
+      ],
     },
-    [host, queryClient],
+    'useClaimStarterPlanet',
   );
 
-  useEffect(() => {
-    if (!progress && !error && !isSuccess) return;
-    console.log(`[${getTimestamp()}] [useClaimStarterPlanet]`, {
-      progress,
-      hash,
-      isPending,
-      isConfirming,
-      isSuccess,
-      error: error?.message,
-    });
-  }, [progress, hash, isPending, isConfirming, isSuccess, error]);
+  const claimPlanet = (planetName: string) => call('claimStarterPlanet', [planetName]);
 
-  return {
-    claimPlanet,
-    hash,
-    isPending,
-    isConfirming,
-    isSuccess,
-    error,
-    reset,
-    progress,
-  };
+  return { claimPlanet, ...state };
 }
 
 /**
  * Hook to upgrade a building
  */
 export function useUpgradeBuilding() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['getPlanet', 'calculateCurrentResources'],
+    },
+    'useUpgradeBuilding',
+  );
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const upgradeBuilding = (planetId: bigint, buildingType: number) =>
+    call('upgradeBuilding', [planetId, buildingType]);
 
-  const upgradeBuilding = (planetId: bigint, buildingType: number) => {
-    console.log(`[${getTimestamp()}] [useUpgradeBuilding] Calling upgradeBuilding with planetId:`, planetId.toString(), 'type:', buildingType, BUILDING_TYPE_REVERSE_MAP[buildingType]);
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'upgradeBuilding',
-      args: [planetId, buildingType],
-    });
-  };
-
-  // Debug logging - only log when there's activity (not idle/pending)
-  useEffect(() => {
-    if (!hash && !error && !isSuccess) return;
-    console.log(`[${getTimestamp()}] [useUpgradeBuilding]`, {
-      hash,
-      isPending,
-      isConfirming,
-      isSuccess,
-      error: error?.message,
-    });
-  }, [hash, isPending, isConfirming, isSuccess, error]);
-
-  // Invalidate queries on success to refetch planet data
-  if (isSuccess) {
-    // Only invalidate building and resource related queries
-    invalidateContractQueries(queryClient, [
-      'getPlanet', // Building levels are in planet data
-      'calculateCurrentResources', // Resources change after spending
-    ]);
-  }
-
-  return {
-    upgradeBuilding,
-    hash,
-    isPending,
-    isConfirming,
-    isSuccess,
-    error,
-    reset,
-  };
+  return { upgradeBuilding, ...state };
 }
 
 /**
  * Hook to complete a building upgrade
  */
 export function useCompleteUpgrade() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['getPlanet', 'getProductionRates', 'getTutorialStatus'],
+    },
+    'useCompleteUpgrade',
+  );
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const completeUpgrade = (planetId: bigint) => call('completeUpgrade', [planetId]);
 
-  const completeUpgrade = (planetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useCompleteUpgrade] Calling completeUpgrade for planetId:`, planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'completeUpgrade',
-      args: [planetId],
-    });
-  };
-
-  // Debug logging - only log when there's activity (not idle/pending)
-  useEffect(() => {
-    if (!hash && !error && !isSuccess) return;
-    console.log(`[${getTimestamp()}] [useCompleteUpgrade]`, {
-      hash,
-      isPending,
-      isConfirming,
-      isSuccess,
-      error: error?.message,
-    });
-  }, [hash, isPending, isConfirming, isSuccess, error]);
-
-  // Invalidate queries on success to refetch planet data
-  if (isSuccess) {
-    // Invalidate building levels and production rates
-    invalidateContractQueries(queryClient, [
-      'getPlanet', // Building levels updated
-      'getProductionRates', // Production changes with building levels
-      'getTutorialStatus', // Quest conditions may now be met
-    ]);
-  }
-
-  return {
-    completeUpgrade,
-    hash,
-    isPending,
-    isConfirming,
-    isSuccess,
-    error,
-    reset,
-  };
+  return { completeUpgrade, ...state };
 }
 
 /**
  * Hook to cancel a building upgrade (50% refund)
  */
 export function useCancelUpgrade() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['getPlanet', 'calculateCurrentResources'],
+    },
+    'useCancelUpgrade',
+  );
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const cancelUpgrade = (planetId: bigint) => call('cancelUpgrade', [planetId]);
 
-  const cancelUpgrade = (planetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useCancelUpgrade] Calling cancelUpgrade for planetId:`, planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'cancelUpgrade',
-      args: [planetId],
-    });
-  };
-
-  // Debug logging - only log when there's activity (not idle/pending)
-  useEffect(() => {
-    if (!hash && !error && !isSuccess) return;
-    console.log(`[${getTimestamp()}] [useCancelUpgrade]`, {
-      hash,
-      isPending,
-      isConfirming,
-      isSuccess,
-      error: error?.message,
-    });
-  }, [hash, isPending, isConfirming, isSuccess, error]);
-
-  // Invalidate queries on success to refetch planet data
-  if (isSuccess) {
-    // Invalidate building queue and resources (refund)
-    invalidateContractQueries(queryClient, [
-      'getPlanet', // Queue status is in planet data
-      'calculateCurrentResources', // Resources refunded
-    ]);
-  }
-
-  return {
-    cancelUpgrade,
-    hash,
-    isPending,
-    isConfirming,
-    isSuccess,
-    error,
-    reset,
-  };
+  return { cancelUpgrade, ...state };
 }
 
 /**
  * Hook to claim accumulated resources
  */
 export function useClaimResources() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['calculateCurrentResources'],
+    },
+    'useClaimResources',
+  );
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const claimResources = (planetId: bigint) => call('claimResources', [planetId]);
 
-  const claimResources = (planetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useClaimResources] Calling claimResources for planetId:`, planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'claimResources',
-      args: [planetId],
-    });
-  };
-
-  // Debug logging - only log when there's activity (not idle/pending)
-  useEffect(() => {
-    if (!hash && !error && !isSuccess) return;
-    console.log(`[${getTimestamp()}] [useClaimResources]`, {
-      hash,
-      isPending,
-      isConfirming,
-      isSuccess,
-      error: error?.message,
-    });
-  }, [hash, isPending, isConfirming, isSuccess, error]);
-
-  // Invalidate queries on success to refetch planet data
-  if (isSuccess) {
-    // Only need to invalidate resources
-    invalidateContractQueries(queryClient, [
-      'calculateCurrentResources',
-    ]);
-  }
-
-  return {
-    claimResources,
-    hash,
-    isPending,
-    isConfirming,
-    isSuccess,
-    error,
-    reset,
-  };
+  return { claimResources, ...state };
 }
 
 // ========== Ship Read Hooks ==========
@@ -925,94 +697,55 @@ export function useShipBuildTime(shipType: number, quantity: number, shipyardLev
  * Hook to build ships
  */
 export function useBuildShips() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['shipQueues', 'getShips', 'calculateCurrentResources'],
+    },
+    'useBuildShips',
+  );
 
-  const buildShips = (planetId: bigint, shipType: number, quantity: number) => {
-    console.log(`[${getTimestamp()}] [useBuildShips] planetId:`, planetId.toString(), 'shipType:', shipType, 'quantity:', quantity);
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'buildShips',
-      args: [planetId, shipType, BigInt(quantity)],
-    });
-  };
+  const buildShips = (planetId: bigint, shipType: number, quantity: number) =>
+    call('buildShips', [planetId, shipType, BigInt(quantity)]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      // Only invalidate ship-related queries
-      invalidateContractQueries(queryClient, [
-        'shipQueues',
-        'getShips',
-        'calculateCurrentResources', // Resources change after building
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { buildShips, isPending, isConfirming, isSuccess, error, reset };
+  return { buildShips, ...state };
 }
 
 /**
  * Hook to complete ship build
  */
 export function useCompleteShipBuild() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['shipQueues', 'getShips', 'getTutorialStatus'],
+    },
+    'useCompleteShipBuild',
+  );
 
-  const completeShipBuild = (planetId: bigint) => {
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'completeShipBuild',
-      args: [planetId],
-    });
-  };
+  const completeShipBuild = (planetId: bigint) => call('completeShipBuild', [planetId]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      // Invalidate ship queue and ship counts
-      invalidateContractQueries(queryClient, [
-        'shipQueues',
-        'getShips',
-        'getTutorialStatus', // Quest conditions may now be met
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { completeShipBuild, isPending, isConfirming, isSuccess, error, reset };
+  return { completeShipBuild, ...state };
 }
 
 /**
  * Hook to cancel ship build
  */
 export function useCancelShipBuild() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['shipQueues', 'calculateCurrentResources'],
+    },
+    'useCancelShipBuild',
+  );
 
-  const cancelShipBuild = (planetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useCancelShipBuild] Cancelling ship build for planetId:`, planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'cancelShipBuild',
-      args: [planetId],
-    });
-  };
+  const cancelShipBuild = (planetId: bigint) => call('cancelShipBuild', [planetId]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      // Invalidate ship queue and resources (refund)
-      invalidateContractQueries(queryClient, [
-        'shipQueues',
-        'calculateCurrentResources',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { cancelShipBuild, isPending, isConfirming, isSuccess, error, reset };
+  return { cancelShipBuild, ...state };
 }
 
 // ========== Defense Type Mapping ==========
@@ -1113,90 +846,55 @@ export function useDefenseBuildTime(defenseType: number, quantity: number, shipy
  * Hook to build defenses
  */
 export function useBuildDefenses() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['defenseQueues', 'getDefenses', 'calculateCurrentResources'],
+    },
+    'useBuildDefenses',
+  );
 
-  const buildDefenses = (planetId: bigint, defenseType: number, quantity: number) => {
-    console.log(`[${getTimestamp()}] [useBuildDefenses] planetId:`, planetId.toString(), 'defenseType:', defenseType, 'quantity:', quantity);
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'buildDefenses',
-      args: [planetId, defenseType, BigInt(quantity)],
-    });
-  };
+  const buildDefenses = (planetId: bigint, defenseType: number, quantity: number) =>
+    call('buildDefenses', [planetId, defenseType, BigInt(quantity)]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'defenseQueues',
-        'getDefenses',
-        'calculateCurrentResources',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { buildDefenses, isPending, isConfirming, isSuccess, error, reset };
+  return { buildDefenses, ...state };
 }
 
 /**
  * Hook to complete defense build
  */
 export function useCompleteDefenseBuild() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['defenseQueues', 'getDefenses'],
+    },
+    'useCompleteDefenseBuild',
+  );
 
-  const completeDefenseBuild = (planetId: bigint) => {
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'completeDefenseBuild',
-      args: [planetId],
-    });
-  };
+  const completeDefenseBuild = (planetId: bigint) => call('completeDefenseBuild', [planetId]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'defenseQueues',
-        'getDefenses',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { completeDefenseBuild, isPending, isConfirming, isSuccess, error, reset };
+  return { completeDefenseBuild, ...state };
 }
 
 /**
  * Hook to cancel defense build
  */
 export function useCancelDefenseBuild() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['defenseQueues', 'calculateCurrentResources'],
+    },
+    'useCancelDefenseBuild',
+  );
 
-  const cancelDefenseBuild = (planetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useCancelDefenseBuild] Cancelling defense build for planetId:`, planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'cancelDefenseBuild',
-      args: [planetId],
-    });
-  };
+  const cancelDefenseBuild = (planetId: bigint) => call('cancelDefenseBuild', [planetId]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'defenseQueues',
-        'calculateCurrentResources',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { cancelDefenseBuild, isPending, isConfirming, isSuccess, error, reset };
+  return { cancelDefenseBuild, ...state };
 }
 
 // ========== Galaxy/System Read Hooks ==========
@@ -1366,9 +1064,19 @@ export function usePlayerOutposts() {
  * Hook to dispatch a fleet on a mission (RAID, CAPTURE, or MOVE)
  */
 export function useDispatchFleet() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: [
+        'getPlayerFleetIds',
+        'getPlayerFleetCount',
+        'getShips',
+        'calculateCurrentResources',
+      ],
+    },
+    'useDispatchFleet',
+  );
 
   const dispatchFleet = (
     planetId: bigint,
@@ -1377,35 +1085,19 @@ export function useDispatchFleet() {
     mission: number,
     cargoTitanium: bigint,
     cargoHelium3: bigint,
-    cargoDarkMatter: bigint
-  ) => {
-    console.log(`[${getTimestamp()}] [useDispatchFleet] Dispatching fleet`, {
-      planetId: planetId.toString(),
-      ships: ships.map(s => s.toString()),
+    cargoDarkMatter: bigint,
+  ) =>
+    call('dispatchFleet', [
+      planetId,
+      ships,
       destination,
-      mission: FLEET_MISSION_NAMES[mission],
-      cargo: { titanium: cargoTitanium.toString(), helium3: cargoHelium3.toString(), darkMatter: cargoDarkMatter.toString() },
-    });
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'dispatchFleet',
-      args: [planetId, ships, destination, mission, cargoTitanium, cargoHelium3, cargoDarkMatter],
-    });
-  };
+      mission,
+      cargoTitanium,
+      cargoHelium3,
+      cargoDarkMatter,
+    ]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'getPlayerFleetIds',
-        'getPlayerFleetCount',
-        'getShips',
-        'calculateCurrentResources',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { dispatchFleet, hash, isPending, isConfirming, isSuccess, error, reset };
+  return { dispatchFleet, ...state };
 }
 
 /**
@@ -1413,9 +1105,21 @@ export function useDispatchFleet() {
  * Used for withdrawing ships and resources from captured outposts
  */
 export function useDispatchFleetFromOutpost() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: [
+        'getPlayerFleetIds',
+        'getPlayerFleetCount',
+        'getStationedShips',
+        'getOutpost',
+        'getSystemOutposts',
+        'calculateOutpostResources',
+      ],
+    },
+    'useDispatchFleetFromOutpost',
+  );
 
   const dispatchFleetFromOutpost = (
     origin: [number, number, number],
@@ -1423,36 +1127,18 @@ export function useDispatchFleetFromOutpost() {
     destination: [number, number, number],
     cargoTitanium: bigint,
     cargoHelium3: bigint,
-    cargoDarkMatter: bigint
-  ) => {
-    console.log(`[${getTimestamp()}] [useDispatchFleetFromOutpost] Dispatching fleet from outpost`, {
+    cargoDarkMatter: bigint,
+  ) =>
+    call('dispatchFleetFromOutpost', [
       origin,
-      ships: ships.map(s => s.toString()),
+      ships,
       destination,
-      cargo: { titanium: cargoTitanium.toString(), helium3: cargoHelium3.toString(), darkMatter: cargoDarkMatter.toString() },
-    });
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'dispatchFleetFromOutpost',
-      args: [origin, ships, destination, cargoTitanium, cargoHelium3, cargoDarkMatter],
-    });
-  };
+      cargoTitanium,
+      cargoHelium3,
+      cargoDarkMatter,
+    ]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'getPlayerFleetIds',
-        'getPlayerFleetCount',
-        'getStationedShips',
-        'getOutpost',
-        'getSystemOutposts',
-        'calculateOutpostResources',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { dispatchFleetFromOutpost, hash, isPending, isConfirming, isSuccess, error, reset };
+  return { dispatchFleetFromOutpost, ...state };
 }
 
 /**
@@ -1460,23 +1146,11 @@ export function useDispatchFleetFromOutpost() {
  * Anyone can call this (not restricted to fleet owner)
  */
 export function useResolveFleet() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const resolveFleet = (fleetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useResolveFleet] Resolving fleet:`, fleetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'resolveFleet',
-      args: [fleetId],
-    });
-  };
-
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: [
         'getPlayerFleetIds',
         'getPlayerFleetCount',
         'getFleet',
@@ -1493,11 +1167,14 @@ export function useResolveFleet() {
         'getPlayerPlanets',
         'getPlayerPlanetCount',
         'getSystemPlanets',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
+      ],
+    },
+    'useResolveFleet',
+  );
 
-  return { resolveFleet, hash, isPending, isConfirming, isSuccess, error, reset };
+  const resolveFleet = (fleetId: bigint) => call('resolveFleet', [fleetId]);
+
+  return { resolveFleet, ...state };
 }
 
 /**
@@ -1505,23 +1182,11 @@ export function useResolveFleet() {
  * Only for RAID missions that are in RETURNING status
  */
 export function useCompleteFleet() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const completeFleet = (fleetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useCompleteFleet] Completing fleet:`, fleetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'completeFleet',
-      args: [fleetId],
-    });
-  };
-
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: [
         'getPlayerFleetIds',
         'getPlayerFleetCount',
         'getFleet',
@@ -1530,11 +1195,14 @@ export function useCompleteFleet() {
         'getPlayerReportIds',
         'getPlayerReportCount',
         'getPlayerRecentReports',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
+      ],
+    },
+    'useCompleteFleet',
+  );
 
-  return { completeFleet, hash, isPending, isConfirming, isSuccess, error, reset };
+  const completeFleet = (fleetId: bigint) => call('completeFleet', [fleetId]);
+
+  return { completeFleet, ...state };
 }
 
 // ========== Battle Report Read Hooks ==========
@@ -1722,95 +1390,59 @@ export function useResearchTime(researchType: number, currentLevel: number, rese
  * Hook to start researching a technology
  */
 export function useStartResearch() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['getPlayerResearch', 'researchQueues', 'calculateCurrentResources'],
+    },
+    'useStartResearch',
+  );
 
-  const startResearch = (planetId: bigint, researchType: number) => {
-    console.log(`[${getTimestamp()}] [useStartResearch] Starting research type:`, researchType, RESEARCH_TYPE_REVERSE_MAP[researchType], 'from planetId:', planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'startResearch',
-      args: [planetId, researchType],
-    });
-  };
+  const startResearch = (planetId: bigint, researchType: number) =>
+    call('startResearch', [planetId, researchType]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'getPlayerResearch',
-        'researchQueues',
-        'calculateCurrentResources',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { startResearch, hash, isPending, isConfirming, isSuccess, error, reset };
+  return { startResearch, ...state };
 }
 
 /**
  * Hook to complete research
  */
 export function useCompleteResearch() {
-  const queryClient = useQueryClient();
   const { address } = useAccount();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['getPlayerResearch', 'researchQueues', 'getTutorialStatus'],
+    },
+    'useCompleteResearch',
+  );
 
   const completeResearch = () => {
     if (!address) return;
-    console.log(`[${getTimestamp()}] [useCompleteResearch] Completing research for:`, address);
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'completeResearch',
-      args: [address],
-    });
+    return call('completeResearch', [address]);
   };
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'getPlayerResearch',
-        'researchQueues',
-        'getTutorialStatus', // Quest conditions may now be met
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { completeResearch, hash, isPending, isConfirming, isSuccess, error, reset };
+  return { completeResearch, ...state };
 }
 
 /**
  * Hook to cancel research (50% refund)
  */
 export function useCancelResearch() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['getPlayerResearch', 'researchQueues', 'calculateCurrentResources'],
+    },
+    'useCancelResearch',
+  );
 
-  const cancelResearch = (planetId: bigint) => {
-    console.log(`[${getTimestamp()}] [useCancelResearch] Cancelling research for planetId:`, planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'cancelResearch',
-      args: [planetId],
-    });
-  };
+  const cancelResearch = (planetId: bigint) => call('cancelResearch', [planetId]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'getPlayerResearch',
-        'researchQueues',
-        'calculateCurrentResources',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { cancelResearch, hash, isPending, isConfirming, isSuccess, error, reset };
+  return { cancelResearch, ...state };
 }
 
 // ========== Blockchain Utility Hooks ==========
@@ -1880,43 +1512,17 @@ export function useTutorialStatus(planetId: bigint | undefined) {
  * Hook to claim a tutorial quest reward
  */
 export function useClaimTutorialQuest() {
-  const queryClient = useQueryClient();
-  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const { call, ...state } = useReviveContractWrite(
+    {
+      contractAddress: NEXUS_GAME_ADDRESS,
+      abi: nexusGameAbiTyped,
+      invalidate: ['getTutorialStatus', 'calculateCurrentResources', 'getPlanet'],
+    },
+    'useClaimTutorialQuest',
+  );
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const claimQuest = (planetId: bigint, questId: number) =>
+    call('claimTutorialQuest', [planetId, BigInt(questId)]);
 
-  const claimQuest = (planetId: bigint, questId: number) => {
-    console.log(`[${getTimestamp()}] [useClaimTutorialQuest] Claiming quest:`, questId, 'for planet:', planetId.toString());
-    writeContract({
-      address: NEXUS_GAME_ADDRESS,
-      abi: nexusGameAbi,
-      functionName: 'claimTutorialQuest',
-      args: [planetId, BigInt(questId)],
-    });
-  };
-
-  useEffect(() => {
-    if (!hash && !error && !isSuccess) return;
-    console.log(`[${getTimestamp()}] [useClaimTutorialQuest]`, {
-      hash,
-      isPending,
-      isConfirming,
-      isSuccess,
-      error: error?.message,
-    });
-  }, [hash, isPending, isConfirming, isSuccess, error]);
-
-  useEffect(() => {
-    if (isSuccess) {
-      invalidateContractQueries(queryClient, [
-        'getTutorialStatus',
-        'calculateCurrentResources',
-        'getPlanet',
-      ]);
-    }
-  }, [isSuccess, queryClient]);
-
-  return { claimQuest, hash, isPending, isConfirming, isSuccess, error, reset };
+  return { claimQuest, ...state };
 }

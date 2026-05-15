@@ -2,22 +2,23 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useHostAddress } from '@/hooks/useHostAddress';
-import { useSpektrAccounts } from '@/hooks/useSpektrAccounts';
+import { useTriangle } from '@/hooks/useTriangle';
 
 const DOTLI_HOST_URL = 'https://dot.li';
 
 export default function Home() {
   const router = useRouter();
-  const { isConnected, isConnecting, isInHost, address, ss58Address } = useHostAddress();
-  const { status } = useSpektrAccounts();
+  const { isInHost, ready, status, signingIn, signIn, error, address, h160 } = useTriangle();
 
-  // Redirect to game when the host has paired an account.
+  // Redirect to game once the host has connected and an account is selected.
   useEffect(() => {
-    if (isConnected) {
+    if (ready) {
       router.push('/game');
     }
-  }, [isConnected, router]);
+  }, [ready, router]);
+
+  const connecting = signingIn || status === 'connecting' || status === 'reconnecting';
+  const needsSignIn = isInHost && !ready && !connecting;
 
   return (
     <main className="min-h-screen bg-bg-primary flex items-center justify-center">
@@ -46,11 +47,11 @@ export default function Home() {
             <p className="text-text-muted text-sm max-w-xl mx-auto">
               Nexus Protocol signs every action with your Polkadot account through
               the host&apos;s built-in wallet. Open this site at{' '}
-              <span className="font-mono text-text-secondary">dot.li</span> and pair
-              your Polkadot account to play.
+              <span className="font-mono text-text-secondary">dot.li</span> and sign
+              in with your Polkadot account to play.
             </p>
           </div>
-        ) : isConnecting || status === 'detecting' || status === 'injecting' ? (
+        ) : connecting ? (
           <div className="flex items-center justify-center gap-2 text-text-secondary">
             <svg
               className="animate-spin h-5 w-5"
@@ -72,22 +73,35 @@ export default function Home() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            Connecting to your Polkadot Host account…
+            {signingIn ? 'Waiting for host login…' : 'Connecting to your Polkadot Host account…'}
           </div>
-        ) : status === 'failed' ? (
-          <p className="text-accent-danger text-sm">
-            Failed to reach the Polkadot Host. Reload the page or pair an account in
-            the host&apos;s wallet UI before continuing.
-          </p>
-        ) : !isConnected ? (
-          <p className="text-text-muted text-sm max-w-xl mx-auto">
-            Waiting for you to pair a Polkadot account in the host&apos;s wallet UI…
-          </p>
-        ) : (
+        ) : ready ? (
           <p className="text-text-secondary font-mono text-sm break-all">
-            Paired: {ss58Address ?? address}
+            Signed in: {address ?? h160}
           </p>
-        )}
+        ) : needsSignIn ? (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                void signIn();
+              }}
+              className="inline-block bg-accent-primary text-bg-primary px-8 py-3 font-bold hover:bg-accent-secondary hover:shadow-[0_0_30px_rgba(0,255,136,0.5)] transition-all duration-200 clip-angular"
+            >
+              Sign in to play Nexus Protocol
+            </button>
+            <p className="text-text-muted text-sm max-w-xl mx-auto">
+              Nexus Protocol uses your Polkadot Host account to sign every
+              in-game action. Click sign in to open the host&apos;s native login
+              UI.
+            </p>
+            {error ? (
+              <p className="text-accent-danger text-sm">
+                Sign-in failed: {error.message ?? 'unknown error'}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto text-left">
           <div className="bg-bg-secondary/50 p-6 border border-bg-tertiary">

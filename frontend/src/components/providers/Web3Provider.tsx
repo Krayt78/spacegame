@@ -25,8 +25,9 @@ interface Web3ProviderProps {
  * Wagmi is kept around exclusively for read hooks (`useReadContract`,
  * `useChainId`, `useBlock` etc.) — they reach an HTTP transport directly and
  * don't require any wallet connector. The connect / sign UI is provided by
- * the Polkadot Host through `useSpektrAccounts` + `useHostAddress`, not
- * ConnectKit.
+ * the Polkadot Host through `@parity/product-sdk-signer` (`useTriangle` /
+ * `useHostAddress`), not ConnectKit. Phase 4 of the triangle migration drops
+ * connectkit entirely and reduces this provider further.
  */
 export function Web3Provider({ children }: Web3ProviderProps) {
   return (
