@@ -2,9 +2,8 @@
 
 import { useEffect } from 'react';
 import { useReadContract, useBlock } from 'wagmi';
-import type { Abi } from 'viem';
 import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
-import { useReviveContractWrite } from '@/hooks/useReviveContractWrite';
+import { useNexusContractWrite } from '@/hooks/useNexusContractWrite';
 import {
   NEXUS_GAME_ADDRESS,
   GAME_CONFIG_ADDRESS,
@@ -12,7 +11,10 @@ import {
   gameConfigAbi,
 } from '@/lib/contracts';
 
-const nexusGameAbiTyped = nexusGameAbi as unknown as Abi;
+// Kept for legacy options-object compat with `useNexusContractWrite` call
+// sites. The helper ignores `contractAddress` / `abi`; the typed CDM manifest
+// drives the contract surface now.
+const nexusGameAbiTyped: unknown = nexusGameAbi;
 
 // ========== Contract Type Definitions ==========
 
@@ -539,7 +541,7 @@ export function useBuildTime(buildingType: number, currentLevel: number) {
  * claims (or any other Revive::call from the same account) are one prompt.
  */
 export function useClaimStarterPlanet() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -562,7 +564,7 @@ export function useClaimStarterPlanet() {
  * Hook to upgrade a building
  */
 export function useUpgradeBuilding() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -581,7 +583,7 @@ export function useUpgradeBuilding() {
  * Hook to complete a building upgrade
  */
 export function useCompleteUpgrade() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -599,7 +601,7 @@ export function useCompleteUpgrade() {
  * Hook to cancel a building upgrade (50% refund)
  */
 export function useCancelUpgrade() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -617,7 +619,7 @@ export function useCancelUpgrade() {
  * Hook to claim accumulated resources
  */
 export function useClaimResources() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -697,7 +699,7 @@ export function useShipBuildTime(shipType: number, quantity: number, shipyardLev
  * Hook to build ships
  */
 export function useBuildShips() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -716,7 +718,7 @@ export function useBuildShips() {
  * Hook to complete ship build
  */
 export function useCompleteShipBuild() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -734,7 +736,7 @@ export function useCompleteShipBuild() {
  * Hook to cancel ship build
  */
 export function useCancelShipBuild() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -846,7 +848,7 @@ export function useDefenseBuildTime(defenseType: number, quantity: number, shipy
  * Hook to build defenses
  */
 export function useBuildDefenses() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -865,7 +867,7 @@ export function useBuildDefenses() {
  * Hook to complete defense build
  */
 export function useCompleteDefenseBuild() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -883,7 +885,7 @@ export function useCompleteDefenseBuild() {
  * Hook to cancel defense build
  */
 export function useCancelDefenseBuild() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1064,7 +1066,7 @@ export function usePlayerOutposts() {
  * Hook to dispatch a fleet on a mission (RAID, CAPTURE, or MOVE)
  */
 export function useDispatchFleet() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1105,7 +1107,7 @@ export function useDispatchFleet() {
  * Used for withdrawing ships and resources from captured outposts
  */
 export function useDispatchFleetFromOutpost() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1146,7 +1148,7 @@ export function useDispatchFleetFromOutpost() {
  * Anyone can call this (not restricted to fleet owner)
  */
 export function useResolveFleet() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1182,7 +1184,7 @@ export function useResolveFleet() {
  * Only for RAID missions that are in RETURNING status
  */
 export function useCompleteFleet() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1390,7 +1392,7 @@ export function useResearchTime(researchType: number, currentLevel: number, rese
  * Hook to start researching a technology
  */
 export function useStartResearch() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1410,7 +1412,7 @@ export function useStartResearch() {
  */
 export function useCompleteResearch() {
   const { address } = useAccount();
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1431,7 +1433,7 @@ export function useCompleteResearch() {
  * Hook to cancel research (50% refund)
  */
 export function useCancelResearch() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,
@@ -1512,7 +1514,7 @@ export function useTutorialStatus(planetId: bigint | undefined) {
  * Hook to claim a tutorial quest reward
  */
 export function useClaimTutorialQuest() {
-  const { call, ...state } = useReviveContractWrite(
+  const { call, ...state } = useNexusContractWrite(
     {
       contractAddress: NEXUS_GAME_ADDRESS,
       abi: nexusGameAbiTyped,

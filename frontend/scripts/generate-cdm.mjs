@@ -22,7 +22,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const frontendDir = join(__dirname, "..");
 
 const ZERO = "0x0000000000000000000000000000000000000000";
-const DEFAULT_HUB_WS = "wss://paseo-asset-hub-next-rpc.polkadot.io";
+// The chain Nexus's contracts are deployed against. The `paseo-asset-hub-next-rpc.polkadot.io`
+// endpoint the @parity SDK ships in its "paseo" preset is a DIFFERENT chain (different genesis
+// hash) and is NOT where our contracts live — keep both `chainClient.ts` and this script
+// pinned to the dotters endpoint until/unless the contracts are redeployed.
+const DEFAULT_HUB_WS = "wss://asset-hub-paseo.dotters.network";
 
 const nexusGameAddress = process.env.NEXT_PUBLIC_NEXUS_GAME_ADDRESS;
 const gameConfigAddress = process.env.NEXT_PUBLIC_GAME_CONFIG_ADDRESS;

@@ -51,8 +51,8 @@ export const polkadotHubTestnet = defineChain({
 export const activeChain = process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? polkadotHubTestnet : localhost;
 
 // No connectors configured — wagmi is used only for read hooks and chain
-// metadata. The signer comes from the Polkadot Host (Spektr / dot.li) and is
-// surfaced separately via `useHostAddress` / `useSpektrAccounts`.
+// metadata. The signer comes from `@parity/product-sdk-signer` and is
+// surfaced separately via `useTriangle` (or the `useHostAddress` shim).
 //
 // IMPORTANT: chain ordering. Without a connector, wagmi's `useChainId()`
 // falls back to `chains[0]`, so the build-time selected chain must be at
