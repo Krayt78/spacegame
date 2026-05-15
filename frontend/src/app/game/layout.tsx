@@ -1,5 +1,5 @@
 import { ProtectedRoute } from '@/components/auth';
-import { ContractConfigWarning, ErrorBoundary, NetworkGuard } from '@/components/ui';
+import { ContractConfigWarning, ErrorBoundary } from '@/components/ui';
 
 export default function GameRootLayout({
   children,
@@ -9,9 +9,7 @@ export default function GameRootLayout({
   return (
     <ErrorBoundary>
       <ContractConfigWarning>
-        <NetworkGuard>
-          <ProtectedRoute>{children}</ProtectedRoute>
-        </NetworkGuard>
+        <ProtectedRoute>{children}</ProtectedRoute>
       </ContractConfigWarning>
     </ErrorBoundary>
   );

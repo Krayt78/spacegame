@@ -23,8 +23,5 @@ export type { ProgressBarProps, ProgressVariant } from './ProgressBar';
 // ContractConfigWarning
 export { ContractConfigWarning } from './ContractConfigWarning';
 
-// NetworkGuard
-export { NetworkGuard } from './NetworkGuard';
-
 // ErrorBoundary
 export { ErrorBoundary } from './ErrorBoundary';
