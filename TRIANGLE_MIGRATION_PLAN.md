@@ -29,7 +29,7 @@ Nexus Protocol's frontend has been migrated off MetaMask + ConnectKit + a hand-r
 ## Decisions (confirmed during execution)
 
 1. **Account model**: **legacy accounts**, not product accounts. The original plan said `('nexus-protocol.dot', 0)`. During execution we learned that the `SignerManager.connect("host")` happy path exposes legacy accounts (the user's regular host-paired wallet) and that's what the existing read hooks have been querying against. Switching to product accounts would have produced a different H160 → orphaned existing testnet state. Pre-launch this is fine to change later via `derivationIndex` if needed.
-2. **Login reason string** (shown in host UI): `"Sign in to play Nexus Protocol"`.
+2. **Login reason string** (shown in host UI): `"Sign in to play Nexus Protocol"`. **UPDATE during Phase 5**: `requestLogin` is a v0.7 protocol method and our installed `@novasamatech/product-sdk` is v0.6 — we can't trigger the host's native login UI from the product. The dApp now relies on the user already being signed into dot.li before opening the dApp; the "Sign in" button just retries `signerManager.connect('host')`. Reintroduce `requestLogin` when we bump to v0.7.
 3. **ConnectKit teardown**: completed in Phase 4, immediately after Phase 3 went green in dev mode.
 4. **PAPI-only reads (Phase G)**: deferred. Reads stay on wagmi + eth-rpc.
 

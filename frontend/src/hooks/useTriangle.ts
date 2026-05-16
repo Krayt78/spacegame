@@ -1,8 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { getAccountsProvider, isInsideContainerSync } from '@parity/product-sdk-host';
-import type { ProviderType, SignerState } from '@parity/product-sdk-signer';
+import { isInsideContainerSync } from '@parity/product-sdk-host';
+import type { PolkadotSigner } from 'polkadot-api';
+import type {
+  ProviderType,
+  SignerAccount,
+  SignerState,
+} from '@parity/product-sdk-signer';
 
 import { signerManager } from '@/lib/triangle/signerManager';
 
@@ -34,23 +39,28 @@ if (typeof window !== 'undefined' && PROVIDER_TYPE === 'dev') {
 }
 
 /**
- * Single React entry point onto the @parity/product-sdk triangle stack.
+ * Identifier the host uses to derive our app-scoped product account. Pairs
+ * with `PRODUCT_ACCOUNT_INDEX` to produce a deterministic keypair that the
+ * host signs with on every chain — including chains the host hasn't been
+ * explicitly told about, which is why we need this instead of legacy
+ * accounts (dot.li's host rejected `host_sign_payload_with_legacy_account`
+ * for our dotters Paseo Asset Hub genesis with
+ * `SigningErr::Unknown: Account can't be derived from product account id`).
  *
- * Responsibilities:
- *   - Subscribe to `SignerManager` state.
- *   - Auto-`connect("host")` once on mount so users with an active host
- *     session land directly in the game (no extra click).
- *   - Expose `signIn()` — triggers the host's native login UI via
- *     `accountsProvider.requestLogin(reason)` and then retries connect.
- *   - Map the SDK's account shape to the H160 the existing read hooks
- *     query the contracts with.
+ * IMPORTANT: dot.li validates this identifier against the dotNS subdomain
+ * the dApp is loaded from. If they don't match, the host rejects with a
+ * generic "Permission denied" and you'll see `handleSignPayload — invalid
+ * account[0]=<id>` in the dot.li console. Override per-deployment via
+ * `NEXT_PUBLIC_DOT_NS_IDENTIFIER` to match the actual subdomain (e.g.,
+ * `nexusprotocol00.dot` for `https://nexusprotocol00.dot.li`).
  *
- * SSR/static-export safety: every value that depends on `window` (host
- * detection, signer state) returns SSR-safe defaults until the first
- * `useEffect` flips `mounted = true`. Without this the first client render
- * diverges from the static HTML and React aborts hydration of the entire
- * tree (the #418 trap from Phase 1).
+ * The H160 derived from this product account is DIFFERENT from the legacy
+ * account's H160 — any pre-existing testnet planets stored under the
+ * legacy H160 are orphaned. Acceptable pre-launch per the migration plan.
  */
+const PRODUCT_ACCOUNT_ID =
+  process.env.NEXT_PUBLIC_DOT_NS_IDENTIFIER || 'nexusprotocol00.dot';
+const PRODUCT_ACCOUNT_INDEX = 0;
 
 const idleState: SignerState = {
   status: 'disconnected',
@@ -60,16 +70,82 @@ const idleState: SignerState = {
   error: null,
 };
 
-const LOGIN_REASON = 'Sign in to play Nexus Protocol';
+/**
+ * Module-level guard: `signerManager.connect()` is destructive — it
+ * `disconnectInternal()`s, flips status to `'connecting'`, then reconnects from
+ * scratch. Because ~10+ components mount `useTriangle` on /game (every read
+ * hook in useNexusGame.ts pulls it via useHostAddress), letting each mount
+ * call connect causes a disconnect/connecting cascade that thrashes `ready`
+ * and `address` and never settles — the visible login loop.
+ *
+ * We connect ONCE per page load and reuse the in-flight promise.
+ * `signIn()` (the explicit user gesture) is the only thing allowed to retry.
+ *
+ * After connect succeeds in host mode, we also fetch the product account
+ * (the actual signing identity — see `PRODUCT_ACCOUNT_ID`). The product
+ * account is published to subscribers separately so React components only
+ * report `ready` once BOTH legacy connect AND product-account derivation
+ * have completed.
+ */
+let initialConnect: Promise<unknown> | null = null;
+let productAccount: SignerAccount | null = null;
+const productAccountListeners = new Set<(a: SignerAccount | null) => void>();
+
+function setProductAccount(value: SignerAccount | null): void {
+  productAccount = value;
+  for (const listener of productAccountListeners) listener(value);
+}
+
+function subscribeProductAccount(cb: (a: SignerAccount | null) => void): () => void {
+  productAccountListeners.add(cb);
+  return () => {
+    productAccountListeners.delete(cb);
+  };
+}
+
+async function fetchProductAccount(): Promise<SignerAccount | null> {
+  const result = await signerManager.getProductAccount(
+    PRODUCT_ACCOUNT_ID,
+    PRODUCT_ACCOUNT_INDEX,
+  );
+  if (!result.ok) {
+    console.warn('[useTriangle] product account fetch failed:', result.error);
+    return null;
+  }
+  return result.value;
+}
+
+function ensureInitialConnect(): Promise<unknown> {
+  if (initialConnect) return initialConnect;
+  initialConnect = (async () => {
+    try {
+      const result = await signerManager.connect(PROVIDER_TYPE);
+      if (PROVIDER_TYPE === 'host' && result.ok) {
+        const account = await fetchProductAccount();
+        setProductAccount(account);
+      }
+      return result;
+    } catch (e) {
+      console.warn('[useTriangle] initial connect rejected:', e);
+      initialConnect = null;
+      setProductAccount(null);
+      return null;
+    }
+  })();
+  return initialConnect;
+}
 
 export type UseTriangleResult = {
-  /** SS58 address of the selected account, or `undefined` before connect. */
+  /** SS58 address of the signing account, or `undefined` before connect. */
   address: string | undefined;
-  /** Revive-mapped H160 of the selected account — the player ID the contracts see. */
+  /** Revive-mapped H160 of the signing account — the player ID the contracts see. */
   h160: `0x${string}` | undefined;
-  /** Underlying SignerManager status: 'disconnected' | 'connecting' | 'connected' | 'reconnecting'. */
+  /** Underlying SignerManager status: 'disconnected' | 'connecting' | 'connected'. */
   status: SignerState['status'];
-  /** True once connected AND an account is selected (the gate for in-game UI). */
+  /**
+   * True once connected AND the signing account is available — in host mode
+   * this also requires the product-account derivation to have completed.
+   */
   ready: boolean;
   /** Whether we're running inside a Polkadot Host container. */
   isInHost: boolean;
@@ -79,46 +155,56 @@ export type UseTriangleResult = {
   error: SignerState['error'];
   /** Trigger the host's native login UI, then connect. Returns once connect resolves. */
   signIn: () => Promise<void>;
+  /**
+   * Returns the PolkadotSigner for the signing account, or `null` if the
+   * account isn't available yet. Host mode returns the product-account
+   * signer; dev mode returns the DevProvider signer (Alice).
+   */
+  getSigner: () => PolkadotSigner | null;
 };
 
 export function useTriangle(): UseTriangleResult {
   const [mounted, setMounted] = useState(false);
-  const [state, setState] = useState<SignerState>(idleState);
+  // Seed with the singleton's current state so newly mounted instances on
+  // /game (post-redirect from /) don't fall back to idleState and re-render
+  // as "disconnected" before subscribe fires its first update.
+  const [state, setState] = useState<SignerState>(() =>
+    typeof window === 'undefined' ? idleState : signerManager.getState(),
+  );
+  const [pAccount, setPAccount] = useState<SignerAccount | null>(() =>
+    typeof window === 'undefined' ? null : productAccount,
+  );
   const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const unsubscribe = signerManager.subscribe(setState);
-    // Try silently on mount; in host mode, failure means the user isn't
-    // signed in yet and the UI surfaces the explicit Sign In button.
-    // In dev mode this resolves immediately with Alice's account.
-    signerManager.connect(PROVIDER_TYPE).catch((e) => {
-      console.warn('[useTriangle] initial connect rejected:', e);
-    });
-    return unsubscribe;
+    // Sync with the current snapshot in case it changed between render and
+    // the effect firing (e.g., during a route transition).
+    setState(signerManager.getState());
+    setPAccount(productAccount);
+    const unsubState = signerManager.subscribe(setState);
+    const unsubPA = subscribeProductAccount(setPAccount);
+    // Idempotent: only the first useTriangle on the page actually triggers
+    // connect; later mounts await the same promise without disconnecting the
+    // live session.
+    void ensureInitialConnect();
+    return () => {
+      unsubState();
+      unsubPA();
+    };
   }, []);
 
   const signIn = useCallback(async () => {
     if (signingIn) return;
     setSigningIn(true);
     try {
-      if (PROVIDER_TYPE === 'host') {
-        // Trigger the host's native login UI. If already signed in, this
-        // returns 'alreadyConnected' immediately with no UI flash.
-        const provider = await getAccountsProvider();
-        if (provider) {
-          try {
-            await provider.requestLogin(LOGIN_REASON);
-          } catch (e) {
-            // The login can be rejected by the user; that's not a fatal
-            // error — fall through and let `connect` decide.
-            console.warn('[useTriangle] requestLogin rejected:', e);
-          }
-        }
-      }
-      const result = await signerManager.connect(PROVIDER_TYPE);
-      if (!result.ok) {
-        console.warn('[useTriangle] connect failed:', result.error);
+      // Reset both module-level caches so signIn always issues a fresh
+      // attempt — both the host connect and the product-account derivation.
+      initialConnect = null;
+      setProductAccount(null);
+      const result = await ensureInitialConnect();
+      if (result && typeof result === 'object' && 'ok' in result && !result.ok) {
+        console.warn('[useTriangle] connect failed:', (result as { error?: unknown }).error);
       }
     } finally {
       setSigningIn(false);
@@ -130,6 +216,22 @@ export function useTriangle(): UseTriangleResult {
   // "Open in Polkadot Host" gate. Baked at build time, so SSR and client agree.
   const reportInHost = PROVIDER_TYPE === 'dev' ? true : false;
 
+  // Pick the "effective" signing account based on provider:
+  //   - host: product account (app-scoped, signs across chains)
+  //   - dev:  the selected legacy account (Alice via DevProvider)
+  const effectiveAccount: SignerAccount | null =
+    PROVIDER_TYPE === 'host' ? pAccount : state.selectedAccount;
+
+  const getSigner = useCallback((): PolkadotSigner | null => {
+    if (!effectiveAccount) return null;
+    try {
+      return effectiveAccount.getSigner();
+    } catch (e) {
+      console.warn('[useTriangle] getSigner failed:', e);
+      return null;
+    }
+  }, [effectiveAccount]);
+
   if (!mounted) {
     return {
       address: undefined,
@@ -140,17 +242,19 @@ export function useTriangle(): UseTriangleResult {
       signingIn: false,
       error: null,
       signIn,
+      getSigner,
     };
   }
 
   return {
-    address: state.selectedAccount?.address,
-    h160: state.selectedAccount?.h160Address as `0x${string}` | undefined,
+    address: effectiveAccount?.address,
+    h160: effectiveAccount?.h160Address as `0x${string}` | undefined,
     status: state.status,
-    ready: state.status === 'connected' && state.selectedAccount !== null,
+    ready: state.status === 'connected' && effectiveAccount !== null,
     isInHost: PROVIDER_TYPE === 'dev' ? true : isInsideContainerSync(),
     signingIn,
     error: state.error,
     signIn,
+    getSigner,
   };
 }

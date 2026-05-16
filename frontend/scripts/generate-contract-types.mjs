@@ -8,7 +8,7 @@
 //
 // Output is gitignored — regenerated whenever ABIs change.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 
@@ -20,15 +20,33 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const frontendDir = join(__dirname, "..");
 
+/**
+ * Solidity emits unnamed inputs for auto-generated mapping getters
+ * (e.g. `mapping(BuildingType => BuildingConfig) public buildingConfigs;`
+ * produces `buildingConfigs(uint8) returns (...)` with no name on the input).
+ * The SDK's type codegen emits `args: [: number]` for those — a syntax
+ * error in TypeScript. Patch by assigning synthetic `arg0`/`arg1`/… names
+ * to every unnamed input before handing the ABI off.
+ */
+function nameAnonInputs(abi) {
+  return abi.map((entry) => {
+    if (entry.type !== "function" || !Array.isArray(entry.inputs)) return entry;
+    const inputs = entry.inputs.map((input, i) =>
+      input?.name ? input : { ...input, name: `arg${i}` },
+    );
+    return { ...entry, inputs };
+  });
+}
+
+function loadAbi(relativePath) {
+  return nameAnonInputs(
+    JSON.parse(readFileSync(join(frontendDir, relativePath), "utf8")),
+  );
+}
+
 const inputs = [
-  {
-    library: "@nexus/game",
-    abiPath: join(frontendDir, "src/contracts/abi/NexusGame.json"),
-  },
-  {
-    library: "@nexus/config",
-    abiPath: join(frontendDir, "src/contracts/abi/GameConfig.json"),
-  },
+  { library: "@nexus/game", abi: loadAbi("src/contracts/abi/NexusGame.json") },
+  { library: "@nexus/config", abi: loadAbi("src/contracts/abi/GameConfig.json") },
 ];
 
 const resolved = await resolveContractTypeInputs(inputs);

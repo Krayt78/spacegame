@@ -4,7 +4,6 @@ import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTriangle } from '@/hooks/useTriangle';
-import { signerManager } from '@/lib/triangle/signerManager';
 import { ensureMapped, getContractManager } from '@/lib/triangle/contractManager';
 
 /**
@@ -71,7 +70,7 @@ export function useNexusContractWrite(
     : ((optsOrInvalidate as LegacyOptions).invalidate ?? []);
 
   const queryClient = useQueryClient();
-  const { ready, address } = useTriangle();
+  const { ready, address, getSigner } = useTriangle();
   const [s, setS] = useState(idleState);
 
   const reset = useCallback(() => setS(idleState), []);
@@ -82,7 +81,10 @@ export function useNexusContractWrite(
         setS({ ...idleState, error: new Error('Not signed in') });
         return;
       }
-      const signer = signerManager.getSigner();
+      // In host mode this is the product-account signer (signs across chains
+      // including our dotters Paseo Asset Hub). In dev mode it's the
+      // DevProvider's Alice signer. See useTriangle.ts for the switch.
+      const signer = getSigner();
       if (!signer) {
         setS({ ...idleState, error: new Error('No signer available') });
         return;
@@ -141,7 +143,7 @@ export function useNexusContractWrite(
         });
       }
     },
-    [ready, address, queryClient, invalidate],
+    [ready, address, getSigner, queryClient, invalidate],
   );
 
   /**

@@ -1,6 +1,5 @@
 import { createClient, type PolkadotClient } from "polkadot-api";
 import { getWsProvider } from "polkadot-api/ws";
-import { getHostProvider, isInsideContainerSync } from "@parity/product-sdk-host";
 
 import { hub } from "@polkadot-api/descriptors";
 
@@ -10,8 +9,12 @@ import { hub } from "@polkadot-api/descriptors";
  * deployed on. The SDK preset for `"paseo"` points at a different chain
  * (`paseo-asset-hub-next-rpc.polkadot.io`, genesis `0x173cea…`) and is NOT
  * the right target for us.
+ *
+ * Kept exported in case a future host build advertises support for this
+ * chain — then we can reintroduce a `getHostProvider(PASEO_HUB_GENESIS)`
+ * branch below.
  */
-const PASEO_HUB_GENESIS =
+export const PASEO_HUB_GENESIS =
   "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2" as const;
 
 const FALLBACK_WS_URL =
@@ -22,36 +25,29 @@ let cached: Promise<PolkadotClient> | null = null;
 /**
  * Returns a polkadot-api v2 PolkadotClient bound to Paseo Asset Hub.
  *
- * - **Inside a host**: tries `getHostProvider(genesis)` first so chain RPC
- *   rides on the host's pooled connection (single WebSocket shared across all
- *   products). Falls back to direct WebSocket if the host doesn't expose the
- *   chain yet.
- * - **Outside a host** (dev mode with `NEXT_PUBLIC_SIGNER_PROVIDER=dev`):
- *   uses a direct WebSocket against `NEXT_PUBLIC_HUB_WS_URL` (defaulting to
- *   the dotters endpoint our contracts are deployed against).
+ * Always opens a direct WebSocket to `NEXT_PUBLIC_HUB_WS_URL`, even inside a
+ * Polkadot Host container. Why not host-routed RPC?
+ *   - Our contracts are deployed on `wss://asset-hub-paseo.dotters.network`
+ *     (genesis `0xd6eec…`). dot.li only proxies the official Paseo Asset Hub
+ *     (`0x173cea…`).
+ *   - `getHostProvider(unsupported)` does NOT return null — it returns a
+ *     shell provider whose `send()` silently logs
+ *     "Provider for chain <hash> was not started because Host doesn't support it"
+ *     and discards the message. We were unconditionally committing to that
+ *     dead provider inside the host, so every chainHead/dry-run/tx ate the
+ *     error and hung. Direct WS sidesteps the negotiation entirely.
  *
- * Result is cached for the lifetime of the page — sharing one client across
- * the app avoids duplicate metadata fetches and keeps the connection pool
- * small.
+ * When the host eventually advertises our chain, reintroduce the
+ * `if (isInsideContainerSync()) getHostProvider(...)` branch from
+ * git history — that path is correct in principle, just blocked by the
+ * dotters/official genesis split.
+ *
+ * Result is cached for the lifetime of the page so we share one client and
+ * one metadata fetch across every read/write hook.
  */
 export function getAssetHubClient(): Promise<PolkadotClient> {
   if (cached) return cached;
-  cached = (async () => {
-    if (isInsideContainerSync()) {
-      try {
-        const provider = await getHostProvider(PASEO_HUB_GENESIS);
-        if (provider) {
-          return createClient(provider);
-        }
-      } catch (e) {
-        console.warn(
-          "[chainClient] getHostProvider failed; falling back to direct WS:",
-          e,
-        );
-      }
-    }
-    return createClient(getWsProvider(FALLBACK_WS_URL));
-  })();
+  cached = (async () => createClient(getWsProvider(FALLBACK_WS_URL)))();
   return cached;
 }
 

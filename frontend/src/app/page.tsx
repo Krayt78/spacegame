@@ -17,7 +17,7 @@ export default function Home() {
     }
   }, [ready, router]);
 
-  const connecting = signingIn || status === 'connecting' || status === 'reconnecting';
+  const connecting = signingIn || status === 'connecting';
   const needsSignIn = isInHost && !ready && !connecting;
 
   return (

@@ -27,7 +27,10 @@ export function useHostAddress(): {
     ss58Address: t.address,
     isConnected: t.ready,
     isConnecting: t.status === 'connecting' || t.signingIn,
-    isReconnecting: t.status === 'reconnecting',
+    // `reconnecting` isn't part of `@parity/product-sdk-signer`'s ConnectionStatus
+    // (only 'disconnected' | 'connecting' | 'connected'). Kept on the return
+    // shape for consumer compat and always reports false.
+    isReconnecting: false,
     isInHost: t.isInHost,
     isReady: t.ready,
   };
