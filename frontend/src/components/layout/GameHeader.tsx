@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
+import { HostLink as Link } from '@/components/HostLink';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Settings, ChevronDown, Wallet, Copy, Check, ExternalLink } from 'lucide-react';
 import { useHostAddress as useAccount } from '@/hooks/useHostAddress';

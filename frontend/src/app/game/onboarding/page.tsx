@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/hostNav';
 import { motion } from 'framer-motion';
 import { Globe, Rocket, AlertCircle, Check, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';

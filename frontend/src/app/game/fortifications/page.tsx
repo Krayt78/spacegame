@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { ShieldAlert, Loader2, XCircle, ArrowRight, Wrench } from 'lucide-react';
-import Link from 'next/link';
+import { HostLink as Link } from '@/components/HostLink';
 import { GameLayout } from '@/components/layout';
 import { Card, CardContent, Button } from '@/components/ui';
 import { DefenseQueue, DefenseCard } from '@/components/game';

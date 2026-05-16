@@ -242,10 +242,18 @@ export function useTriangle(): UseTriangleResult {
   }, [effectiveAccount]);
 
   if (!mounted) {
+    // First render (SSR + client hydration) before our effect has run. We
+    // report `'connecting'` instead of `'disconnected'` because
+    // ProtectedRoute treats `disconnected` as "redirect to /" — and any
+    // page that mounts mid-route (e.g. /game after the redirect-on-login)
+    // would then immediately bounce back to /, which bounces back to /game
+    // (its own `if (ready) push('/game')`), producing a wedged redirect
+    // loop and `Throttling navigation` errors in the console. Reporting
+    // `connecting` keeps gate checks neutral until the real state lands.
     return {
       address: undefined,
       h160: undefined,
-      status: 'disconnected',
+      status: 'connecting',
       ready: false,
       isInHost: reportInHost,
       signingIn: false,

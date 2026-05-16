@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import Link from 'next/link';
+import { HostLink as Link } from '@/components/HostLink';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

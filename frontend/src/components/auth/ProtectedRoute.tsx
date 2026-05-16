@@ -1,7 +1,8 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useRouter } from '@/lib/hostNav';
 import { motion } from 'framer-motion';
 import { useHasPlanet } from '@/hooks/useNexusGame';
 import { useHostAddress } from '@/hooks/useHostAddress';

@@ -314,7 +314,62 @@ The runtime-API view used by `ReviveApi.call` lags behind best-block inclusion. 
 
 ---
 
-## 14. `StorageDepositNotEnoughFunds` dry-run failure isn't actionable from the SDK's surface
+## 14. dot.li requires sandbox query params (`chainBackend`, …) on every URL but doesn't preserve them across in-app navigation
+
+**Severity:** High. Every Next.js / SPA dApp on dot.li silently breaks the moment the user clicks an in-app link.
+
+**Where:** dot.li outer shell (sandbox URL validation) + dApps using Next.js `next/link` / `router.push` (or any framework that does client-side navigation without preserving the search string).
+
+**Behavior observed:** dot.li launches the dApp at e.g. `https://nexusprotocol00.dot.li/?chainBackend=...&...`. The `chainBackend` param tells the sandbox which backend to talk to. When the user clicks an in-app `<Link href="/game/buildings">`, Next.js navigates client-side to `/game/buildings` — **without the query string**. dot.li's outer shell evaluates the new URL, finds `chainBackend` missing, and renders its own full-page error:
+
+> **Invalid sandbox URL**
+> Missing required URL param `chainBackend`. The host did not specify a backend — reload from dot.li.
+
+The dApp never gets to render the new page; the user has to go back to dot.li's home and re-launch.
+
+This is a footgun every SPA-based dApp on dot.li will hit on its first non-root navigation. There is no warning in any docs we've found.
+
+**Suggested fix:**
+- Preserve dot.li sandbox params automatically across same-origin in-app navigations (the outer shell sees the navigation; it could re-inject the params before passing the URL through).
+- Or: move the sandbox config out of URL params entirely. `postMessage` from the shell to the dApp, or a one-time bootstrap config, would not be lost on client-side nav.
+- At minimum, document the constraint in the dot.li dApp-developer guide so framework users know to write a Link wrapper.
+
+**Workaround we applied:** added two thin wrappers (`HostLink`, `useRouter` from `@/lib/hostNav`) that re-attach `window.location.search` + `.hash` to every navigation target unless the caller specified its own. Swapped them into every `next/link` and `useRouter` consumer in the codebase. ~10 one-line import changes. After the swap, in-app navigation stays inside the sandbox.
+
+---
+
+## 15a. `isInsideContainerSync()` forces every consumer into an SSR/CSR hydration dance — and the most obvious dance creates an infinite redirect loop
+
+**Severity:** High. Symptom is a hard-to-debug redirect bounce ("Throttling navigation to prevent the browser from hanging" in the console) that only reproduces after the user is logged in and clicks an in-app link.
+
+**Where:** `@parity/product-sdk-host@0.3.0`, `isInsideContainerSync()` (called in any framework using SSR/hydration, e.g. Next.js App Router).
+
+**Behavior observed:** `isInsideContainerSync()` reads `window`/`postMessage` state synchronously, so calling it in a React component's render path produces *different* return values on the server (`false`) and the client (`true` when inside dot.li). That's a hydration mismatch.
+
+The standard React workaround is a `mounted` flag (`useState(false)` + `useEffect(() => setMounted(true))`) that returns "blank" values during the first render. We did exactly that in `useTriangle.ts`. Pre-mount, we returned:
+
+```ts
+{ address: undefined, status: 'disconnected', ready: false, isInHost: reportInHost, ... }
+```
+
+This was a mistake — but a *seductive* one, because it looks like a sensible default. The trap: any auth gate component that does
+
+```ts
+if (!isConnected) router.push('/login');
+```
+
+(our `ProtectedRoute` does this) will fire on that pre-mount frame and redirect. The login page then does `if (ready) router.push('/game')`, which fires *its* pre-mount frame as `ready=false`, but on the next render becomes `ready=true` and pushes back to `/game`. `/game` mounts fresh again, pre-mount frame says `disconnected`, redirect back to `/`. Loop wedged until Chromium's `--disable-ipc-flooding-protection` throttle kicks in.
+
+**Suggested fix:**
+- Ship a `useIsInsideContainer()` React hook in `@parity/product-sdk-host` that handles the hydration dance internally (returns `false` first frame, then the real value via `useSyncExternalStore` or a post-mount effect). Document it as the recommended way for React apps.
+- Mark `isInsideContainerSync()` as "do not call from a React render path."
+- Add a worked example of `useTriangle`-shaped wrappers in the docs that explicitly call out: "Never return synthetic `status: 'disconnected'` during the SSR/pre-mount frame; return `status: 'connecting'` so consumer gate logic waits rather than acts."
+
+**Workaround we applied:** In `useTriangle.ts`'s pre-mount branch, changed `status: 'disconnected'` → `status: 'connecting'`. Auth gates that key off `isConnecting` now wait one tick instead of redirecting. Took ~30 minutes to diagnose because the loop happened *only* after the user's first login (when there was actually a session to disconnect from, making the bug user-visible).
+
+---
+
+## 15. `StorageDepositNotEnoughFunds` dry-run failure isn't actionable from the SDK's surface
 
 **Severity:** Low. Correct on-chain behavior, but bad first-run UX.
 

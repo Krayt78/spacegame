@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { FlaskConical, Loader2, XCircle, Wrench, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { HostLink as Link } from '@/components/HostLink';
 import { GameLayout } from '@/components/layout';
 import { ResearchQueue } from '@/components/game';
 import { Card, CardContent, Button } from '@/components/ui';
