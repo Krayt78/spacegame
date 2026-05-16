@@ -112,6 +112,15 @@ async function fetchProductAccount(): Promise<SignerAccount | null> {
     console.warn('[useTriangle] product account fetch failed:', result.error);
     return null;
   }
+  // The product account is a freshly-derived key with zero PAS. The first
+  // write per device will fail with InvalidTransaction::Payment until the
+  // SS58 is funded via the Paseo faucet (https://faucet.polkadot.io/).
+  // Print SS58 + H160 so the user can copy the SS58 into the faucet.
+  console.info(
+    '[useTriangle] product account ready:\n' +
+      `  SS58 (fund this via faucet): ${result.value.address}\n` +
+      `  H160 (contract identity):    ${result.value.h160Address}`,
+  );
   return result.value;
 }
 

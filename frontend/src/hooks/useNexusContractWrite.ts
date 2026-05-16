@@ -93,9 +93,15 @@ export function useNexusContractWrite(
       setS({ ...idleState, isPending: true });
 
       try {
+        // Was this call site's first write per process? If so, we just
+        // submitted Revive.map_account and need to retry the dry-run below
+        // because best-block inclusion of map_account doesn't always
+        // propagate to the runtime API view (`ReviveApi.call`) immediately.
+        let justMapped = false;
         if (!mappedAddresses.has(address)) {
           await ensureMapped(address, signer);
           mappedAddresses.add(address);
+          justMapped = true;
         }
 
         const manager = await getContractManager();
@@ -116,7 +122,31 @@ export function useNexusContractWrite(
         // (during user signing) we're "pending".
         setS({ ...idleState, isPending: false, isConfirming: true });
 
-        const result = await fn.tx(...args, { signer });
+        // Retry on AccountUnmapped if we just submitted map_account — the
+        // runtime API view can lag behind the best-block inclusion for a few
+        // seconds, returning `Revive::AccountUnmapped` even though the on-
+        // chain mapping is already there. Backoff: 2s, 4s, 8s.
+        const result = await (async () => {
+          const MAX_REMAP_RETRIES = justMapped ? 3 : 0;
+          let lastErr: unknown;
+          for (let attempt = 0; attempt <= MAX_REMAP_RETRIES; attempt++) {
+            try {
+              return await fn.tx(...args, { signer });
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              if (
+                attempt < MAX_REMAP_RETRIES &&
+                msg.includes('AccountUnmapped')
+              ) {
+                lastErr = e;
+                await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+                continue;
+              }
+              throw e;
+            }
+          }
+          throw lastErr;
+        })();
 
         if (!result.ok) {
           throw new Error(`Tx failed: ${JSON.stringify(result.dispatchError)}`);

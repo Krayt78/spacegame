@@ -290,7 +290,31 @@ We hit this after fixing issues #3 and #6 — Claim Planet failed instantly with
 
 ---
 
-## 13. `StorageDepositNotEnoughFunds` dry-run failure isn't actionable from the SDK's surface
+## 13. `ensureContractAccountMapped` returns before the next dry-run can observe the new mapping (race between best-block and runtime-API state)
+
+**Severity:** Medium. Surfaces as `Revive::AccountUnmapped` on the first write per device, even though the SDK *just* mapped the account.
+
+**Where:** `@parity/product-sdk-contracts@0.5.0` `ensureContractAccountMapped()` → `@parity/product-sdk-tx@0.2.3` `ensureAccountMapped()` → `submitAndWatch(tx, signer, { waitFor: "best-block" })`. The `waitFor: "best-block"` is hardcoded inside `ensureAccountMapped()` and cannot be overridden via options.
+
+**Behavior observed:** Flow on first write per device:
+
+1. `useNexusContractWrite` → `ensureMapped(ss58, signer)` → `ensureContractAccountMapped()` checks `Revive.OriginalAccount[h160]` → returns `undefined` (not mapped) → submits `Revive.map_account()` → `submitAndWatch` waits for best-block inclusion → resolves.
+2. Same call site immediately runs the user's actual write via `manager.getContract(library)[method].tx(...)`.
+3. The contracts SDK's `tx()` runs a dry-run via `unsafe.apis.ReviveApi.call(...)` — a runtime API call against the chain's current state.
+4. Dry-run returns `{type:"Module", value:{type:"Revive", value:{type:"AccountUnmapped"}}}` — even though `map_account` was successfully best-blocked in step 1.
+
+The runtime-API view used by `ReviveApi.call` lags behind best-block inclusion. The user sees a single phone prompt (for `map_account`), then a `ContractDryRunFailedError: AccountUnmapped` with no second prompt — and no obvious recovery path. (A second click of the same button works, because `mappedAddresses` is cached in memory and the second attempt skips `ensureMapped` and the dry-run sees the mapping by then.)
+
+**Suggested fix:**
+- Expose `waitFor` (or some "ensure-readable" predicate) as an option on `ensureContractAccountMapped` so consumers can wait for finalization, or a post-condition like "the mapping is observable via the same runtime API view we're about to query against."
+- Better: change `ensureContractAccountMapped` so that after `submitAndWatch` resolves, it polls the runtime-API view (`addressIsMapped`) with a short backoff until the mapping is observable. This ties the function's contract to its actual semantic ("the account IS mapped from the perspective of subsequent runtime API calls"), not just "the tx is in a best block."
+- Document the race in the README so consumers know to retry or pre-warm `map_account` at app boot.
+
+**Workaround we applied:** In our shared write hook, after `ensureMapped` resolves, retry the `.tx()` call up to 3 times with 2s/4s/8s backoff if the error message contains `AccountUnmapped`. Subsequent writes per device hit the `mappedAddresses` cache and skip both `ensureMapped` and the retry guard.
+
+---
+
+## 14. `StorageDepositNotEnoughFunds` dry-run failure isn't actionable from the SDK's surface
 
 **Severity:** Low. Correct on-chain behavior, but bad first-run UX.
 
