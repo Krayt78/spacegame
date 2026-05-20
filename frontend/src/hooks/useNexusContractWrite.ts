@@ -2,9 +2,25 @@
 
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Binary } from 'polkadot-api';
+import { encodeFunctionData, type Abi } from 'viem';
 
 import { useTriangle } from '@/hooks/useTriangle';
 import { ensureMapped, getContractManager } from '@/lib/triangle/contractManager';
+import { getTypedApi } from '@/lib/triangle/chainClient';
+import { getSessionWalletManager } from '@/lib/session/sessionWallet';
+import { NEXUS_GAME_ADDRESS, nexusGameAbi } from '@/lib/contracts';
+
+// Conservative defaults for the inner Revive.call when we skip dry-run in
+// session mode. Sized for `@nexus/game` writes (claim, upgrade, build,
+// dispatch). Matches Sovereignty's session-mode defaults. If NotEnoughGas
+// surfaces in practice, bump these — the proxied dispatch only spends what it
+// needs, but the weight limit must be at least that much.
+const SESSION_REVIVE_REF_TIME = 500_000_000_000n;
+const SESSION_REVIVE_PROOF_SIZE = 2_000_000n;
+const SESSION_REVIVE_STORAGE_DEPOSIT = 10_000_000_000n;
+
+const sessionManager = getSessionWalletManager();
 
 /**
  * Process-wide memoization of accounts we've already run `Revive.map_account`
@@ -102,6 +118,112 @@ export function useNexusContractWrite(
           await ensureMapped(address, signer);
           mappedAddresses.add(address);
           justMapped = true;
+        }
+
+        // Session path: when a session wallet is active for this main account,
+        // wrap the contract call in `Proxy.proxy({ real: main, call:
+        // Revive.call(...) })` and sign locally with the session keypair.
+        // pallet_proxy flips origin to `real` at the runtime level, so the
+        // contract sees `msg.sender = main` exactly as in the host path.
+        // ContractManager.tx() doesn't let us inject the Proxy wrapper around
+        // its internal Revive.call, so for session mode we bypass it and
+        // build the extrinsic directly via PAPI's typed API.
+        //
+        // Limited to '@nexus/game' — '@nexus/config' writes are admin-only
+        // and don't benefit from prompt-free UX.
+        const sessionData = sessionManager.restore(address);
+        const useSessionPath =
+          library === '@nexus/game' &&
+          sessionData?.isReady === true &&
+          sessionManager.timeRemaining(sessionData) > 0;
+
+        if (useSessionPath && sessionData) {
+          setS({ ...idleState, isPending: false, isConfirming: true });
+          const sessionSigner = sessionManager.getSigner(sessionData);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const api = (await getTypedApi()) as any;
+
+          const calldata = encodeFunctionData({
+            abi: nexusGameAbi as Abi,
+            functionName: method,
+            args: args as never,
+          });
+
+          // dest is `SizedHex<20>` (a hex string) in the current metadata, not
+          // bytes — passing Binary.fromHex(...) makes isCompat reject the
+          // outer Proxy.proxy because its `call: TxCallData` validates the
+          // inner extrinsic's args recursively. data is still `Uint8Array`,
+          // which Binary.fromHex satisfies.
+          const inner = api.tx.Revive.call({
+            dest: NEXUS_GAME_ADDRESS,
+            value: 0n,
+            weight_limit: {
+              ref_time: SESSION_REVIVE_REF_TIME,
+              proof_size: SESSION_REVIVE_PROOF_SIZE,
+            },
+            storage_deposit_limit: SESSION_REVIVE_STORAGE_DEPOSIT,
+            data: Binary.fromHex(calldata),
+          });
+
+          const proxied = api.tx.Proxy.proxy({
+            real: { type: 'Id', value: address },
+            force_proxy_type: undefined,
+            call: inner.decodedCall,
+          });
+
+          type SessionSubmitResult = {
+            block?: { number?: number; hash?: string };
+            events?: Array<{ type: string; value?: { type?: string } }>;
+          };
+          const result = (await proxied.signAndSubmit(
+            sessionSigner,
+          )) as SessionSubmitResult;
+
+          const events = result.events ?? [];
+          const failed = events.find(
+            (e) => e.type === 'System' && e.value?.type === 'ExtrinsicFailed',
+          );
+          if (failed) {
+            throw new Error(
+              `Tx failed (outer): ${JSON.stringify(failed.value)}`,
+            );
+          }
+          // Proxy.ProxyExecuted carries the inner dispatch result. In the
+          // current runtime its event shape is `{ result: { success: bool,
+          // value?: DispatchError } }`. If the inner Revive.call reverted,
+          // the outer extrinsic still succeeds (the proxy invocation itself
+          // didn't fail) — only this field tells us about the inner result.
+          const proxyExecuted = events.find(
+            (e) => e.type === 'Proxy' && e.value?.type === 'ProxyExecuted',
+          ) as
+            | {
+                value?: {
+                  value?: {
+                    result?: { success?: boolean; value?: unknown };
+                  };
+                };
+              }
+            | undefined;
+          const innerResult = proxyExecuted?.value?.value?.result;
+          if (innerResult && innerResult.success === false) {
+            throw new Error(
+              `Tx failed (inner): ${JSON.stringify(innerResult.value)}`,
+            );
+          }
+
+          setS({
+            hash: result.block?.hash as `0x${string}` | undefined,
+            isPending: false,
+            isConfirming: false,
+            isSuccess: true,
+            error: undefined,
+          });
+          for (const functionName of invalidate) {
+            queryClient.invalidateQueries({
+              queryKey: ['readContract', { functionName }],
+            });
+          }
+          return;
         }
 
         const manager = await getContractManager();

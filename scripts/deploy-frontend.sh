@@ -29,12 +29,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Domain to deploy to — flag > env var > default
-DOMAIN="${DOMAIN:-${NEXUS_DOTNS_DOMAIN:-nexusprotocol00.dot}}"
+# Capture the --domain override before sourcing the env file. After sourcing
+# we resolve: --domain > shell NEXUS_DOTNS_DOMAIN > env-file NEXUS_DOTNS_DOMAIN
+# > default. This lets `.env.<target>` own the deploy target alongside the
+# in-bundle DOT_NS_IDENTIFIER, so one file drives both.
+DOMAIN_OVERRIDE="$DOMAIN"
 
 echo "=== Deploy Nexus Protocol Frontend to Bulletin Chain ==="
-echo "  Domain: $DOMAIN"
-echo "  URL:    https://$DOMAIN.li"
 echo ""
 
 # Check prerequisites
@@ -82,6 +83,18 @@ else
     echo "[0/2] No env file found — contract addresses must already be in your shell."
     echo "      The build will fail with 'CONTRACTS NOT CONFIGURED' if NEXT_PUBLIC_NEXUS_GAME_ADDRESS"
     echo "      and NEXT_PUBLIC_GAME_CONFIG_ADDRESS aren't set."
+fi
+echo ""
+
+# Resolve deploy domain now that the env file has been sourced.
+DOMAIN="${DOMAIN_OVERRIDE:-${NEXUS_DOTNS_DOMAIN:-nexusprotocol00.dot}}"
+echo "  Domain: $DOMAIN"
+echo "  URL:    https://$DOMAIN.li"
+if [ -n "${NEXT_PUBLIC_DOT_NS_IDENTIFIER:-}" ] && [ "$NEXT_PUBLIC_DOT_NS_IDENTIFIER" != "$DOMAIN" ]; then
+    echo ""
+    echo "  WARNING: NEXT_PUBLIC_DOT_NS_IDENTIFIER=$NEXT_PUBLIC_DOT_NS_IDENTIFIER"
+    echo "           does not match deploy domain $DOMAIN."
+    echo "           dot.li will reject host pairing on the deployed page."
 fi
 echo ""
 

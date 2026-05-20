@@ -5,6 +5,7 @@ import { HostLink as Link } from '@/components/HostLink';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Settings, ChevronDown, Wallet, Copy, Check, ExternalLink } from 'lucide-react';
 import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
+import { SessionBadge } from '@/components/session/SessionBadge';
 import { ResourceHeader } from './ResourceHeader';
 import { PlanetSelector } from './PlanetSelector';
 import { cn } from '@/lib/utils';
@@ -124,6 +125,14 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
             </div>
           </div>
         )}
+
+        {/* Session badge — sits left of the user menu */}
+        <div className="flex items-center gap-3">
+          {isConnected && (
+            <div className="hidden md:block">
+              <SessionBadge />
+            </div>
+          )}
 
         {/* Right: User Menu */}
         <div ref={menuRef} className="relative">
@@ -253,6 +262,7 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
               <span className="text-sm">Awaiting host pairing…</span>
             </div>
           )}
+        </div>
         </div>
       </div>
 
