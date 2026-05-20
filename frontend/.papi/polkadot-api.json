@@ -6,7 +6,7 @@
       "wsUrl": "wss://asset-hub-paseo.dotters.network",
       "metadata": ".papi/metadata/hub.scale",
       "genesis": "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
-      "codeHash": "0x8d6a039a69478214c5846f4504e80f3cd3d2374b4c964976b071aececac586fd"
+      "codeHash": "0xfddf30fb88912790c5c7efd5918a9498821a80e22d5604ae115f4ed4b3580048"
     }
   }
 }

@@ -57,3 +57,16 @@ export function getAssetHubClient(): Promise<PolkadotClient> {
  * descriptor in one place if we ever regenerate against a different chain.
  */
 export { hub as paseoHubDescriptor };
+
+/**
+ * Convenience: `client.getTypedApi(paseoHubDescriptor)` is the entrypoint to
+ * `typedApi.tx.*` / `typedApi.query.*` for any pallet on this chain (Balances,
+ * Proxy, Utility, Revive, etc.). Session-wallet code needs direct access to
+ * these to build `Proxy.proxy({ real: main, call: Revive.call(...) })`
+ * extrinsics — the contract-manager abstraction only exposes the inner
+ * Revive.call, not the outer Proxy wrapper.
+ */
+export async function getTypedApi() {
+  const client = await getAssetHubClient();
+  return client.getTypedApi(hub);
+}
