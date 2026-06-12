@@ -16,14 +16,11 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@novasamatech/product-sdk": "^0.7.8",
     "@parity/product-sdk-address": "0.1.1",
-    "@parity/product-sdk-chain-client": "0.4.1",
-    "@parity/product-sdk-contracts": "0.5.0",
-    "@parity/product-sdk-descriptors": "0.4.0",
-    "@parity/product-sdk-host": "0.3.0",
-    "@parity/product-sdk-signer": "0.2.4",
-    "@parity/product-sdk-tx": "0.2.3",
+    "@parity/product-sdk-contracts": "0.7.5",
+    "@parity/product-sdk-host": "0.10.0",
+    "@parity/product-sdk-signer": "0.7.0",
+    "@parity/product-sdk-tx": "0.2.12",
     "@polkadot-api/descriptors": "file:.papi/descriptors",
     "@polkadot-api/json-rpc-provider": "^0.2.0",
     "@react-three/drei": "^10.7.7",
@@ -39,7 +36,6 @@
     "tailwind-merge": "^3.4.0",
     "three": "^0.182.0",
     "viem": "^2.45.0",
-    "wagmi": "^3.4.1",
     "zustand": "^5.0.10"
   },
   "devDependencies": {
