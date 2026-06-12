@@ -1,9 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { config } from '@/lib/wagmiConfig';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,17 +20,13 @@ interface Web3ProviderProps {
 }
 
 /**
- * Wagmi is kept around exclusively for read hooks (`useReadContract`,
- * `useChainId`, `useBlock` etc.) — they reach an HTTP transport directly and
- * don't require any wallet connector. The connect / sign UI is provided by
- * the Polkadot Host through `@parity/product-sdk-signer` (`useTriangle` /
- * `useHostAddress`), not ConnectKit. Phase 4 of the triangle migration drops
- * connectkit entirely and reduces this provider further.
+ * React-query provider for the contract read/write hooks. wagmi was dropped
+ * in Phase G of the triangle migration: paseo-next-v2 has no public eth-rpc
+ * adapter, so all reads now go through PAPI `ReviveApi.call` dry-runs
+ * (`useReadContractPapi.ts`) over the substrate WS — the same client the
+ * writes use. Connect / sign UI is provided by the Polkadot Host through
+ * `@parity/product-sdk-signer` (`useTriangle` / `useHostAddress`).
  */
 export function Web3Provider({ children }: Web3ProviderProps) {
-  return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </WagmiProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

@@ -1,5 +1,9 @@
-import { createConfig, http } from 'wagmi';
 import { defineChain } from 'viem';
+
+// Chain METADATA only (names, explorer links for the UI). wagmi itself was
+// dropped in Phase G — reads go through PAPI dry-runs (useReadContractPapi),
+// so there is no wagmi config or transport anymore. viem's defineChain is
+// kept purely as a typed container for display values.
 
 // Define localhost Hardhat chain
 export const localhost = defineChain({
@@ -24,50 +28,32 @@ export const localhost = defineChain({
   testnet: true,
 });
 
-// Define Polkadot Hub TestNet (EVM-compatible Polkadot chain)
+// paseo-next-v2 Asset Hub (genesis 0xbf0488…, parachain 1500). NOTE: the
+// EVM chainId 420420417 is shared with the standard Paseo AH and previewnet —
+// it does NOT identify the chain; the genesis hash does (see chainClient.ts).
+// There is no public eth-rpc / explorer indexing this chain yet; the explorer
+// link points at the substrate-side Subscan as the closest thing.
 export const polkadotHubTestnet = defineChain({
   id: 420420417,
-  name: 'Polkadot Hub TestNet',
+  name: 'Paseo Next Asset Hub',
   nativeCurrency: {
-    decimals: 18,
+    decimals: 10,
     name: 'PAS',
     symbol: 'PAS',
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_POLKADOT_HUB_RPC_URL || 'https://eth-rpc-testnet.polkadot.io'],
+      http: [process.env.NEXT_PUBLIC_HUB_WS_URL || 'wss://paseo-asset-hub-next-rpc.polkadot.io'],
     },
   },
   blockExplorers: {
     default: {
-      name: 'Blockscout',
-      url: 'https://blockscout-testnet.polkadot.io',
+      name: 'Subscan',
+      url: 'https://assethub-paseo.subscan.io',
     },
   },
   testnet: true,
 });
 
-// Environment-driven chain selection: set NEXT_PUBLIC_CHAIN=testnet for Polkadot Hub TestNet
+// Environment-driven chain selection: set NEXT_PUBLIC_CHAIN=testnet for the next-v2 hub
 export const activeChain = process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? polkadotHubTestnet : localhost;
-
-// No connectors configured — wagmi is used only for read hooks and chain
-// metadata. The signer comes from `@parity/product-sdk-signer` and is
-// surfaced separately via `useTriangle` (or the `useHostAddress` shim).
-//
-// IMPORTANT: chain ordering. Without a connector, wagmi's `useChainId()`
-// falls back to `chains[0]`, so the build-time selected chain must be at
-// index 0 or any chain-id check sees the wrong network.
-const chainList =
-  process.env.NEXT_PUBLIC_CHAIN === 'testnet'
-    ? ([polkadotHubTestnet, localhost] as const)
-    : ([localhost, polkadotHubTestnet] as const);
-
-export const config = createConfig({
-  chains: chainList,
-  connectors: [],
-  transports: {
-    [localhost.id]: http(),
-    [polkadotHubTestnet.id]: http(),
-  },
-  ssr: true,
-});

@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   Fuel,
 } from 'lucide-react';
-import { useReadContracts } from 'wagmi';
+import { useReadContracts } from '@/hooks/useReadContractPapi';
 import { Card, CardHeader, CardContent, Button, ProgressBar } from '@/components/ui';
 import {
   useDispatchFleet,

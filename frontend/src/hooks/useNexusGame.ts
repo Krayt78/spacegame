@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useReadContract, useBlock } from 'wagmi';
+import { useQuery } from '@tanstack/react-query';
+import { useReadContract } from '@/hooks/useReadContractPapi';
 import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
 import { useNexusContractWrite } from '@/hooks/useNexusContractWrite';
+import { getTypedApi } from '@/lib/triangle/chainClient';
 import {
   NEXUS_GAME_ADDRESS,
   GAME_CONFIG_ADDRESS,
@@ -1464,17 +1466,25 @@ export function useCancelResearch() {
  * advance until a new transaction is made (problematic on local Hardhat networks).
  */
 export function useBlockTimestamp() {
-  const { data: block } = useBlock({
-    blockTag: 'pending',
-    watch: true,
-    query: {
-      refetchOnMount: 'always',
-      staleTime: 0,
+  // Substrate-side equivalent of wagmi's useBlock({ blockTag: 'pending' }):
+  // pallet_timestamp's `Timestamp.Now` storage (milliseconds) at best block,
+  // refetched once per block-ish interval. Contract completionTimes are
+  // computed from chain time, so read the chain rather than Date.now() to
+  // stay consistent when they diverge.
+  const { data: nowMs } = useQuery({
+    queryKey: ['chain', 'timestampNow'],
+    refetchInterval: 6_000,
+    staleTime: 0,
+    queryFn: async () => {
+      const api = (await getTypedApi()) as unknown as {
+        query: { Timestamp: { Now: { getValue: () => Promise<bigint> } } };
+      };
+      return api.query.Timestamp.Now.getValue();
     },
   });
 
-  // Return blockchain timestamp, or fall back to wall-clock time if not available
-  const timestamp = block?.timestamp ? Number(block.timestamp) : Math.floor(Date.now() / 1000);
+  const timestamp =
+    nowMs !== undefined ? Math.floor(Number(nowMs) / 1000) : Math.floor(Date.now() / 1000);
 
   return { timestamp };
 }
