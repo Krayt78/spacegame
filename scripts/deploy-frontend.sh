@@ -38,13 +38,13 @@ DOMAIN_OVERRIDE="$DOMAIN"
 echo "=== Deploy Nexus Protocol Frontend to Bulletin Chain ==="
 echo ""
 
-# Check prerequisites
-if ! command -v bulletin-deploy &>/dev/null; then
-    echo "ERROR: bulletin-deploy not installed."
-    echo "Run: npm install -g bulletin-deploy"
-    exit 1
-fi
+# bulletin-deploy is invoked through npx with a >=0.7.12 pin (see [2/2]):
+# Bulletin Chain switched to an expiration-based authorization model on
+# 2026-05-07 (paritytech/bulletin-deploy#263) and older releases fail with
+# "Authorization was finalized but not applied". npx ignores any stale
+# global install, so there's no version to check here.
 
+# Check prerequisites
 if ! command -v ipfs &>/dev/null; then
     echo "ERROR: IPFS Kubo not installed (required by bulletin-deploy)."
     echo "Linux: see https://docs.ipfs.tech/install/command-line/"
@@ -90,11 +90,16 @@ echo ""
 DOMAIN="${DOMAIN_OVERRIDE:-${NEXUS_DOTNS_DOMAIN:-nexusprotocol00.dot}}"
 echo "  Domain: $DOMAIN"
 echo "  URL:    https://$DOMAIN.li"
+# The product identifier is runtime-derived from window.location since Phase 7
+# (handles both <label>.dot.li and <label>.app.dot.li schemes), so the env var
+# is an optional override — but if it IS set, a mismatch with the deploy domain
+# still means the host rejects signing on the deployed page.
 if [ -n "${NEXT_PUBLIC_DOT_NS_IDENTIFIER:-}" ] && [ "$NEXT_PUBLIC_DOT_NS_IDENTIFIER" != "$DOMAIN" ]; then
     echo ""
     echo "  WARNING: NEXT_PUBLIC_DOT_NS_IDENTIFIER=$NEXT_PUBLIC_DOT_NS_IDENTIFIER"
     echo "           does not match deploy domain $DOMAIN."
-    echo "           dot.li will reject host pairing on the deployed page."
+    echo "           dot.li will reject host signing on the deployed page."
+    echo "           Unset it to let the dApp derive the identifier at runtime."
 fi
 echo ""
 
@@ -113,10 +118,27 @@ if [ ! -d "$OUT_DIR" ]; then
     exit 1
 fi
 
-# Deploy to Bulletin Chain
+# Deploy to Bulletin Chain.
+#
+# - npx pin '>=0.7.12': Bulletin's expiration-based auth model (2026-05-07);
+#   older releases fail with "Authorization was finalized but not applied".
+# - 3 attempts: bulletin-deploy hard-codes a 5-min WS heartbeat watchdog that
+#   kills the connection if the Bulletin RPC pauses mid-upload; a fresh process
+#   gets a fresh WS. (Pattern from Sovereignty/ignite deploy.yml.)
+# - 8GB heap: WS-reconnect retries can OOM the default 2GB Node heap with
+#   buffered subscription state.
 echo "[2/2] Deploying to Bulletin Chain..."
-if [ -n "${MNEMONIC:-}" ]; then
-    MNEMONIC="$MNEMONIC" bulletin-deploy "$OUT_DIR" "$DOMAIN"
-else
-    bulletin-deploy "$OUT_DIR" "$DOMAIN"
-fi
+export NODE_OPTIONS="--max-old-space-size=8192"
+ATTEMPTS=3
+for attempt in $(seq 1 $ATTEMPTS); do
+    if MNEMONIC="${MNEMONIC:-}" npx -y 'bulletin-deploy@>=0.7.12' "$OUT_DIR" "$DOMAIN"; then
+        exit 0
+    fi
+    if [ "$attempt" -lt "$ATTEMPTS" ]; then
+        echo ""
+        echo "  Deploy attempt $attempt/$ATTEMPTS failed — retrying in 30s..."
+        sleep 30
+    fi
+done
+echo "ERROR: deploy failed after $ATTEMPTS attempts."
+exit 1

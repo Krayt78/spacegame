@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { isInsideContainerSync } from '@parity/product-sdk-host';
+import { getAccountsProvider, isInsideContainerSync } from '@parity/product-sdk-host';
 import type { PolkadotSigner } from 'polkadot-api';
 import type {
   ProviderType,
@@ -22,7 +22,7 @@ import { signerManager } from '@/lib/triangle/signerManager';
  * hydration.
  *
  * Caveats with `'dev'`:
- *   - `requestLogin` is skipped — `connect('dev')` always succeeds.
+ *   - `requestLogin` is skipped (host-only API) — `connect('dev')` always succeeds.
  *   - The selected account is Alice; her H160 is what the read hooks see,
  *     so any planet/state you've claimed under your real account on dot.li
  *     won't be visible.
@@ -37,30 +37,6 @@ if (typeof window !== 'undefined' && PROVIDER_TYPE === 'dev') {
     '[useTriangle] DEV MODE — using DevProvider (Alice). Set NEXT_PUBLIC_SIGNER_PROVIDER=host (or unset) for the real host flow.',
   );
 }
-
-/**
- * Identifier the host uses to derive our app-scoped product account. Pairs
- * with `PRODUCT_ACCOUNT_INDEX` to produce a deterministic keypair that the
- * host signs with on every chain — including chains the host hasn't been
- * explicitly told about, which is why we need this instead of legacy
- * accounts (dot.li's host rejected `host_sign_payload_with_legacy_account`
- * for our dotters Paseo Asset Hub genesis with
- * `SigningErr::Unknown: Account can't be derived from product account id`).
- *
- * IMPORTANT: dot.li validates this identifier against the dotNS subdomain
- * the dApp is loaded from. If they don't match, the host rejects with a
- * generic "Permission denied" and you'll see `handleSignPayload — invalid
- * account[0]=<id>` in the dot.li console. Override per-deployment via
- * `NEXT_PUBLIC_DOT_NS_IDENTIFIER` to match the actual subdomain (e.g.,
- * `nexusprotocol00.dot` for `https://nexusprotocol00.dot.li`).
- *
- * The H160 derived from this product account is DIFFERENT from the legacy
- * account's H160 — any pre-existing testnet planets stored under the
- * legacy H160 are orphaned. Acceptable pre-launch per the migration plan.
- */
-const PRODUCT_ACCOUNT_ID =
-  process.env.NEXT_PUBLIC_DOT_NS_IDENTIFIER || 'nexusprotocol00.dot';
-const PRODUCT_ACCOUNT_INDEX = 0;
 
 const idleState: SignerState = {
   status: 'disconnected',
@@ -81,48 +57,15 @@ const idleState: SignerState = {
  * We connect ONCE per page load and reuse the in-flight promise.
  * `signIn()` (the explicit user gesture) is the only thing allowed to retry.
  *
- * After connect succeeds in host mode, we also fetch the product account
- * (the actual signing identity — see `PRODUCT_ACCOUNT_ID`). The product
- * account is published to subscribers separately so React components only
- * report `ready` once BOTH legacy connect AND product-account derivation
- * have completed.
+ * In host mode the provider is constructed with the `productAccount` option
+ * (see `signerManager.ts`), so `connect()` itself derives and returns the
+ * product account — the actual signing identity — as the selected account.
+ * There is no separate product-account fetch step: the live dot.li exposes
+ * no legacy accounts to dApps, and the pre-productAccount flow (connect
+ * legacy first, derive product account second) died inside connect with
+ * `NoAccountsError` before reaching the derivation.
  */
 let initialConnect: Promise<unknown> | null = null;
-let productAccount: SignerAccount | null = null;
-const productAccountListeners = new Set<(a: SignerAccount | null) => void>();
-
-function setProductAccount(value: SignerAccount | null): void {
-  productAccount = value;
-  for (const listener of productAccountListeners) listener(value);
-}
-
-function subscribeProductAccount(cb: (a: SignerAccount | null) => void): () => void {
-  productAccountListeners.add(cb);
-  return () => {
-    productAccountListeners.delete(cb);
-  };
-}
-
-async function fetchProductAccount(): Promise<SignerAccount | null> {
-  const result = await signerManager.getProductAccount(
-    PRODUCT_ACCOUNT_ID,
-    PRODUCT_ACCOUNT_INDEX,
-  );
-  if (!result.ok) {
-    console.warn('[useTriangle] product account fetch failed:', result.error);
-    return null;
-  }
-  // The product account is a freshly-derived key with zero PAS. The first
-  // write per device will fail with InvalidTransaction::Payment until the
-  // SS58 is funded via the Paseo faucet (https://faucet.polkadot.io/).
-  // Print SS58 + H160 so the user can copy the SS58 into the faucet.
-  console.info(
-    '[useTriangle] product account ready:\n' +
-      `  SS58 (fund this via faucet): ${result.value.address}\n` +
-      `  H160 (contract identity):    ${result.value.h160Address}`,
-  );
-  return result.value;
-}
 
 function ensureInitialConnect(): Promise<unknown> {
   if (initialConnect) return initialConnect;
@@ -130,14 +73,23 @@ function ensureInitialConnect(): Promise<unknown> {
     try {
       const result = await signerManager.connect(PROVIDER_TYPE);
       if (PROVIDER_TYPE === 'host' && result.ok) {
-        const account = await fetchProductAccount();
-        setProductAccount(account);
+        const account = signerManager.getState().selectedAccount;
+        if (account) {
+          // The product account is a freshly-derived key with zero PAS. The
+          // first write per device will fail until the SS58 is funded via the
+          // Paseo faucet (https://faucet.polkadot.io/). Print SS58 + H160 so
+          // the user can copy the SS58 into the faucet.
+          console.info(
+            '[useTriangle] product account ready:\n' +
+              `  SS58 (fund this via faucet): ${account.address}\n` +
+              `  H160 (contract identity):    ${account.h160Address}`,
+          );
+        }
       }
       return result;
     } catch (e) {
       console.warn('[useTriangle] initial connect rejected:', e);
       initialConnect = null;
-      setProductAccount(null);
       return null;
     }
   })();
@@ -180,9 +132,6 @@ export function useTriangle(): UseTriangleResult {
   const [state, setState] = useState<SignerState>(() =>
     typeof window === 'undefined' ? idleState : signerManager.getState(),
   );
-  const [pAccount, setPAccount] = useState<SignerAccount | null>(() =>
-    typeof window === 'undefined' ? null : productAccount,
-  );
   const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
@@ -190,16 +139,13 @@ export function useTriangle(): UseTriangleResult {
     // Sync with the current snapshot in case it changed between render and
     // the effect firing (e.g., during a route transition).
     setState(signerManager.getState());
-    setPAccount(productAccount);
     const unsubState = signerManager.subscribe(setState);
-    const unsubPA = subscribeProductAccount(setPAccount);
     // Idempotent: only the first useTriangle on the page actually triggers
     // connect; later mounts await the same promise without disconnecting the
     // live session.
     void ensureInitialConnect();
     return () => {
       unsubState();
-      unsubPA();
     };
   }, []);
 
@@ -207,10 +153,34 @@ export function useTriangle(): UseTriangleResult {
     if (signingIn) return;
     setSigningIn(true);
     try {
-      // Reset both module-level caches so signIn always issues a fresh
-      // attempt — both the host connect and the product-account derivation.
+      // Fire the host's native login UI (RFC-0009) first. Available since
+      // host-api-wrapper 0.8.x — reverses the PARITY_SDK_ISSUES.md #7
+      // workaround. "alreadyConnected" and "rejected" both resolve as Ok;
+      // genuine transport/codec failures resolve as Err. Either way we
+      // tolerate it and fall through to the connect retry, which is the
+      // pre-0.8 behavior on hosts that don't implement requestLogin.
+      if (PROVIDER_TYPE === 'host') {
+        try {
+          const accounts = await getAccountsProvider();
+          const login = await accounts?.requestLogin(
+            'Sign in to play Nexus Protocol',
+          );
+          if (login?.isErr()) {
+            console.warn(
+              '[useTriangle] requestLogin failed (continuing to connect):',
+              login.error,
+            );
+          }
+        } catch (e) {
+          console.warn(
+            '[useTriangle] requestLogin unavailable (continuing to connect):',
+            e,
+          );
+        }
+      }
+      // Reset the module-level cache so signIn always issues a fresh
+      // connect attempt (which re-derives the product account).
       initialConnect = null;
-      setProductAccount(null);
       const result = await ensureInitialConnect();
       if (result && typeof result === 'object' && 'ok' in result && !result.ok) {
         console.warn('[useTriangle] connect failed:', (result as { error?: unknown }).error);
@@ -225,11 +195,11 @@ export function useTriangle(): UseTriangleResult {
   // "Open in Polkadot Host" gate. Baked at build time, so SSR and client agree.
   const reportInHost = PROVIDER_TYPE === 'dev' ? true : false;
 
-  // Pick the "effective" signing account based on provider:
-  //   - host: product account (app-scoped, signs across chains)
-  //   - dev:  the selected legacy account (Alice via DevProvider)
-  const effectiveAccount: SignerAccount | null =
-    PROVIDER_TYPE === 'host' ? pAccount : state.selectedAccount;
+  // The signing account in both modes:
+  //   - host: the product account (connect() derives it directly — see
+  //           signerManager.ts's productAccount provider option)
+  //   - dev:  the selected dev account (Alice via DevProvider)
+  const effectiveAccount: SignerAccount | null = state.selectedAccount;
 
   const getSigner = useCallback((): PolkadotSigner | null => {
     if (!effectiveAccount) return null;
