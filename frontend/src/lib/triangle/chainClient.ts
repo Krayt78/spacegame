@@ -4,21 +4,22 @@ import { getWsProvider } from "polkadot-api/ws";
 import { hub } from "@polkadot-api/descriptors";
 
 /**
- * Genesis hash of Paseo Asset Hub as published by
- * `wss://asset-hub-paseo.dotters.network` — the chain Nexus's contracts are
- * deployed on. The SDK preset for `"paseo"` points at a different chain
- * (`paseo-asset-hub-next-rpc.polkadot.io`, genesis `0x173cea…`) and is NOT
- * the right target for us.
+ * Genesis hash of paseo-next-v2 Asset Hub (`paseo-asset-hub-next-rpc.polkadot.io`,
+ * parachain 1500) — the chain Nexus's contracts live on since the 2026-06-12
+ * migration off the standard Paseo AH (dotters, `0xd6eec2…`). This is the chain
+ * the dot.li host signs against. CAUTION: both chains report EVM chainId
+ * 420420417, and previewnet's AH is *also* parachain 1500 with yet another
+ * genesis (`0x29f7b15e…`) — the genesis hash is the only reliable discriminator.
  *
  * Kept exported in case a future host build advertises support for this
  * chain — then we can reintroduce a `getHostProvider(PASEO_HUB_GENESIS)`
  * branch below.
  */
 export const PASEO_HUB_GENESIS =
-  "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2" as const;
+  "0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f" as const;
 
 const FALLBACK_WS_URL =
-  process.env.NEXT_PUBLIC_HUB_WS_URL ?? "wss://asset-hub-paseo.dotters.network";
+  process.env.NEXT_PUBLIC_HUB_WS_URL ?? "wss://paseo-asset-hub-next-rpc.polkadot.io";
 
 let cached: Promise<PolkadotClient> | null = null;
 

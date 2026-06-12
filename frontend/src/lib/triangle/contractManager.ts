@@ -35,7 +35,14 @@ export function getContractManager(): Promise<ContractManager> {
       cdmJson as never,
       client,
       paseoHubDescriptor,
-      { signerManager },
+      {
+        signerManager,
+        // Origin for `.query()` dry-runs before any account is connected.
+        // Reads here never depend on msg.sender (every view takes the player
+        // address as an explicit arg), so well-known //Alice is a safe
+        // stand-in. Once the user connects, signerManager's account wins.
+        defaultOrigin: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+      },
     );
   })();
   return cached;

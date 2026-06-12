@@ -22,11 +22,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const frontendDir = join(__dirname, "..");
 
 const ZERO = "0x0000000000000000000000000000000000000000";
-// The chain Nexus's contracts are deployed against. The `paseo-asset-hub-next-rpc.polkadot.io`
-// endpoint the @parity SDK ships in its "paseo" preset is a DIFFERENT chain (different genesis
-// hash) and is NOT where our contracts live — keep both `chainClient.ts` and this script
-// pinned to the dotters endpoint until/unless the contracts are redeployed.
-const DEFAULT_HUB_WS = "wss://asset-hub-paseo.dotters.network";
+// The chain Nexus's contracts are deployed against (paseo-next-v2 Asset Hub
+// since Phase 8). Only used for the log line — since the flat 0.7 CDM schema,
+// the chain endpoint comes from the PAPI client passed to
+// `ContractManager.fromClient`, not the manifest.
+const DEFAULT_HUB_WS = "wss://paseo-asset-hub-next-rpc.polkadot.io";
 
 const nexusGameAddress = process.env.NEXT_PUBLIC_NEXUS_GAME_ADDRESS;
 const gameConfigAddress = process.env.NEXT_PUBLIC_GAME_CONFIG_ADDRESS;
@@ -58,29 +58,28 @@ function readAbi(relativePath) {
 const nexusGameAbi = readAbi("src/contracts/abi/NexusGame.json");
 const gameConfigAbi = readAbi("src/contracts/abi/GameConfig.json");
 
-// Target key is a short slug rather than the 16-char hex SDK convention because
-// pre-launch we only ship one target. Switch to a per-environment hash if/when
-// we need to ship local + testnet + mainnet manifests in the same bundle.
-const TARGET = "nexus-paseo-hub";
-
+// Flat CDM manifest shape consumed by @parity/product-sdk-contracts >=0.7
+// (the "flatten cdm.json" change, #161): top-level `dependencies` (name →
+// version) and `contracts` (name → { version, address, abi }). No `targets`
+// wrapper — the chain endpoint is supplied by the PAPI client passed to
+// `ContractManager.fromClient`, not the manifest. With the old nested shape,
+// `getContract()` fails at runtime with `Contract "@nexus/game" not found in
+// cdm.json` (hit live on dot.li, 2026-06-12).
 const cdm = {
-  targets: {
-    [TARGET]: {
-      "asset-hub": hubWs,
-    },
+  dependencies: {
+    "@nexus/game": 0,
+    "@nexus/config": 0,
   },
   contracts: {
-    [TARGET]: {
-      "@nexus/game": {
-        version: 0,
-        address: nexusGameAddress || ZERO,
-        abi: nexusGameAbi,
-      },
-      "@nexus/config": {
-        version: 0,
-        address: gameConfigAddress || ZERO,
-        abi: gameConfigAbi,
-      },
+    "@nexus/game": {
+      version: 0,
+      address: nexusGameAddress || ZERO,
+      abi: nexusGameAbi,
+    },
+    "@nexus/config": {
+      version: 0,
+      address: gameConfigAddress || ZERO,
+      abi: gameConfigAbi,
     },
   },
 };
