@@ -1,12 +1,12 @@
 # Nexus Protocol → `@parity/product-sdk` migration plan
 
-> **Status: Phases 1–4 complete (dev-mode verified). Phase 5 (real host) and Phase G (PAPI reads) pending.**
+> **Status: Phases 1–5 complete — verified live on dot.li (May 2026, branch `host-version`). Phase 6 (session wallets) implemented and deployed; end-to-end verification on dot.li still pending. Phase G (PAPI reads) deferred.**
 >
 > **Supersedes** [`HOST_SIGNING_PLAN.md`](./HOST_SIGNING_PLAN.md). Phase 1 lessons in [`HOST_SIGNING_PHASE_1_LESSONS.md`](./HOST_SIGNING_PHASE_1_LESSONS.md) still apply (hydration `mounted` gate, no `return null` during transitions, dot.li service-worker cache audit after every deploy, env vars baked at build time for static export).
 
 ## TL;DR
 
-Nexus Protocol's frontend has been migrated off MetaMask + ConnectKit + a hand-rolled `pallet_revive::call` pipeline onto **`@parity/product-sdk-*`** (Parity-published, sits on top of the v0.7 triangle stack). Authentication is now a Polkadot Host login (or the local `DevProvider` for fast iteration); writes go through `ContractManager.<method>.tx()` with automatic dry-run + account-mapping; reads stay on wagmi + eth-rpc for now.
+Nexus Protocol's frontend has been migrated off MetaMask + ConnectKit + a hand-rolled `pallet_revive::call` pipeline onto **`@parity/product-sdk-*`** (Parity-published, sits on top of the v0.7 triangle stack). Authentication is now a Polkadot Host login with **product accounts** (or the local `DevProvider` for fast iteration); writes go through `ContractManager.<method>.tx()` with automatic dry-run + account-mapping, or — once the user starts a session — through a `pallet_proxy` **session wallet** with zero per-write prompts (Phase 6); reads stay on wagmi + eth-rpc for now. The branch for all of this is **`host-version`** (formerly `add-triangle`, with `add-wallet-sessions` merged in via PR #2); the pre-migration MetaMask build lives on `metamask-version`.
 
 **End-state numbers**:
 - `node_modules`: dropped to 808 packages (down from ~1057 mid-migration, smaller than the pre-migration baseline).
@@ -28,7 +28,7 @@ Nexus Protocol's frontend has been migrated off MetaMask + ConnectKit + a hand-r
 
 ## Decisions (confirmed during execution)
 
-1. **Account model**: **legacy accounts**, not product accounts. The original plan said `('nexus-protocol.dot', 0)`. During execution we learned that the `SignerManager.connect("host")` happy path exposes legacy accounts (the user's regular host-paired wallet) and that's what the existing read hooks have been querying against. Switching to product accounts would have produced a different H160 → orphaned existing testnet state. Pre-launch this is fine to change later via `derivationIndex` if needed.
+1. **Account model**: ~~**legacy accounts**, not product accounts~~ — **REVERSED during Phase 5**. Legacy-account signing fails on live dot.li with `SigningErr::Unknown: Account can't be derived from product account id` ([`PARITY_SDK_ISSUES.md`](./PARITY_SDK_ISSUES.md) #6), so we switched to **product accounts** after all: `signerManager.getProductAccount(NEXT_PUBLIC_DOT_NS_IDENTIFIER, 0)`. The dotNS identifier **must match the deploy subdomain** (e.g. `nexusprotocol00.dot` for `https://nexusprotocol00.dot.li`) or dot.li rejects signing with a generic `"Permission denied"` (issue #11). This changed the H160 from the legacy account — accepted as pre-launch breakage, communicated to testers.
 2. **Login reason string** (shown in host UI): `"Sign in to play Nexus Protocol"`. **UPDATE during Phase 5**: `requestLogin` is a v0.7 protocol method and our installed `@novasamatech/product-sdk` is v0.6 — we can't trigger the host's native login UI from the product. The dApp now relies on the user already being signed into dot.li before opening the dApp; the "Sign in" button just retries `signerManager.connect('host')`. Reintroduce `requestLogin` when we bump to v0.7.
 3. **ConnectKit teardown**: completed in Phase 4, immediately after Phase 3 went green in dev mode.
 4. **PAPI-only reads (Phase G)**: deferred. Reads stay on wagmi + eth-rpc.
@@ -91,19 +91,37 @@ Nexus Protocol's frontend has been migrated off MetaMask + ConnectKit + a hand-r
 
 **Verified**: all four top-level routes (`/`, `/game`, `/game/onboarding`, `/game/settings`) still return 200 from `npm run dev:local`.
 
-### Phase 5 — Real-host sanity check (NOT YET DONE — the ship gate)
+### Phase 5 — Real-host sanity check ✅ (completed 2026-05-16)
 
-Everything above was verified in **dev mode** (`NEXT_PUBLIC_SIGNER_PROVIDER=dev`, Alice via DevProvider). The real-host code path through `accountsProvider.requestLogin('Sign in to play Nexus Protocol')` + `HostProvider.connect()` has **never been exercised end-to-end on this build**.
+Deployed to dot.li (`https://nexusprotocol00.dot.li`) and exercised end-to-end: login, product-account derivation, reads, and writes (Claim Planet etc.) all work inside dot.li. Getting there surfaced ~10 new issues — all documented with workarounds in [`PARITY_SDK_ISSUES.md`](./PARITY_SDK_ISSUES.md) (#1–#15a), which is the authoritative record. Highlights:
 
-Deploy to dot.li (`scripts/deploy-frontend.sh`), open at `https://my-nexus42.dot.li` (or whatever domain), and verify:
+- **Account model flipped to product accounts** (see Decision 1). The dotNS identifier is wired via `NEXT_PUBLIC_DOT_NS_IDENTIFIER` and must equal the deploy subdomain (issues #6, #11).
+- **dot.li doesn't proxy our chain** (genesis `0xd6eec…`, issue #5) — `chainClient.ts` always uses direct WS via `polkadot-api/ws`; host RPC routing (`getHostProvider`) is bypassed entirely (its unsupported-chain provider silently swallows sends, issue #4).
+- **`@novasamatech/product-sdk` 0.6/0.7 dual-install crash** (`JSON.parse("[object Object]")`, issue #3) — top-level pin bumped to `^0.7.8` so npm de-dupes.
+- **dot.li sandbox query params are dropped by Next.js client-side nav** (issue #14) — every `next/link`/`useRouter` swapped to `HostLink` / `@/lib/hostNav` wrappers that re-attach `location.search`.
+- **`SignerManager.connect()` is destructive on re-mount** (login loop, issue #1) — module-level connect-promise cache in `useTriangle`.
+- **`AccountUnmapped` dry-run race** after `Revive.map_account` (issue #13) — the write hook retries up to 3× with backoff.
+- **ChainSubmit denial is cached as success by the SDK** (issue #12) — no dApp-side recovery; users must revoke in dot.li's connected-dApps panel.
+- `requestLogin` remains unusable with our SDK pair (issue #7) — the dApp relies on the user already being signed into dot.li; the Sign-in button just retries `connect('host')`.
 
-1. Standalone browser → "Open in Polkadot Host" message.
-2. Inside dot.li, signed out → "Sign in to play Nexus Protocol" button → host's native login UI fires → redirect to `/game`.
-3. Inside dot.li, already signed in → auto-connect, no button flash.
-4. `Claim Planet` → phone prompts twice (first time, for `Revive.map_account`), then once per write thereafter.
-5. The H160 in the UI matches what your existing testnet planet (if any) is stored under.
+### Phase 6 — Session wallets: zero-prompt writes ✅ implemented (2026-05-20) — ⚠️ live verification pending (the new ship gate)
 
-If `requestLogin` returns `LoginErr.Unknown("Not implemented")` on the live dot.li build, fall back to the silent auto-connect path (the existing flow Phase 1 used) until the host catches up — `useTriangle.signIn` already tolerates a failed `requestLogin` and proceeds to `connect` anyway.
+Ported Sovereignty's `pallet_proxy` session-wallet pattern (commit `07f6234`, merged via PR #2):
+
+- `frontend/src/lib/session/sessionWallet.ts` — pure-JS sr25519 session keypair (`@polkadot-labs/hdkd`, WASM-free on purpose — Turbopack mangles `@polkadot/wasm-crypto-wasm`), 2h TTL, persisted in localStorage, funded with 3 PAS (`SESSION_FUNDING_AMOUNT`; 0.3 PAS proved insufficient because session mode skips the dry-run and Paseo AH bills the default weight limit).
+- `frontend/src/hooks/useNexusSession.ts` — session setup batches `Balances.transfer_keep_alive(session, 3 PAS)` + `Proxy.add_proxy(session, Any, 0)` into **one** host prompt.
+- Per write: the session key locally signs `Proxy.proxy({ real: main, call: Revive.call(...) })` — **zero prompts**; the runtime dispatches with origin = main, so contracts still see `msg.sender` = the main H160. No contract changes.
+- `frontend/src/hooks/useNexusSessionHealth.ts` + `frontend/src/components/session/SessionBadge.tsx` (in `GameHeader`) — expiry/balance monitoring.
+- Deploy target: `https://nexusprotocolsessions00.dot.li` (`.env.testnet`; remember the identifier-must-match-subdomain rule, issue #11).
+
+**Verification checklist (not yet recorded as done):**
+
+1. Inside dot.li, signed in → "Start session" → exactly one phone prompt (the batch).
+2. Any game write (e.g. upgrade building) → completes with zero prompts while the session is live.
+3. Session expiry / balance exhaustion → `SessionBadge` flags it; writes fall back to per-write prompting (or prompt to renew).
+4. "End session" → `Proxy.remove_proxy` (one prompt) + local state cleared. Note: there is **no refund sweep** — leftover session PAS stays on the discarded session key. Acceptable on testnet; add a `transfer_all` sweep before mainnet.
+
+(dot.li was unreachable — connection refused on 80/443 — when checked on 2026-06-12; re-verify once the host is back.)
 
 ### Phase G — PAPI-only reads (DEFERRED)
 
@@ -131,6 +149,8 @@ Out of scope for this migration. Reads still go through wagmi/eth-rpc. To revisi
 - `frontend/src/lib/triangle/contractManager.ts`
 - `frontend/src/hooks/useTriangle.ts`
 - `frontend/src/hooks/useNexusContractWrite.ts`
+- `frontend/src/components/HostLink.tsx`, `frontend/src/lib/hostNav.ts` (Phase 5 — sandbox-param-preserving navigation)
+- `frontend/src/lib/session/sessionWallet.ts`, `frontend/src/hooks/useNexusSession.ts`, `frontend/src/hooks/useNexusSessionHealth.ts`, `frontend/src/components/session/SessionBadge.tsx` (Phase 6)
 
 **Rewritten**:
 - `frontend/src/hooks/useHostAddress.ts` (thin shim over `useTriangle`)
@@ -170,12 +190,14 @@ Out of scope for this migration. Reads still go through wagmi/eth-rpc. To revisi
 | Risk | Status |
 | --- | --- |
 | `@parity/product-sdk-*` not yet on public npm | ✅ Resolved — all packages installed cleanly. |
-| dot.li hasn't wired `handleRequestLogin` | ⚠️ Unverified — Phase 5 will tell. `useTriangle.signIn` tolerates a failed/missing `requestLogin` and continues to `connect`. |
+| dot.li hasn't wired `handleRequestLogin` | ✅ Confirmed unusable with our SDK pair (issue #7) — dApp relies on the user already being signed into dot.li; Sign-in button retries `connect('host')`. |
 | `createChainClient` requires a host (no WS fallback) | ✅ Sidestepped — we use `polkadot-api` v2's `createClient` directly with host-or-WS provider selection. |
 | Genesis hash divergence between SDK preset and our deployment | ✅ Pinned `NEXT_PUBLIC_HUB_WS_URL` in every env file. |
 | polkadot-api v1→v2 API changes | ✅ Found one: `ws-provider/web` → `ws`. Fixed. Watch for others when bumping further. |
 | Transitive dep hoisting under Turbopack | ✅ Worked around for `@polkadot-api/json-rpc-provider` (declared as direct dep). Possible future re-occurrence for other transitive @polkadot-api packages — same fix pattern. |
-| H160 divergence from prior MetaMask testnet state | ⚠️ Pre-launch only; communicate to testers. Alice's H160 is `0x9621dde636de098b43efb0fa9b61facfe328f99d` for dev-mode reference. |
+| H160 divergence from prior MetaMask testnet state | ✅ Materialized (twice — once at migration, again at the legacy→product account switch in Phase 5). Pre-launch only; communicated to testers. Alice's H160 is `0x9621dde636de098b43efb0fa9b61facfe328f99d` for dev-mode reference. |
+| Session wallet flow unverified on live dot.li | ⚠️ Open — Phase 6 ship gate. dot.li was unreachable on 2026-06-12; re-run the Phase 6 checklist when it's back. |
+| No refund sweep on `endSession` | ⚠️ Leftover session PAS stranded on discarded session keys. Fine on testnet; add `transfer_all` sweep before mainnet. |
 | SSR / static-export hydration mismatch (React #418) | ✅ `useTriangle` keeps the `mounted` gate. Don't relax it. |
 | dot.li service-worker CID cache | Persistent risk — verify deploy CID matches resolved CID after every push (Phase 1 lesson #6). |
 | `Revive.map_account` needs PAS | ✅ Confirmed via Alice's dry-run failure. Users need PAS on their SS58 to fund the first write per device. |
