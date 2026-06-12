@@ -1,6 +1,6 @@
 # Nexus Protocol → `@parity/product-sdk` migration plan
 
-> **Status: Phases 1–5 complete — verified live on dot.li (May 2026, branch `host-version`). Phase 6 (session wallets) implemented and deployed; end-to-end verification on dot.li still pending. Phase G (PAPI reads) deferred.**
+> **Status: Phases 1–5 complete (verified live on dot.li, May 2026, branch `host-version`). Phase 7 (0.8.x host stack) verified live 2026-06-12 — connect + product account + reads work on the new dot.li. Phase 8 (chain migration to paseo-next-v2) executed 2026-06-12: contracts redeployed via PAPI, Phase G (PAPI reads) completed as part of it since next-v2 has no eth-rpc. Remaining ship gate: live write + session-wallet (Phase 6) verification on dot.li against next-v2.**
 >
 > **Supersedes** [`HOST_SIGNING_PLAN.md`](./HOST_SIGNING_PLAN.md). Phase 1 lessons in [`HOST_SIGNING_PHASE_1_LESSONS.md`](./HOST_SIGNING_PHASE_1_LESSONS.md) still apply (hydration `mounted` gate, no `return null` during transitions, dot.li service-worker cache audit after every deploy, env vars baked at build time for static export).
 
@@ -123,9 +123,115 @@ Ported Sovereignty's `pallet_proxy` session-wallet pattern (commit `07f6234`, me
 
 (dot.li was unreachable — connection refused on 80/443 — when checked on 2026-06-12; re-verify once the host is back.)
 
-### Phase G — PAPI-only reads (DEFERRED)
+### Phase 7 — Catch up to the 0.8.x host stack ✅ implemented (2026-06-12, dev-mode verified) — ⚠️ live dot.li verification pending (shares the Phase 6 ship gate)
 
-Out of scope for this migration. Reads still go through wagmi/eth-rpc. To revisit if eth-rpc proxy reliability becomes a problem: replace `useReadContract` with `manager.getContract(library).<method>.query()` from `@parity/product-sdk-contracts`. ~30 mechanical hook refactors.
+The host ecosystem moved on while this repo was idle (last commit 2026-05-20). The current working stack is defined by **Sovereignty `fdae092` (2026-06-04)** and **paritytech/ignite**; the `product-sdk` checkout next to this repo is current as of 2026-06-12 and has everything we need. Three forces drive this phase:
+
+1. **Our signing path has an expiry date.** `@parity/product-sdk-signer@0.2.4` signs product-account txs via the `signPayload`/PJS path, which throws `PJS does not support signed-extension: AsPgas` on next-generation runtimes (previewnet AH, paseo-next-v2). We only work because dotters Paseo AH v1 doesn't have `AsPgas`. Signer ≥0.7.0 pins product-account signing to `createTransaction` (host builds + signs the tx, PJS bypassed — product-sdk PR #96, `host-api-wrapper@0.8.7`).
+2. **dot.li changed its URL/identifier scheme.** Products are now served at `<label>.app.dot.li` and the host authorizes signing only when the product identifier equals `<label>.dot` — both `.li` **and** `.app` must be stripped (ignite fix; Sovereignty's `computeProductIdentifier()`). Our hardcoded `NEXT_PUBLIC_DOT_NS_IDENTIFIER` + the deploy-script "identifier must equal domain" check are wrong under this scheme.
+3. **Bulletin Chain changed its auth model** (2026-05-07, expiration-based). `bulletin-deploy <0.7.12` fails with `"Authorization was finalized but not applied"`. Our `deploy-frontend.sh` doesn't pin a version — the next deploy from a stale global install will fail.
+
+**Steps:**
+
+1. **Bump `@parity/product-sdk-*`** to current: signer `0.2.4 → 0.7.0`, contracts `0.5.0 → 0.7.5`, tx `0.2.3 → 0.2.12`, host `0.3.0 → 0.10.0` (address `0.1.1` unchanged). Drop our top-level `@novasamatech/product-sdk@^0.7.8` pin — the `@novasamatech/host-api-wrapper@0.8.7` family replaces it (grep first: nothing else should import it directly). Read each package's CHANGELOG for the 5-version jump; known churn: `HostUnavailableError` replaces the misleading `HostRejectedError` outside a container, new `onConnect` callback + `requestResourceAllocation`, `HostProviderOptions.productAccount` / `requestChainSubmitPermission` options.
+2. **Signing**: keep our existing `signerManager.getProductAccount(identifier, 0)` call — in ≥0.7.0 the returned account's `getSigner()` routes through `host_create_transaction` automatically (reference: `product-sdk/examples/contracts-demo/src/main.ts`). No need for Sovereignty's raw `createAccountsProvider()` bypass. Optionally pass `productAccount: { dotNsIdentifier, requestName: false }` to `HostProvider` (requires a custom `createProvider` factory on `SignerManager` — the default factory doesn't forward it) to skip the connect-time identity prompt.
+3. **Derive the dotNS identifier at runtime** from `window.location.host`: `host.endsWith('.dot.li') ? host.replace(/\.li$/, '').replace(/\.app\.dot$/, '.dot') : host` (Sovereignty's `computeProductIdentifier`). Demote `NEXT_PUBLIC_DOT_NS_IDENTIFIER` to an override for odd deployments; fix the `deploy-frontend.sh` mismatch warning to apply the same collapse rule. This retires issue #11 permanently.
+4. **Re-enable `requestLogin`** (reverses the issue #7 workaround): wire `useTriangle.signIn()` to `requestLogin('Sign in to play Nexus Protocol')` via the wrapper's accounts provider (`AccountsProvider` type re-exported by `@parity/product-sdk-host` truapi). Sovereignty's `PapiContext.connect()` is the reference flow, including the RFC-0009 error handling.
+5. **Re-test the issue-#12 ChainSubmit `Ok(false)` swallow** against signer 0.7.0 (it now has `requestChainSubmitPermission`); keep our workaround notes if still broken upstream.
+6. **Pin `bulletin-deploy@>=0.7.12`** in `deploy-frontend.sh`. Optional but recommended from Sovereignty's `deploy.yml`: 3-attempt retry (fresh process per attempt — the WS heartbeat watchdog kills hung uploads at 5 min) and `NODE_OPTIONS=--max-old-space-size=8192`.
+7. **Re-run the Phase 6 verification checklist** on the bumped build — the session-setup batch (`Balances.transfer_keep_alive` + `Proxy.add_proxy` via `Utility.batch_all`) now goes through the `createTransaction` signer; confirm it's still exactly one prompt. Per-write session signing (local sr25519) is unaffected by the host-signer change.
+
+**Execution notes (2026-06-12):**
+
+- Bumps applied exactly as planned; npm tree verified clean: ONE `@novasamatech/host-api-wrapper@0.8.7`, zero copies of `@novasamatech/product-sdk` (the issue-#3 dual-install class is structurally gone — signer 0.7.0's dynamic `loadSdk` imports the wrapper, not the old SDK). Also **removed** `@parity/product-sdk-chain-client@0.4.1` and `@parity/product-sdk-descriptors@0.4.0` — grep-verified never imported (bypassed per issue #8 and the Phase 1 descriptor deviation); keeping 3-versions-stale unused deps is exactly how issue #3 happens.
+- Identifier: `computeProductIdentifier()` in `useTriangle.ts`, called lazily inside `fetchProductAccount` (client-side only — no SSR/hydration exposure, unlike a module-level read). `NEXT_PUBLIC_DOT_NS_IDENTIFIER` commented out in all four env files, demoted to override; `deploy-frontend.sh` warning text updated to match.
+- `requestLogin('Sign in to play Nexus Protocol')` wired into `signIn()` via `getAccountsProvider()` from `@parity/product-sdk-host`; failures tolerated with fall-through to the connect retry (pre-0.8 behavior on hosts without it). Returns `"success" | "alreadyConnected" | "rejected"`.
+- Issue #12 re-checked against signer 0.7.0 **source**: STILL unfixed — the `.match()` arms only branch Ok-vs-Err; an `Ok(false)` ChainSubmit denial is still logged as "granted". User-side recovery (revoke in dot.li's connected-dApps panel) remains the only path.
+- Issue #13: `ensureContractAccountMapped` in contracts 0.7.5 gained `{ timeoutMs, onStatus }` options but our 3×-backoff `AccountUnmapped` retry in `useNexusContractWrite` is left in place — harmless if the race is fixed upstream, load-bearing if not.
+- Deploy script now runs `npx -y 'bulletin-deploy@>=0.7.12'` (a stale global install can't be picked up) with 3-attempt retry + 30s settle + 8GB Node heap.
+- Verified: `tsc --noEmit` clean, `next build` clean (15/15 routes), `dev:local` smoke test 200 on `/`, `/game`, `/game/onboarding`, `/game/settings`. NOT verified: anything against live dot.li (still unreachable) — run the Phase 6 checklist plus a plain write on the bumped build when it's back.
+
+**Live-host addendum (2026-06-12, dot.li back up):** first deploy of the bumped build failed at sign-in with `NoAccountsError: No accounts available from host provider` — the current dot.li exposes **no legacy accounts to dApps**, and `HostProvider.connect()` does the legacy fetch by default. Fix: `signerManager.ts` now passes a custom `createProvider` factory constructing `HostProvider({ productAccount: { dotNsIdentifier, derivationIndex: 0, requestName: false } })`, which skips the legacy fetch and makes `connect()` derive + return the product account directly (the SDK's intended pattern for product-account-only apps — issue #16 in `PARITY_SDK_ISSUES.md`). This let `useTriangle` drop its separate post-connect product-account fetch entirely: the signing account is now just `state.selectedAccount` in both modes, the identifier logic lives in `lib/triangle/productIdentifier.ts`, and ~50 lines of module-level account-cache machinery are gone. Re-verified: tsc + build + route smoke test clean. Needs a fresh dot.li deploy to confirm live.
+
+**Explicitly out of scope (decide separately): chain move to previewnet AH** (`wss://previewnet.substrate.dev/asset-hub`, genesis `0x29f7b15e…`). Sovereignty redeployed there; previewnet's eth-rpc proxy is down (502), so moving would make **Phase G mandatory** (our wagmi/eth-rpc reads have nothing to talk to), require descriptor regen + contract redeploy via raw Revive-pallet script (reference: Sovereignty's `scripts/deploy-previewnet.mjs`), and lose all dotters testnet state. The next-runtime `Revive.call` quirks (dest as raw hex not `Binary`, `gas_required` → `weight_required`, proof_size cap 3.5M) are already handled inside contracts `0.7.5`, so the SDK bump in this phase is also the prep work for that move. Decision input: which chains the revived dot.li actually proxies/signs for (issue #5 territory).
+
+### Phase 8 — Chain migration to paseo-next-v2 ✅ (2026-06-12)
+
+Decision: move off the dying dotters Paseo AH v1 to **paseo-next-v2 Asset Hub**
+(`wss://paseo-asset-hub-next-rpc.polkadot.io`, genesis `0xbf0488…`, parachain
+1500 on the Paseo relay — NOT previewnet, which is a separate `substrate.dev`
+network that also uses para id 1500). Chosen over previewnet because: the
+dot.li host signs against it (DotRivals verified live 2026-06-05), the Paseo
+faucet defaults to it, and the user's product account already held 5000 PAS
+there from a mis-targeted faucet drip.
+
+**Contracts** — redeployed via `frontend/scripts/deploy-contracts-nextv2.mjs`
+(ported from DotRivals' `deploy-papi.mjs`; eth-rpc is a dead end on next-v2 —
+no stock adapter matches the custom runtime's metadata, so the script submits
+`Revive.instantiate_with_code` over PAPI signed by well-known //Alice, funded +
+mapped there). All 12 instantiations + 11 wiring calls succeeded; addresses in
+`contracts/deployments/next-v2.json` (NexusGame `0x64e619ea…`, GameConfig
+`0xa4fe17ea…`). Verified on-chain: `hasPlanet` decodes, `planetManager()`
+returns the wired manager, GameConfig responds. Lessons encoded in the script:
+
+- Dry-run with `gas_limit: undefined` — any finite cap risks phantom `OutOfGas`
+  (GameConfig's EVM-interpreter instantiate needs proof_size ~6.9M).
+- next-v2 has 10MB-PoV blocks (per-extrinsic max proof 8_388_608) — big EVM
+  instantiates fit where previewnet's ~3.5M budget wouldn't.
+- EVM bytecode is accepted, but constructor args must be APPENDED to the init
+  code (standard EVM convention); a non-empty revive `data` field fails with
+  `EvmConstructorNonEmptyData`.
+
+**Phase G executed** (mandatory: next-v2 has no public eth-rpc, so wagmi had
+nothing to talk to): new `src/hooks/useReadContractPapi.ts` is a drop-in
+`useReadContract` / `useReadContracts` replacement with wagmi's exact options +
+result shape, backed by `ContractManager.<method>.query()` (ReviveApi.call
+dry-runs over the same WS the writes use). The SDK decodes with viem's
+`decodeFunctionResult` — the same decoder wagmi used — so all ~30 read hooks in
+`useNexusGame.ts` work unchanged via a one-line import swap. Query keys stay
+`['readContract', { functionName }]`-compatible so the write-side invalidation
+keeps working. `useBlockTimestamp` now reads `Timestamp.Now`;
+`Web3Provider` is react-query only; **wagmi is uninstalled** (`wagmiConfig.ts`
+survives as chain display metadata only). `contractManager` gained
+`defaultOrigin` (//Alice) so reads work before sign-in.
+
+**Live-host fix (2026-06-12, second deploy)**: contracts SDK ≥0.7 **flattened
+the cdm.json schema** (upstream #161: top-level `dependencies` + flat
+`contracts.<name>`, no `targets` wrapper) — our `generate-cdm.mjs` still
+emitted the 0.5 nested shape, so every `getContract()` failed at runtime with
+`Contract "@nexus/game" not found in cdm.json`. Generator rewritten to the
+flat shape (DotRivals' generator was the reference). Same deploy confirmed
+`SmartContractAllowance: Allocated ✓` — the next-v2 signing prerequisite works.
+
+**Live-host fix (2026-06-12, third deploy)**: first successful on-chain write
+🎉 — `claimStarterPlanet` landed and `hasPlanet` flipped to true via the
+existing invalidation. The claim then exposed a read-shape gap: the SDK's
+`decodeReturn` re-assembles **multi-output** methods into a *named object*
+(`{ planet, buildings, … }`) where wagmi/viem return a *positional array* —
+components destructuring `const [planet] = data` crashed with "not iterable".
+`useReadContractPapi` now reverses that via the call-site ABI (`toWagmiShape`);
+12 view functions affected (`getPlanet`, `getTutorialStatus`,
+`calculateCurrentResources`, `fleets`, …). Single-output + struct returns were
+already identical.
+
+**Other changes**: `.papi` descriptors regenerated against the next-v2 runtime;
+`NEXT_PUBLIC_HUB_WS_URL` + contract addresses updated in all env files;
+`PASEO_HUB_GENESIS` → `0xbf0488…`; `signerManager` now requests
+`requestResourceAllocation([AutoSigning, SmartContractAllowance(1000)])` in
+`onConnect` — on next-v2 the **SmartContractAllowance grant is what fills the
+chain's `AuthorizeCall` and unblocks host signing** (DotRivals finding).
+
+**Consequences**: all dotters testnet state is orphaned (fresh game). Dev mode
+(`dev:local`) now also reads/writes against next-v2 over WS — the local-Hardhat
+read path went away with eth-rpc/wagmi. //Alice signs dev-mode writes and is
+funded on next-v2. Verified: tsc clean, `next build` clean, all routes 200.
+**Pending**: redeploy frontend to dot.li, then run the Phase 6 checklist + a
+real write there (product account `15aq2eSy…` already holds ~5000 PAS on
+next-v2, so no faucet step this time).
+
+### Phase G — PAPI-only reads ✅ (completed 2026-06-12 as part of Phase 8 — see above)
+
+Out of scope for this migration. Reads still go through wagmi/eth-rpc. To revisit if eth-rpc proxy reliability becomes a problem — or **immediately and unavoidably if we move to previewnet AH, which has no working eth-rpc proxy** (see Phase 7): replace `useReadContract` with `manager.getContract(library).<method>.query()` from `@parity/product-sdk-contracts`. ~30 mechanical hook refactors.
 
 ---
 
@@ -198,6 +304,9 @@ Out of scope for this migration. Reads still go through wagmi/eth-rpc. To revisi
 | H160 divergence from prior MetaMask testnet state | ✅ Materialized (twice — once at migration, again at the legacy→product account switch in Phase 5). Pre-launch only; communicated to testers. Alice's H160 is `0x9621dde636de098b43efb0fa9b61facfe328f99d` for dev-mode reference. |
 | Session wallet flow unverified on live dot.li | ⚠️ Open — Phase 6 ship gate. dot.li was unreachable on 2026-06-12; re-run the Phase 6 checklist when it's back. |
 | No refund sweep on `endSession` | ⚠️ Leftover session PAS stranded on discarded session keys. Fine on testnet; add `transfer_all` sweep before mainnet. |
+| Host-stack drift: signer 0.2.4 uses the signPayload/PJS path, which dies on `AsPgas` (next runtimes); dot.li moved to `<label>.app.dot.li` URLs where our hardcoded identifier + deploy-script check are wrong | ✅ Resolved by Phase 7 (2026-06-12): signer 0.7.0 pins product-account signing to `createTransaction`; identifier runtime-derived for both URL schemes. Live-host verification pending. |
+| `bulletin-deploy <0.7.12` fails against Bulletin's expiration-based auth model ("Authorization was finalized but not applied") | ✅ Resolved by Phase 7: invoked via `npx -y 'bulletin-deploy@>=0.7.12'` with retry. |
+| ChainSubmit `Ok(false)` denial swallowed by SDK (issue #12) | ⚠️ Still present in signer 0.7.0 (source-verified 2026-06-12). User-side recovery only. |
 | SSR / static-export hydration mismatch (React #418) | ✅ `useTriangle` keeps the `mounted` gate. Don't relax it. |
 | dot.li service-worker CID cache | Persistent risk — verify deploy CID matches resolved CID after every push (Phase 1 lesson #6). |
 | `Revive.map_account` needs PAS | ✅ Confirmed via Alice's dry-run failure. Users need PAS on their SS58 to fund the first write per device. |

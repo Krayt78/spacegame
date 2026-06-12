@@ -109,6 +109,8 @@ The host login worked (the host accounts API doesn't go through the polkadot-api
 
 **Workaround we applied:** bumped our top-level pin from `^0.6.12` to `^0.7.8` so npm de-duplicates to 0.7.8 everywhere.
 
+> **Update 2026-06-12 (Phase 7):** structurally resolved. Signer 0.7.0's dynamic import targets `@novasamatech/host-api-wrapper` (not `@novasamatech/product-sdk`), and our top-level pin is removed entirely — there is exactly one copy of the wrapper in the tree.
+
 ---
 
 ## 4. `getHostProvider(unsupportedGenesisHash)` returns a non-null shell provider that silently swallows sends
@@ -183,6 +185,8 @@ Two confusing aspects:
 ---
 
 ## 7. `requestLogin` (v0.7 protocol) wasn't exposed by the 0.6 SDK line, and the 0.6 → 0.7 jump is breaking (see #3)
+
+> **Update 2026-06-12 (Phase 7):** resolved. `@parity/product-sdk-signer@0.7.0` + `@novasamatech/host-api-wrapper@0.8.7` expose `requestLogin(reason?)` (RFC-0009); `useTriangle.signIn()` now calls it, tolerating failure on hosts that don't implement it.
 
 **Severity:** Low-medium. Plan-time friction, not a runtime crash.
 
@@ -288,6 +292,8 @@ We hit this after fixing issues #3 and #6 — Claim Planet failed instantly with
 
 **Workaround for end users (not the dApp):** revoke the cached denial in dot.li → reload → re-prompt. The dApp can't help here.
 
+> **Update 2026-06-12:** still present in `@parity/product-sdk-signer@0.7.0` — the `permission(request).match(...)` arms still branch only Ok-vs-Err and never inspect the bool, so `Ok(false)` is still logged as "granted" (verified in `src/providers/host.ts`).
+
 ---
 
 ## 13. `ensureContractAccountMapped` returns before the next dry-run can observe the new mapping (race between best-block and runtime-API state)
@@ -378,6 +384,20 @@ if (!isConnected) router.push('/login');
 **Behavior observed:** A first-time user with 0 PAS on their SS58 gets a `StorageDepositNotEnoughFunds` dry-run failure that surfaces as an unstyled JSON dispatch-error blob in the UI. The actual cause (need to fund the SS58 from the faucet) isn't expressed anywhere — the dApp has to interpret the variant and surface its own message.
 
 **Suggested fix:** Provide a `formatDispatchError(error): { code, humanMessage, suggestedAction }` helper that maps common revive/system errors to actionable user-facing strings. We'd happily contribute the mapping for the common cases if there's a place for it.
+
+---
+
+## 16. `SignerManager`'s default provider factory can't pass `productAccount` — product-account-only apps die with `NoAccountsError` on hosts without legacy accounts
+
+**Severity:** High. Hard connect failure on the live dot.li with the SDK's own recommended happy path.
+
+**Where:** `@parity/product-sdk-signer@0.7.0`, `SignerManager.createProvider()` (the default factory) vs `HostProviderOptions.productAccount`.
+
+**Behavior observed (live dot.li, 2026-06-12):** `signerManager.connect('host')` retries three times logging `[signer:host] host returned no accounts`, then rejects with `NoAccountsError: No accounts available from host provider`. The current dot.li exposes no legacy accounts to dApps, and the default connect path fetches legacy accounts first. The SDK *has* the right escape hatch — `HostProviderOptions.productAccount` skips the legacy fetch and derives the product account in `connect()` directly, and its doc comment even describes this exact failure — but `SignerManager`'s built-in factory never forwards it. Every product-account-only app must hand-roll a `createProvider` factory and duplicate the SDK's own defaults (`ss58Prefix`, `maxRetries`, `retryDelay: 500`) to set one option.
+
+**Suggested fix:** accept `productAccount` (and future `HostProviderOptions`) in `SignerManagerOptions` and forward it from the default factory; or export the default factory so it can be wrapped instead of replicated.
+
+**Workaround we applied:** custom `createProvider` in `lib/triangle/signerManager.ts` constructing `HostProvider({ ss58Prefix: 0, maxRetries: 3, retryDelay: 500, productAccount: { dotNsIdentifier: computeProductIdentifier(), derivationIndex: 0, requestName: false } })`.
 
 ---
 

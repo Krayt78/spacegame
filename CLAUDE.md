@@ -13,7 +13,8 @@ On-chain OGame-style space strategy game on Polkadot AssetHub.
 - CombatEngine.sol provides combat math; FleetResolver.sol handles fleet resolution logic
 - FleetResolver.sol is at 96% of the 24KB bytecode limit — any new fleet logic must consider splitting
 - GameState.sol is the single storage contract; GameConfig.sol holds all constants
-- Frontend uses wagmi v3 hooks that import ABIs from JSON artifacts (never manually defined)
+- Frontend reads/writes go through PAPI + @parity/product-sdk-contracts (wagmi removed in Phase G); ABIs come from JSON artifacts via the generated cdm.json (never manually defined)
+- Contracts live on paseo-next-v2 Asset Hub (genesis 0xbf0488…, wss://paseo-asset-hub-next-rpc.polkadot.io — NO public eth-rpc; deploy via frontend/scripts/deploy-contracts-nextv2.mjs, addresses in contracts/deployments/next-v2.json)
 
 ## Agents Available
 - `/solidity-architect` — Architecture review (read-only)
