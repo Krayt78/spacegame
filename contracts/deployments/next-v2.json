@@ -1,0 +1,21 @@
+{
+  "network": "paseo-next-v2",
+  "rpc": "wss://paseo-asset-hub-next-rpc.polkadot.io",
+  "genesis": "0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f",
+  "deployer": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+  "contracts": {
+    "GameConfig": "0xa4fe17ea7595fc50e55319f46c54cf8c7b34b3e3",
+    "GameState": "0x84e7637427ba79550440146b7e51dc05230f3685",
+    "GameStateImplementation": "0xfc73b5d7f6495d4a169ce4d8682a644a8e9e90e2",
+    "NexusGame": "0x64e619ea4d8a593c68533c0feaf3e36d3666495b",
+    "PlanetManager": "0x9554489ce26c1229cdbaa0fd1193ff5dcc9542ef",
+    "ShipManager": "0x5296344ed752c19cdee2bb3e5e5b015ba69982c7",
+    "CombatEngine": "0xa27c323a30c7ee1f0a7a35f48983d98d18c53445",
+    "FleetResolver": "0x099b539bf034c741404d393ab95946e4923bc7ab",
+    "FleetManager": "0xe12efef359226464a5672029cfce9c04ca89afcf",
+    "ResearchManager": "0x35f8594c8e68a0ad079bca5f72bf6c9560ac22b0",
+    "DefenseManager": "0x3388cf14bceb70d96fa242f9a31d525772f7dbf0",
+    "TutorialManager": "0xffa4bcd8d30eb08e154d9f5db6e21dd9cd02d6bd"
+  },
+  "deployedAt": "2026-06-12T20:27:53.731Z"
+}
