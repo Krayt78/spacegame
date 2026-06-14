@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { Zap, ZapOff, Loader2, AlertTriangle } from 'lucide-react';
 
-import { useNexusSession } from '@/hooks/useNexusSession';
-import { useNexusSessionHealth } from '@/hooks/useNexusSessionHealth';
+import { useSessionContext } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui';
 import { SESSION_FUNDING_AMOUNT } from '@/lib/session/sessionWallet';
 import { cn } from '@/lib/utils';
@@ -36,8 +35,8 @@ export function SessionBadge() {
     error,
     startSession,
     endSession,
-  } = useNexusSession();
-  const health = useNexusSessionHealth(session);
+    health,
+  } = useSessionContext();
   const [showConfirm, setShowConfirm] = useState(false);
 
   // Hide until we know what to show — avoids a "Start session" flash before

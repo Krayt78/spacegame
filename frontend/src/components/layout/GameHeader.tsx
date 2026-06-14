@@ -3,8 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { HostLink as Link } from '@/components/HostLink';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings, ChevronDown, Wallet, Copy, Check, ExternalLink } from 'lucide-react';
+import { User, Settings, ChevronDown, Wallet, Copy, Check, ExternalLink, Coins, Zap } from 'lucide-react';
 import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
+import { usePlayerBalance } from '@/hooks/usePlayerBalance';
+import { useSessionContext } from '@/contexts/SessionContext';
 import { SessionBadge } from '@/components/session/SessionBadge';
 import { ResourceHeader } from './ResourceHeader';
 import { PlanetSelector } from './PlanetSelector';
@@ -22,9 +24,26 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+const PAS_DECIMALS = 10n ** 10n;
+
+/** planck → PAS string with 3 decimal places. */
+function formatPas(planck: bigint): string {
+  const whole = planck / PAS_DECIMALS;
+  const frac = (planck % PAS_DECIMALS) / 10_000_000n; // 3 decimals
+  return `${whole}.${frac.toString().padStart(3, '0')}`;
+}
+
 export function GameHeader({ className, showResources = true }: GameHeaderProps) {
-  const { address, isConnected } = useAccount();
+  const { address, ss58Address, isConnected } = useAccount();
+  const walletBalance = usePlayerBalance(ss58Address);
+  const { session, health: sessionHealth } = useSessionContext();
   const { playerName } = useUserStore();
+
+  // While a session is active, gas is paid from the session wallet, so show
+  // that balance instead of the main account's. Falls back to the main wallet
+  // when there's no ready session (or it has expired).
+  const sessionActive = session?.isReady === true && sessionHealth.status !== 'expired';
+  const gasBalance = sessionActive ? sessionHealth.balance : walletBalance;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -134,6 +153,33 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
             </div>
           )}
 
+          {/* Native PAS balance — available to pay gas. Shows the session
+              wallet balance while a session is active, else the main wallet. */}
+          {isConnected && (
+            <div
+              className={cn(
+                'hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-sm',
+                'bg-[var(--bg-tertiary)] border border-transparent',
+                'font-mono text-sm text-[var(--text-secondary)]'
+              )}
+              title={
+                sessionActive
+                  ? 'Session wallet balance — pays gas while the session is active'
+                  : 'Native PAS balance available to pay for gas'
+              }
+            >
+              {sessionActive ? (
+                <Zap className="w-4 h-4 text-[var(--accent-primary)]" />
+              ) : (
+                <Coins className="w-4 h-4 text-[var(--accent-secondary)]" />
+              )}
+              <span>
+                {gasBalance !== null ? formatPas(gasBalance) : '—'}
+                <span className="text-[var(--text-muted)]"> PAS</span>
+              </span>
+            </div>
+          )}
+
         {/* Right: User Menu */}
         <div ref={menuRef} className="relative">
           {isConnected && address ? (
@@ -215,6 +261,23 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
                           <ExternalLink className="w-3 h-3 text-[var(--text-muted)]" />
                         </a>
                       </div>
+                    </div>
+
+                    {/* Balance — available to pay gas */}
+                    <div className="px-4 py-3 border-b border-[var(--bg-tertiary)]">
+                      <div className="flex items-center gap-2 mb-1">
+                        {sessionActive ? (
+                          <Zap className="w-4 h-4 text-[var(--accent-primary)]" />
+                        ) : (
+                          <Coins className="w-4 h-4 text-[var(--accent-secondary)]" />
+                        )}
+                        <span className="text-sm text-[var(--text-secondary)]">
+                          {sessionActive ? 'Session wallet — gas' : 'Available for gas'}
+                        </span>
+                      </div>
+                      <p className="font-mono text-sm text-[var(--text-primary)]">
+                        {gasBalance !== null ? `${formatPas(gasBalance)} PAS` : 'Loading…'}
+                      </p>
                     </div>
 
                     {/* Network Info */}

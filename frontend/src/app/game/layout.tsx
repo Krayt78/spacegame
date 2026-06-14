@@ -1,5 +1,6 @@
 import { ProtectedRoute } from '@/components/auth';
 import { ContractConfigWarning, ErrorBoundary } from '@/components/ui';
+import { SessionProvider } from '@/contexts/SessionContext';
 
 export default function GameRootLayout({
   children,
@@ -9,7 +10,9 @@ export default function GameRootLayout({
   return (
     <ErrorBoundary>
       <ContractConfigWarning>
-        <ProtectedRoute>{children}</ProtectedRoute>
+        <ProtectedRoute>
+          <SessionProvider>{children}</SessionProvider>
+        </ProtectedRoute>
       </ContractConfigWarning>
     </ErrorBoundary>
   );
