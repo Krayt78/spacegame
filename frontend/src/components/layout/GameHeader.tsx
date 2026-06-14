@@ -39,11 +39,17 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
   const { session, health: sessionHealth } = useSessionContext();
   const { playerName } = useUserStore();
 
-  // While a session is active, gas is paid from the session wallet, so show
-  // that balance instead of the main account's. Falls back to the main wallet
-  // when there's no ready session (or it has expired).
+  // Two distinct gas-funding modes:
+  //  - Session active  → writes are signed locally by the session wallet, paid
+  //    from ITS balance. Show that balance.
+  //  - No session      → writes are host-signed under the SmartContractAllowance
+  //    grant, so the host sponsors gas; the player's own balance does NOT pay.
+  //    Show "Host-sponsored" rather than a misleading "available for gas" figure.
+  // The main wallet balance still matters for ONE thing without a session:
+  // funding a new session (Balances.transfer to the session wallet), so we
+  // surface it in the dropdown as a session-funding hint.
   const sessionActive = session?.isReady === true && sessionHealth.status !== 'expired';
-  const gasBalance = sessionActive ? sessionHealth.balance : walletBalance;
+  const sessionBalance = sessionHealth.balance;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -153,8 +159,9 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
             </div>
           )}
 
-          {/* Native PAS balance — available to pay gas. Shows the session
-              wallet balance while a session is active, else the main wallet. */}
+          {/* Gas-funding indicator. With a session: the session wallet's PAS
+              balance (it pays gas). Without one: host-sponsored via the
+              allowance, so no player balance is relevant. */}
           {isConnected && (
             <div
               className={cn(
@@ -165,18 +172,23 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
               title={
                 sessionActive
                   ? 'Session wallet balance — pays gas while the session is active'
-                  : 'Native PAS balance available to pay for gas'
+                  : 'Writes are signed and paid by the Polkadot Host (allowance). Your own PAS is only needed to start a session.'
               }
             >
               {sessionActive ? (
-                <Zap className="w-4 h-4 text-[var(--accent-primary)]" />
+                <>
+                  <Zap className="w-4 h-4 text-[var(--accent-primary)]" />
+                  <span>
+                    {sessionBalance !== null ? formatPas(sessionBalance) : '—'}
+                    <span className="text-[var(--text-muted)]"> PAS</span>
+                  </span>
+                </>
               ) : (
-                <Coins className="w-4 h-4 text-[var(--accent-secondary)]" />
+                <>
+                  <Coins className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-[var(--text-muted)]">Host-sponsored</span>
+                </>
               )}
-              <span>
-                {gasBalance !== null ? formatPas(gasBalance) : '—'}
-                <span className="text-[var(--text-muted)]"> PAS</span>
-              </span>
             </div>
           )}
 
@@ -263,21 +275,38 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
                       </div>
                     </div>
 
-                    {/* Balance — available to pay gas */}
+                    {/* Gas funding */}
                     <div className="px-4 py-3 border-b border-[var(--bg-tertiary)]">
                       <div className="flex items-center gap-2 mb-1">
                         {sessionActive ? (
                           <Zap className="w-4 h-4 text-[var(--accent-primary)]" />
                         ) : (
-                          <Coins className="w-4 h-4 text-[var(--accent-secondary)]" />
+                          <Coins className="w-4 h-4 text-[var(--text-muted)]" />
                         )}
                         <span className="text-sm text-[var(--text-secondary)]">
-                          {sessionActive ? 'Session wallet — gas' : 'Available for gas'}
+                          {sessionActive ? 'Session wallet — gas' : 'Gas'}
                         </span>
                       </div>
-                      <p className="font-mono text-sm text-[var(--text-primary)]">
-                        {gasBalance !== null ? `${formatPas(gasBalance)} PAS` : 'Loading…'}
-                      </p>
+                      {sessionActive ? (
+                        <p className="font-mono text-sm text-[var(--text-primary)]">
+                          {sessionBalance !== null
+                            ? `${formatPas(sessionBalance)} PAS`
+                            : 'Loading…'}
+                        </p>
+                      ) : (
+                        <>
+                          <p className="font-mono text-sm text-[var(--text-primary)]">
+                            Host-sponsored
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--text-muted)]">
+                            Wallet:{' '}
+                            {walletBalance !== null
+                              ? `${formatPas(walletBalance)} PAS`
+                              : '…'}{' '}
+                            — needed to start a session
+                          </p>
+                        </>
+                      )}
                     </div>
 
                     {/* Network Info */}
