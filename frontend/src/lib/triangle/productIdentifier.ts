@@ -8,8 +8,8 @@
  * for the subdomain the dApp is loaded from; mismatch surfaces as a generic
  * "Permission denied" (PARITY_SDK_ISSUES.md #11). We therefore derive it
  * from `window.location` at call time, handling BOTH dot.li URL schemes:
- *   nexusprotocol00.dot.li      → nexusprotocol00.dot   (legacy scheme)
- *   nexusprotocol00.app.dot.li  → nexusprotocol00.dot   (current scheme —
+ *   spacegame.dot.li      → spacegame.dot   (legacy scheme)
+ *   spacegame.app.dot.li  → spacegame.dot   (current scheme —
  *     the `.app` segment must be stripped too, or the host rejects
  *     createTransaction with PermissionDenied; ignite/Sovereignty fix)
  * `NEXT_PUBLIC_DOT_NS_IDENTIFIER` remains as an explicit override for odd
@@ -26,11 +26,11 @@
 export function computeProductIdentifier(): string {
   const override = process.env.NEXT_PUBLIC_DOT_NS_IDENTIFIER;
   if (override) return override;
-  if (typeof window === 'undefined') return 'nexusprotocol00.dot';
+  if (typeof window === 'undefined') return 'spacegame.dot';
   const host = window.location.host;
   return host.endsWith('.dot.li')
     ? host.replace(/\.li$/, '').replace(/\.app\.dot$/, '.dot')
-    : 'nexusprotocol00.dot';
+    : 'spacegame.dot';
 }
 
 export const PRODUCT_ACCOUNT_INDEX = 0;

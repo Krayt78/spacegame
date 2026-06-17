@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do
             echo "or updates the DotNS record so https://<name>.dot.li resolves"
             echo "to the new CID."
             echo ""
-            echo "  --domain <name.dot>   DotNS basename (default: nexusprotocol00.dot)"
+            echo "  --domain <name.dot>   DotNS basename (default: spacegame.dot)"
             echo "  --env <file>          env file to source for the build"
             echo "                        (default: frontend/.env.testnet, falling back"
             echo "                        to frontend/.env.production if testnet missing)"
@@ -87,7 +87,7 @@ fi
 echo ""
 
 # Resolve deploy domain now that the env file has been sourced.
-DOMAIN="${DOMAIN_OVERRIDE:-${NEXUS_DOTNS_DOMAIN:-nexusprotocol00.dot}}"
+DOMAIN="${DOMAIN_OVERRIDE:-${NEXUS_DOTNS_DOMAIN:-spacegame.dot}}"
 echo "  Domain: $DOMAIN"
 echo "  URL:    https://$DOMAIN.li"
 # The product identifier is runtime-derived from window.location since Phase 7

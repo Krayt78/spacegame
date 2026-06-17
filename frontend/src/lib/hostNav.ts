@@ -5,7 +5,7 @@ import { useCallback, useMemo } from 'react';
 
 /**
  * dot.li launches the dApp at a URL like
- *   `https://nexusprotocol00.dot.li/?chainBackend=...&...`
+ *   `https://spacegame.dot.li/?chainBackend=...&...`
  * The `chainBackend` (and friends) query params tell the host shell which
  * backend the sandbox should talk to. dot.li's outer shell **validates these
  * params on every navigation it sees** — if they're missing, you get an
