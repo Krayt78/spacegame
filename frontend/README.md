@@ -27,39 +27,36 @@ these files — every variable the browser reads is prefixed `NEXT_PUBLIC_` and 
 therefore baked into the client bundle. **Never put a private key, mnemonic, or
 any other secret in an env file.**
 
-| File              | Tracked in git | Used by                                  |
-| ----------------- | -------------- | ---------------------------------------- |
-| `.env.example`    | ✅ yes (template) | reference for all available variables |
-| `.env.localhost`  | ❌ **gitignored** | `npm run dev:local` (local Hardhat node) |
-| `.env.testnet`    | ❌ **gitignored** | `npm run dev:testnet` (Polkadot Hub TestNet) |
-| `.env.production` | ❌ **gitignored** | `npm run build` (production build)     |
+| File             | Tracked in git    | Used by                                        |
+| ---------------- | ----------------- | ---------------------------------------------- |
+| `.env.example`   | ✅ yes (template)  | reference for all available variables          |
+| `.env.devnet`    | ✅ yes             | `npm run dev:net` (dev server vs. the real Summit chain, DevProvider) |
+| `.env.localhost` | ❌ **gitignored**  | `npm run dev:local` (local Hardhat node)       |
+| `.env.testnet`   | ❌ **gitignored**  | `npm run dev:testnet` + `scripts/deploy-frontend.sh` (Summit deploy) |
 
-### Setting up the env files
-
-Only `.env.example` is committed. The runtime files (`.env.localhost`,
-`.env.testnet`, `.env.production`) are **gitignored** so that no one can
-accidentally commit a secret through them. Create whichever you need locally by
-copying the template and filling in the values:
+`.env.example` and `.env.devnet` are committed (public values only). The
+per-user runtime files — `.env.localhost` and `.env.testnet` — are
+**gitignored** so no per-user or secret value lands in the repo. Create whichever
+you need by copying the template:
 
 ```bash
 cp .env.example .env.localhost   # local Hardhat node
-cp .env.example .env.testnet     # Polkadot Hub TestNet
-cp .env.example .env.production  # production build
+cp .env.example .env.testnet     # Summit testnet + bulletin deploy
 ```
 
-Then set the public values (chain, RPC/WS endpoints, deployed contract
-addresses). For a Vercel deployment, set the same `NEXT_PUBLIC_*` variables in
-the **Vercel dashboard → Settings → Environment Variables** instead — they take
-precedence and you don't need a local `.env.production` at all.
+Then set the public values (chain, WS endpoint, deployed contract addresses).
+`scripts/deploy-frontend.sh` sources `.env.testnet` by default for the Bulletin
+build, so that one file drives both `npm run dev:testnet` and the deploy.
 
-Reference values (testnet):
+Reference values (Summit testnet):
 
 ```bash
 NEXT_PUBLIC_CHAIN=testnet
-NEXT_PUBLIC_POLKADOT_HUB_RPC_URL=https://eth-rpc-testnet.polkadot.io
-NEXT_PUBLIC_HUB_WS_URL=wss://paseo-asset-hub-next-rpc.polkadot.io
-NEXT_PUBLIC_NEXUS_GAME_ADDRESS=0x64e619ea4d8a593c68533c0feaf3e36d3666495b
-NEXT_PUBLIC_GAME_CONFIG_ADDRESS=0xa4fe17ea7595fc50e55319f46c54cf8c7b34b3e3
+NEXT_PUBLIC_HUB_WS_URL=wss://summit-asset-hub-rpc.polkadot.io
+# Fill in from contracts/deployments/summit.json after deploying:
+NEXT_PUBLIC_NEXUS_GAME_ADDRESS=
+NEXT_PUBLIC_GAME_CONFIG_ADDRESS=
+NEXUS_DOTNS_DOMAIN=spacegame.dot
 ```
 
 ## Learn More

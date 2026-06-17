@@ -29,7 +29,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { createClient } from "polkadot-api";
+import { createClient, AccountId } from "polkadot-api";
 import { getWsProvider } from "polkadot-api/ws";
 import { getPolkadotSigner } from "polkadot-api/signer";
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
@@ -38,9 +38,14 @@ import { encodeAbiParameters, encodeFunctionData, fromHex } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTRACTS = resolve(__dirname, "../../contracts");
-const WS = process.env.NEXT_WS_URL ?? "wss://paseo-asset-hub-next-rpc.polkadot.io";
+// Asset Hub substrate WS. Default = Summit Network AH. Override with
+// ASSET_HUB_WS (or the legacy NEXT_WS_URL) to target another chain.
+const WS = process.env.ASSET_HUB_WS ?? process.env.NEXT_WS_URL ?? "wss://summit-asset-hub-rpc.polkadot.io";
 const MODE = process.argv[2] ?? "dry";
-const ALICE_SS58 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+const NETWORK = process.env.DEPLOY_NETWORK ?? "summit";
+// Optional genesis assertion (e.g. EXPECT_GENESIS=0xbf0488… for next-v2).
+// Unset = accept whatever chain WS points at.
+const EXPECT_GENESIS = process.env.EXPECT_GENESIS ?? "";
 
 // Dry-runs pass gas_limit = undefined (None → runtime uses block max).
 // Any finite cap risks a phantom OutOfGas: GameConfig's EVM-interpreter
@@ -83,11 +88,22 @@ const A = {
   TutorialManager: loadArtifact("contracts/TutorialManager.sol", "TutorialManager"),
 };
 
-function aliceSigner() {
+// Deployer key: MNEMONIC env (sr25519, bare account, no derivation path) if set,
+// else the well-known //Alice — dev/local only, NOT funded on summit. Whatever
+// is chosen, fund the SS58 printed at startup on the target Asset Hub.
+function makeSigner() {
+  const phrase = process.env.MNEMONIC?.trim();
+  if (phrase) {
+    const mini = entropyToMiniSecret(mnemonicToEntropy(phrase));
+    const kp = sr25519CreateDerive(mini)("");
+    return { signer: getPolkadotSigner(kp.publicKey, "Sr25519", kp.sign), pub: kp.publicKey, label: "MNEMONIC" };
+  }
   const mini = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));
   const alice = sr25519CreateDerive(mini)("//Alice");
-  return getPolkadotSigner(alice.publicKey, "Sr25519", alice.sign);
+  return { signer: getPolkadotSigner(alice.publicKey, "Sr25519", alice.sign), pub: alice.publicKey, label: "//Alice (dev)" };
 }
+const { signer: SIGNER, pub: DEPLOYER_PUB, label: DEPLOYER_LABEL } = makeSigner();
+const DEPLOYER_SS58 = AccountId().dec(DEPLOYER_PUB);
 
 // EVM deployment convention: constructor args are ABI-encoded and APPENDED to
 // the init bytecode; the separate revive `data` field must stay empty or the
@@ -105,11 +121,11 @@ const NO_DATA = new Uint8Array();
 async function main() {
   const client = createClient(getWsProvider(WS));
   const api = client.getUnsafeApi();
-  const signer = aliceSigner();
+  const signer = SIGNER;
 
   async function dryInstantiate(label, initCode) {
     const res = await api.apis.ReviveApi.instantiate(
-      ALICE_SS58, 0n, undefined, undefined, { type: "Upload", value: initCode }, NO_DATA, undefined,
+      DEPLOYER_SS58, 0n, undefined, undefined, { type: "Upload", value: initCode }, NO_DATA, undefined,
     );
     if (!res?.result?.success) {
       throw new Error(`${label} instantiate dry-run FAILED: ${JSON.stringify(res?.result?.value, bigintReplacer)}`);
@@ -129,7 +145,7 @@ async function main() {
   }
 
   async function dryCall(label, dest, data) {
-    const res = await api.apis.ReviveApi.call(ALICE_SS58, dest, 0n, undefined, undefined, data);
+    const res = await api.apis.ReviveApi.call(DEPLOYER_SS58, dest, 0n, undefined, undefined, data);
     if (!res?.result?.success) {
       throw new Error(`${label} call dry-run FAILED: ${JSON.stringify(res?.result?.value, bigintReplacer)}`);
     }
@@ -167,11 +183,15 @@ async function main() {
 
   // Sanity: chain + funds.
   const genesis = await client._request("chainSpec_v1_genesisHash", []).catch(() => "?");
-  const acct = await api.query.System.Account.getValue(ALICE_SS58);
-  log(`chain genesis: ${genesis}`);
-  log(`deployer //Alice: free=${Number(acct.data.free) / 1e10} PAS nonce=${acct.nonce}\n`);
-  if (!String(genesis).startsWith("0xbf0488")) {
-    throw new Error(`unexpected genesis ${genesis} — expected paseo-next-v2 (0xbf0488…)`);
+  const acct = await api.query.System.Account.getValue(DEPLOYER_SS58);
+  const freePas = Number(acct.data.free) / 1e10;
+  log(`network: ${NETWORK}  genesis: ${genesis}`);
+  log(`deployer ${DEPLOYER_LABEL} ${DEPLOYER_SS58}: free=${freePas} PAS nonce=${acct.nonce}\n`);
+  if (EXPECT_GENESIS && !String(genesis).startsWith(EXPECT_GENESIS)) {
+    throw new Error(`unexpected genesis ${genesis} — EXPECT_GENESIS=${EXPECT_GENESIS}`);
+  }
+  if (MODE === "deploy" && acct.data.free === 0n) {
+    throw new Error(`deployer ${DEPLOYER_SS58} has 0 PAS on ${NETWORK} (${WS}) — fund it from the faucet first.`);
   }
 
   const initData = fromHex(encodeFunctionData({ abi: A.GameState.abi, functionName: "initialize", args: [] }), "bytes");
@@ -264,10 +284,10 @@ async function main() {
   }
 
   const deployments = {
-    network: "paseo-next-v2",
+    network: NETWORK,
     rpc: WS,
     genesis,
-    deployer: ALICE_SS58,
+    deployer: DEPLOYER_SS58,
     contracts: {
       GameConfig: gameConfig,
       GameState: gameState,
@@ -285,7 +305,7 @@ async function main() {
     deployedAt: new Date().toISOString(),
   };
   mkdirSync(resolve(CONTRACTS, "deployments"), { recursive: true });
-  const outPath = resolve(CONTRACTS, "deployments/next-v2.json");
+  const outPath = resolve(CONTRACTS, `deployments/${NETWORK}.json`);
   writeFileSync(outPath, JSON.stringify(deployments, null, 2) + "\n");
   log(`\nWrote ${outPath}`);
   log(JSON.stringify(deployments, null, 2));

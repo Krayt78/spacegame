@@ -18,12 +18,14 @@ deployments/
 out/
 build/
 
-# Environment (secrets) — only the .env.example template is committed.
-# Put real values in .env / .env.<mode> (all ignored) or the Vercel dashboard,
-# never in a committed env file.
+# Environment — .env.example (template) and .env.devnet (shared dev config
+# against the real chain) are committed; every other .env.* is ignored so no
+# per-user / secret values land in the repo. Only put public values in the
+# committed two.
 .env
 .env.*
 !.env.example
+!.env.devnet
 
 # IDE
 .idea/

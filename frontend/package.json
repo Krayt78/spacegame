@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:local": "env-cmd -f .env.localhost sh -c 'node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs && next dev'",
     "dev:testnet": "env-cmd -f .env.testnet sh -c 'node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs && next dev'",
+    "dev:net": "env-cmd -f .env.devnet sh -c 'node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs && next dev'",
     "build": "next build",
     "build:static": "STATIC_EXPORT=1 next build",
     "prebuild:static": "node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs",

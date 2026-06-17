@@ -7,12 +7,19 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Parse flags
 DOMAIN=""
 ENV_FILE=""
+# Bulletin environment id (bulletin-deploy --env). Drives BOTH the Bulletin RPC
+# and the Asset Hub RPC used for DotNS register/content-set, plus the bundled
+# DotNS contract addresses. Default 'summit' = Web3 Summit Network. Run
+# `npx bulletin-deploy --list-environments` for the full list (paseo-next-v2,
+# summit, …). Override with --net or BULLETIN_ENV.
+BULLETIN_ENV="${BULLETIN_ENV:-summit}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --domain|-d) DOMAIN="$2"; shift 2 ;;
         --env|-e) ENV_FILE="$2"; shift 2 ;;
+        --net|-n) BULLETIN_ENV="$2"; shift 2 ;;
         -h|--help)
-            echo "Usage: $0 [--domain <name.dot>] [--env <file>]"
+            echo "Usage: $0 [--domain <name.dot>] [--env <file>] [--net <env-id>]"
             echo ""
             echo "Builds the Nexus Protocol frontend as a static export and"
             echo "deploys it to IPFS via the Polkadot Bulletin Chain. Registers"
@@ -21,8 +28,9 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "  --domain <name.dot>   DotNS basename (default: spacegame.dot)"
             echo "  --env <file>          env file to source for the build"
-            echo "                        (default: frontend/.env.testnet, falling back"
-            echo "                        to frontend/.env.production if testnet missing)"
+            echo "                        (default: frontend/.env.testnet)"
+            echo "  --net <env-id>        Bulletin/DotNS environment (default: summit)."
+            echo "                        See 'npx bulletin-deploy --list-environments'."
             exit 0
             ;;
         *) echo "Unknown argument: $1"; echo "Run with --help for usage."; exit 1 ;;
@@ -64,13 +72,9 @@ if [ -z "${MNEMONIC:-}" ] && [ -n "${HARDHAT_VARS_FILE:-}" ] && [ -f "$HARDHAT_V
     MNEMONIC=$(node -e "try{const v=require('$HARDHAT_VARS_FILE');process.stdout.write(v.vars.MNEMONIC??'')}catch(e){}" 2>/dev/null || true)
 fi
 
-# Resolve which env file to bake into the static build.
+# Resolve which env file to bake into the static build (default: .env.testnet).
 if [ -z "$ENV_FILE" ]; then
-    if [ -f "$ROOT_DIR/frontend/.env.testnet" ]; then
-        ENV_FILE="$ROOT_DIR/frontend/.env.testnet"
-    elif [ -f "$ROOT_DIR/frontend/.env.production" ]; then
-        ENV_FILE="$ROOT_DIR/frontend/.env.production"
-    fi
+    ENV_FILE="$ROOT_DIR/frontend/.env.testnet"
 fi
 
 if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
@@ -88,8 +92,9 @@ echo ""
 
 # Resolve deploy domain now that the env file has been sourced.
 DOMAIN="${DOMAIN_OVERRIDE:-${NEXUS_DOTNS_DOMAIN:-spacegame.dot}}"
-echo "  Domain: $DOMAIN"
-echo "  URL:    https://$DOMAIN.li"
+echo "  Network: $BULLETIN_ENV"
+echo "  Domain:  $DOMAIN"
+echo "  URL:     https://$DOMAIN.li"
 # The product identifier is runtime-derived from window.location since Phase 7
 # (handles both <label>.dot.li and <label>.app.dot.li schemes), so the env var
 # is an optional override — but if it IS set, a mismatch with the deploy domain
@@ -127,11 +132,11 @@ fi
 #   gets a fresh WS. (Pattern from Sovereignty/ignite deploy.yml.)
 # - 8GB heap: WS-reconnect retries can OOM the default 2GB Node heap with
 #   buffered subscription state.
-echo "[2/2] Deploying to Bulletin Chain..."
+echo "[2/2] Deploying to Bulletin Chain (env: $BULLETIN_ENV)..."
 export NODE_OPTIONS="--max-old-space-size=8192"
 ATTEMPTS=3
 for attempt in $(seq 1 $ATTEMPTS); do
-    if MNEMONIC="${MNEMONIC:-}" npx -y 'bulletin-deploy@>=0.7.12' "$OUT_DIR" "$DOMAIN"; then
+    if MNEMONIC="${MNEMONIC:-}" npx -y 'bulletin-deploy@>=0.7.12' --env "$BULLETIN_ENV" "$OUT_DIR" "$DOMAIN"; then
         exit 0
     fi
     if [ "$attempt" -lt "$ATTEMPTS" ]; then
