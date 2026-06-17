@@ -18,11 +18,12 @@ deployments/
 out/
 build/
 
-# Environment (secrets)
+# Environment (secrets) — only the .env.example template is committed.
+# Put real values in .env / .env.<mode> (all ignored) or the Vercel dashboard,
+# never in a committed env file.
 .env
-.env.local
+.env.*
 !.env.example
-!.env.production
 
 # IDE
 .idea/

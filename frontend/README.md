@@ -20,6 +20,48 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment configuration
+
+Configuration is supplied through `.env.*` files. Only public values belong in
+these files — every variable the browser reads is prefixed `NEXT_PUBLIC_` and is
+therefore baked into the client bundle. **Never put a private key, mnemonic, or
+any other secret in an env file.**
+
+| File              | Tracked in git | Used by                                  |
+| ----------------- | -------------- | ---------------------------------------- |
+| `.env.example`    | ✅ yes (template) | reference for all available variables |
+| `.env.localhost`  | ❌ **gitignored** | `npm run dev:local` (local Hardhat node) |
+| `.env.testnet`    | ❌ **gitignored** | `npm run dev:testnet` (Polkadot Hub TestNet) |
+| `.env.production` | ❌ **gitignored** | `npm run build` (production build)     |
+
+### Setting up the env files
+
+Only `.env.example` is committed. The runtime files (`.env.localhost`,
+`.env.testnet`, `.env.production`) are **gitignored** so that no one can
+accidentally commit a secret through them. Create whichever you need locally by
+copying the template and filling in the values:
+
+```bash
+cp .env.example .env.localhost   # local Hardhat node
+cp .env.example .env.testnet     # Polkadot Hub TestNet
+cp .env.example .env.production  # production build
+```
+
+Then set the public values (chain, RPC/WS endpoints, deployed contract
+addresses). For a Vercel deployment, set the same `NEXT_PUBLIC_*` variables in
+the **Vercel dashboard → Settings → Environment Variables** instead — they take
+precedence and you don't need a local `.env.production` at all.
+
+Reference values (testnet):
+
+```bash
+NEXT_PUBLIC_CHAIN=testnet
+NEXT_PUBLIC_POLKADOT_HUB_RPC_URL=https://eth-rpc-testnet.polkadot.io
+NEXT_PUBLIC_HUB_WS_URL=wss://paseo-asset-hub-next-rpc.polkadot.io
+NEXT_PUBLIC_NEXUS_GAME_ADDRESS=0x64e619ea4d8a593c68533c0feaf3e36d3666495b
+NEXT_PUBLIC_GAME_CONFIG_ADDRESS=0xa4fe17ea7595fc50e55319f46c54cf8c7b34b3e3
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
