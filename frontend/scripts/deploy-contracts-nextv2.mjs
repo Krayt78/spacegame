@@ -38,6 +38,29 @@ import { encodeAbiParameters, encodeFunctionData, fromHex } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTRACTS = resolve(__dirname, "../../contracts");
+
+// Load the env file for this deploy so MNEMONIC (and other vars) come from the
+// same .env.<mode> files the app uses — exactly like `npm run dev:<mode>`. The
+// mode defaults to "testnet" (the Summit target); override with DEPLOY_ENV
+// (e.g. DEPLOY_ENV=devnet, DEPLOY_ENV=localhost). Precedence: shell env >
+// .env.local > .env.<mode> > .env. Empty values don't shadow later non-empty
+// ones. Minimal parser — no dotenv dependency.
+const DEPLOY_ENV = process.env.DEPLOY_ENV ?? "testnet";
+function loadDotEnv() {
+  for (const name of [".env.local", `.env.${DEPLOY_ENV}`, ".env"]) {
+    let text;
+    try { text = readFileSync(resolve(__dirname, "..", name), "utf8"); } catch { continue; }
+    for (const line of text.split("\n")) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+      if (!m) continue;
+      const [, key, rawVal] = m;
+      if (process.env[key] !== undefined && process.env[key] !== "") continue;
+      process.env[key] = rawVal.replace(/^(['"])(.*)\1$/, "$2");
+    }
+  }
+}
+loadDotEnv();
+
 // Asset Hub substrate WS. Default = Summit Network AH. Override with
 // ASSET_HUB_WS (or the legacy NEXT_WS_URL) to target another chain.
 const WS = process.env.ASSET_HUB_WS ?? process.env.NEXT_WS_URL ?? "wss://summit-asset-hub-rpc.polkadot.io";

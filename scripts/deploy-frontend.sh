@@ -60,22 +60,16 @@ if ! command -v ipfs &>/dev/null; then
     exit 1
 fi
 
-# Read MNEMONIC from hardhat vars if not set in environment.
-HARDHAT_VARS_FILE="${HARDHAT_VARS_FILE:-}"
-if [ -z "${HARDHAT_VARS_FILE:-}" ]; then
-    HARDHAT_VARS_FILE="$(
-        node -e "const fs=require('fs');const os=require('os');const path=require('path');const home=os.homedir();const cand=[process.env.HARDHAT_VARS_FILE,path.join(home,'Library/Preferences/hardhat-nodejs/vars.json'),path.join(home,'.config/hardhat-nodejs/vars.json')].filter(Boolean);for(const p of cand){try{fs.accessSync(p,fs.constants.R_OK);process.stdout.write(p);process.exit(0);}catch{}}"
-    )"
-fi
-
-if [ -z "${MNEMONIC:-}" ] && [ -n "${HARDHAT_VARS_FILE:-}" ] && [ -f "$HARDHAT_VARS_FILE" ]; then
-    MNEMONIC=$(node -e "try{const v=require('$HARDHAT_VARS_FILE');process.stdout.write(v.vars.MNEMONIC??'')}catch(e){}" 2>/dev/null || true)
-fi
-
-# Resolve which env file to bake into the static build (default: .env.testnet).
+# Resolve which env file to source (default: .env.testnet). The env file is the
+# single source of truth for this environment: it carries the build config
+# (NEXT_PUBLIC_*), the deploy domain (NEXUS_DOTNS_DOMAIN) AND the deployer key
+# (MNEMONIC) — same as `npm run dev:<mode>`.
 if [ -z "$ENV_FILE" ]; then
     ENV_FILE="$ROOT_DIR/frontend/.env.testnet"
 fi
+
+# Remember any explicit shell MNEMONIC so it wins over an empty env-file field.
+PRE_MNEMONIC="${MNEMONIC:-}"
 
 if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
     echo "[0/2] Sourcing env vars from $ENV_FILE"
@@ -84,9 +78,27 @@ if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
     . "$ENV_FILE"
     set +a
 else
-    echo "[0/2] No env file found — contract addresses must already be in your shell."
+    echo "[0/2] No env file found — contract addresses + MNEMONIC must already be in your shell."
     echo "      The build will fail with 'CONTRACTS NOT CONFIGURED' if NEXT_PUBLIC_NEXUS_GAME_ADDRESS"
     echo "      and NEXT_PUBLIC_GAME_CONFIG_ADDRESS aren't set."
+fi
+
+# An explicit shell MNEMONIC overrides an empty `MNEMONIC=` in the env file.
+if [ -z "${MNEMONIC:-}" ] && [ -n "$PRE_MNEMONIC" ]; then
+    MNEMONIC="$PRE_MNEMONIC"
+fi
+
+# Fall back to the hardhat-vars MNEMONIC if the env file didn't supply one.
+if [ -z "${MNEMONIC:-}" ]; then
+    HARDHAT_VARS_FILE="${HARDHAT_VARS_FILE:-}"
+    if [ -z "${HARDHAT_VARS_FILE:-}" ]; then
+        HARDHAT_VARS_FILE="$(
+            node -e "const fs=require('fs');const os=require('os');const path=require('path');const home=os.homedir();const cand=[process.env.HARDHAT_VARS_FILE,path.join(home,'Library/Preferences/hardhat-nodejs/vars.json'),path.join(home,'.config/hardhat-nodejs/vars.json')].filter(Boolean);for(const p of cand){try{fs.accessSync(p,fs.constants.R_OK);process.stdout.write(p);process.exit(0);}catch{}}"
+        )"
+    fi
+    if [ -n "${HARDHAT_VARS_FILE:-}" ] && [ -f "$HARDHAT_VARS_FILE" ]; then
+        MNEMONIC=$(node -e "try{const v=require('$HARDHAT_VARS_FILE');process.stdout.write(v.vars.MNEMONIC??'')}catch(e){}" 2>/dev/null || true)
+    fi
 fi
 echo ""
 
