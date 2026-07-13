@@ -1,9 +1,16 @@
+import { getDefaultConfig } from 'connectkit';
+import { createConfig, http } from 'wagmi';
 import { defineChain } from 'viem';
 
-// Chain METADATA only (names, explorer links for the UI). wagmi itself was
-// dropped in Phase G — reads go through PAPI dry-runs (useReadContractPapi),
-// so there is no wagmi config or transport anymore. viem's defineChain is
-// kept purely as a typed container for display values.
+// EVM-mode (standalone-wallet) transport config. Only consumed when
+// APP_MODE === 'evm' — `Web3Provider` mounts `WagmiProvider` with this config
+// solely in that mode. In host mode wagmi is never instantiated (reads/writes
+// go through PAPI + the Host signer instead), so this file is dead code there.
+//
+// ⚠️ EVM mode needs a real eth-rpc endpoint. paseo-next-v2 (the host-mode
+// target, genesis 0xbf0488…) exposes NO public eth-rpc, so it CANNOT be the
+// EVM-mode chain — point EVM mode at a chain that does have one: local Hardhat
+// (below) or a Polkadot Hub eth-rpc testnet via env.
 
 // Define localhost Hardhat chain
 export const localhost = defineChain({
@@ -28,32 +35,51 @@ export const localhost = defineChain({
   testnet: true,
 });
 
-// paseo-next-v2 Asset Hub (genesis 0xbf0488…, parachain 1500). NOTE: the
-// EVM chainId 420420417 is shared with the standard Paseo AH and previewnet —
-// it does NOT identify the chain; the genesis hash does (see chainClient.ts).
-// There is no public eth-rpc / explorer indexing this chain yet; the explorer
-// link points at the substrate-side Subscan as the closest thing.
+// Polkadot Hub TestNet — an EVM-compatible Polkadot chain that DOES expose a
+// public eth-rpc (unlike paseo-next-v2). This is the realistic remote target
+// for EVM mode. Override the endpoint with NEXT_PUBLIC_POLKADOT_HUB_RPC_URL.
 export const polkadotHubTestnet = defineChain({
   id: 420420417,
-  name: 'Paseo Next Asset Hub',
+  name: 'Polkadot Hub TestNet',
   nativeCurrency: {
-    decimals: 10,
+    decimals: 18,
     name: 'PAS',
     symbol: 'PAS',
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_HUB_WS_URL || 'wss://paseo-asset-hub-next-rpc.polkadot.io'],
+      http: [process.env.NEXT_PUBLIC_POLKADOT_HUB_RPC_URL || 'https://eth-rpc-testnet.polkadot.io'],
     },
   },
   blockExplorers: {
     default: {
-      name: 'Subscan',
-      url: 'https://assethub-paseo.subscan.io',
+      name: 'Blockscout',
+      url: 'https://blockscout-testnet.polkadot.io',
     },
   },
   testnet: true,
 });
 
-// Environment-driven chain selection: set NEXT_PUBLIC_CHAIN=testnet for the next-v2 hub
-export const activeChain = process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? polkadotHubTestnet : localhost;
+// Environment-driven chain selection: set NEXT_PUBLIC_CHAIN=testnet for the
+// Polkadot Hub eth-rpc testnet; default is local Hardhat.
+export const activeChain =
+  process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? polkadotHubTestnet : localhost;
+
+export const config = createConfig(
+  getDefaultConfig({
+    // Required
+    chains: [activeChain],
+    transports: {
+      [activeChain.id]: http(),
+    },
+
+    // WalletConnect
+    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
+
+    // App Info
+    appName: 'Nexus Protocol',
+    appDescription: 'Decentralized Space Strategy on Polkadot',
+    appUrl: typeof window !== 'undefined' ? window.location.origin : 'https://nexusprotocol.io',
+    appIcon: '/favicon.ico',
+  })
+);

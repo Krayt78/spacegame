@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from '@/lib/hostNav';
 import { motion } from 'framer-motion';
 import { useHasPlanet } from '@/hooks/useNexusGame';
-import { useHostAddress } from '@/hooks/useHostAddress';
+import { useAccount } from '@/hooks/useAccount';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isConnected, isConnecting, isReconnecting } = useHostAddress();
+  const { isConnected, isConnecting, isReconnecting } = useAccount();
   const { hasPlanet, isLoading: checkingPlanet, isError } = useHasPlanet();
 
   useEffect(() => {

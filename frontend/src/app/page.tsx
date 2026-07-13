@@ -1,24 +1,25 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from '@/lib/hostNav';
-import { useTriangle } from '@/hooks/useTriangle';
+import { useSyncExternalStore } from 'react';
+import { isHostMode } from '@/lib/mode';
+import { HostConnectPanel } from '@/components/connect/HostConnectPanel';
+import { EvmConnectPanel } from '@/components/connect/EvmConnectPanel';
 
-const DOTLI_HOST_URL = 'https://dot.li';
+// SSR-safe "are we on the client yet?" — false during server render and the
+// first client (hydration) render, true thereafter. No subscription needed.
+const emptySubscribe = () => () => {};
 
 export default function Home() {
-  const router = useRouter();
-  const { isInHost, ready, status, signingIn, signIn, error, address, h160 } = useTriangle();
-
-  // Redirect to game once the host has connected and an account is selected.
-  useEffect(() => {
-    if (ready) {
-      router.push('/game');
-    }
-  }, [ready, router]);
-
-  const connecting = signingIn || status === 'connecting';
-  const needsSignIn = isInHost && !ready && !connecting;
+  // `isHostMode` resolves on the client (it inspects the container at module
+  // load). The server has no `window`, so it always evaluates to evm there —
+  // rendering the mode-specific panel before mount would mismatch hydration.
+  // Gate the connect slot behind `mounted` so server + first client render
+  // agree on a neutral placeholder, then swap in the real panel.
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
 
   return (
     <main className="min-h-screen bg-bg-primary flex items-center justify-center">
@@ -34,24 +35,7 @@ export default function Home() {
           All on-chain. All unstoppable.
         </p>
 
-        {!isInHost ? (
-          <div className="space-y-3">
-            <a
-              href={DOTLI_HOST_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block bg-accent-primary text-bg-primary px-8 py-3 font-bold hover:bg-accent-secondary hover:shadow-[0_0_30px_rgba(0,255,136,0.5)] transition-all duration-200 clip-angular"
-            >
-              Open in Polkadot Host (dot.li)
-            </a>
-            <p className="text-text-muted text-sm max-w-xl mx-auto">
-              Nexus Protocol signs every action with your Polkadot account through
-              the host&apos;s built-in wallet. Open this site at{' '}
-              <span className="font-mono text-text-secondary">dot.li</span> and sign
-              in with your Polkadot account to play.
-            </p>
-          </div>
-        ) : connecting ? (
+        {!mounted ? (
           <div className="flex items-center justify-center gap-2 text-text-secondary">
             <svg
               className="animate-spin h-5 w-5"
@@ -59,49 +43,16 @@ export default function Home() {
               fill="none"
               viewBox="0 0 24 24"
             >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {signingIn ? 'Waiting for host login…' : 'Connecting to your Polkadot Host account…'}
+            Initializing…
           </div>
-        ) : ready ? (
-          <p className="text-text-secondary font-mono text-sm break-all">
-            Signed in: {address ?? h160}
-          </p>
-        ) : needsSignIn ? (
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => {
-                void signIn();
-              }}
-              className="inline-block bg-accent-primary text-bg-primary px-8 py-3 font-bold hover:bg-accent-secondary hover:shadow-[0_0_30px_rgba(0,255,136,0.5)] transition-all duration-200 clip-angular"
-            >
-              Sign in to play Nexus Protocol
-            </button>
-            <p className="text-text-muted text-sm max-w-xl mx-auto">
-              Nexus Protocol uses your Polkadot Host account to sign every
-              in-game action. Click sign in to open the host&apos;s native login
-              UI.
-            </p>
-            {error ? (
-              <p className="text-accent-danger text-sm">
-                Sign-in failed: {error.message ?? 'unknown error'}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        ) : isHostMode ? (
+          <HostConnectPanel />
+        ) : (
+          <EvmConnectPanel />
+        )}
 
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto text-left">
           <div className="bg-bg-secondary/50 p-6 border border-bg-tertiary">

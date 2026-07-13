@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
+import { useAccount } from '@/hooks/useAccount';
 import {
   Swords,
   Flag,

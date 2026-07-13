@@ -1,15 +1,22 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { Binary } from 'polkadot-api';
 import { encodeFunctionData, type Abi } from 'viem';
 
+import { APP_MODE } from '@/lib/mode';
 import { useTriangle } from '@/hooks/useTriangle';
 import { ensureMapped, getContractManager } from '@/lib/triangle/contractManager';
 import { getTypedApi } from '@/lib/triangle/chainClient';
 import { getSessionWalletManager } from '@/lib/session/sessionWallet';
-import { NEXUS_GAME_ADDRESS, nexusGameAbi } from '@/lib/contracts';
+import {
+  NEXUS_GAME_ADDRESS,
+  GAME_CONFIG_ADDRESS,
+  nexusGameAbi,
+  gameConfigAbi,
+} from '@/lib/contracts';
 
 // Conservative defaults for the inner Revive.call when we skip dry-run in
 // session mode. Sized for `@nexus/game` writes (claim, upgrade, build,
@@ -61,10 +68,12 @@ const idleState = {
 };
 
 /**
- * Shared React-state wrapper around `ContractManager.<library>.<method>.tx()`.
+ * HOST-mode write path. Shared React-state wrapper around
+ * `ContractManager.<library>.<method>.tx()`.
  *
- * Every write hook in `useNexusGame.ts` is a thin wrapper around this helper.
- * Responsibilities:
+ * Every write hook in `useNexusGame.ts` is a thin wrapper around the
+ * mode-routed `useNexusContractWrite` (bottom of file); in host mode it
+ * resolves to this. Responsibilities:
  *   - Pull the active PolkadotSigner from the global SignerManager.
  *   - Run `ensureMapped` once per process per address (idempotent on chain).
  *   - Submit via the typed contract handle from `ContractManager` — which
@@ -77,7 +86,7 @@ const idleState = {
  *   - `call('@nexus/game', 'upgradeBuilding', [planetId, type])`  (preferred)
  *   - `call('upgradeBuilding', [planetId, type])`  (legacy; defaults to @nexus/game)
  */
-export function useNexusContractWrite(
+function useNexusContractWriteHost(
   optsOrInvalidate: readonly string[] | LegacyOptions = [],
   _legacyLogTag?: string,
 ) {
@@ -320,3 +329,94 @@ export function useNexusContractWrite(
 
   return { ...s, call, reset };
 }
+
+/**
+ * EVM-mode write path. Same public surface as the host impl, but backed by
+ * wagmi's `useWriteContract` + `useWaitForTransactionReceipt` over eth-rpc.
+ * Signing is the injected wallet (MetaMask / Talisman). None of the host
+ * machinery (account mapping, session-wallet Proxy.proxy, ReviveApi dry-runs)
+ * applies — the EVM RPC handles gas/nonce and the contract sees
+ * `msg.sender = the wallet's H160` natively.
+ */
+function useNexusContractWriteEvm(
+  optsOrInvalidate: readonly string[] | LegacyOptions = [],
+  _legacyLogTag?: string,
+) {
+  const invalidate: readonly string[] = Array.isArray(optsOrInvalidate)
+    ? optsOrInvalidate
+    : ((optsOrInvalidate as LegacyOptions).invalidate ?? []);
+
+  const queryClient = useQueryClient();
+  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // Invalidate the named read-query keys once the tx is mined. Same key shape
+  // (`['readContract', { functionName }]`) the host path and `useReadContractPapi`
+  // use, so wagmi reads refresh identically.
+  useEffect(() => {
+    if (!isSuccess) return;
+    for (const functionName of invalidate) {
+      queryClient.invalidateQueries({
+        queryKey: ['readContract', { functionName }],
+      });
+    }
+    // `invalidate` is stable per call site; `isSuccess` is the real trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess]);
+
+  const callImpl = useCallback(
+    (library: ContractLibrary, method: string, args: readonly unknown[]) => {
+      const [address, abi] =
+        library === '@nexus/config'
+          ? ([GAME_CONFIG_ADDRESS, gameConfigAbi] as const)
+          : ([NEXUS_GAME_ADDRESS, nexusGameAbi] as const);
+      // wagmi's writeContract is fire-and-forget — status surfaces through the
+      // hooks above. We return a resolved promise so this `call` matches the
+      // host impl's `Promise<void>` signature; call sites in `useNexusGame.ts`
+      // don't await post-inclusion (the metamask branch behaved the same way).
+      writeContract({
+        address: address as `0x${string}`,
+        abi: abi as Abi,
+        functionName: method,
+        args: args as never,
+      });
+      return Promise.resolve();
+    },
+    [writeContract],
+  );
+
+  function call(library: ContractLibrary, method: string, args: readonly unknown[]): Promise<void>;
+  function call(method: string, args: readonly unknown[]): Promise<void>;
+  function call(
+    a: ContractLibrary | string,
+    b: string | readonly unknown[],
+    c?: readonly unknown[],
+  ): Promise<void> {
+    if (Array.isArray(b)) {
+      return callImpl('@nexus/game', a as string, b);
+    }
+    return callImpl(a as ContractLibrary, b as string, c ?? []);
+  }
+
+  return {
+    hash: hash as `0x${string}` | undefined,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: (error ?? undefined) as Error | undefined,
+    call,
+    reset,
+  };
+}
+
+/**
+ * Mode-routed contract write. Both impls expose the identical wagmi-shaped
+ * `{ hash, isPending, isConfirming, isSuccess, error, call, reset }` surface,
+ * so every write hook in `useNexusGame.ts` is byte-for-byte the same across
+ * modes — only the transport underneath differs. The public type is pinned to
+ * the host impl's signature (the shape call sites were written against).
+ */
+export const useNexusContractWrite: typeof useNexusContractWriteHost =
+  APP_MODE === 'host'
+    ? useNexusContractWriteHost
+    : (useNexusContractWriteEvm as typeof useNexusContractWriteHost);

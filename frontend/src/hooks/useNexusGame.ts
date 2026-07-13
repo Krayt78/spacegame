@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useReadContract } from '@/hooks/useReadContractPapi';
-import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
+import { useReadContract } from '@/hooks/useReadContract';
+import { useAccount } from '@/hooks/useAccount';
 import { useNexusContractWrite } from '@/hooks/useNexusContractWrite';
 import { getTypedApi } from '@/lib/triangle/chainClient';
 import {

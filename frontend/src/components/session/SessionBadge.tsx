@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Zap, ZapOff, Loader2, AlertTriangle } from 'lucide-react';
 
+import { isHostMode } from '@/lib/mode';
 import { useSessionContext } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui';
 import { SESSION_FUNDING_AMOUNT } from '@/lib/session/sessionWallet';
@@ -26,7 +27,18 @@ function formatTimeLeft(ms: number): string {
   return `${s}s`;
 }
 
+/**
+ * Session wallets are host-only (see `SessionContext`). In evm mode the
+ * injected wallet signs every tx directly, so there is nothing to start/end —
+ * render nothing. Wrapped (rather than an early `return null` inside the hook
+ * body) so we never call session hooks conditionally.
+ */
 export function SessionBadge() {
+  if (!isHostMode) return null;
+  return <SessionBadgeInner />;
+}
+
+function SessionBadgeInner() {
   const {
     status,
     session,

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 
+import { isHostMode } from '@/lib/mode';
 import {
   useNexusSession,
   type UseNexusSessionResult,
@@ -27,7 +28,32 @@ export interface SessionContextValue extends UseNexusSessionResult {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-export function SessionProvider({ children }: { children: ReactNode }) {
+/**
+ * Session wallets are a HOST-mode feature: they delegate signing to a local
+ * session keypair via `pallet_proxy` so the host doesn't prompt on every
+ * write. EVM mode has no such concept — the injected wallet signs each tx —
+ * so the disabled value below stands in, and the host hooks (which drive a
+ * 10s chain poll and depend on `useTriangle`) are never called.
+ */
+const DISABLED_SESSION: SessionContextValue = {
+  status: 'idle',
+  session: null,
+  isSettingUp: false,
+  isEnding: false,
+  error: null,
+  startSession: async () => {},
+  endSession: async () => {},
+  health: {
+    status: 'none',
+    timeLeftMs: 0,
+    balance: null,
+    delegationOk: null,
+    actionsLeft: null,
+    proxyCount: null,
+  },
+};
+
+function HostSessionProvider({ children }: { children: ReactNode }) {
   const session = useNexusSession();
   const health = useNexusSessionHealth(session.session);
 
@@ -36,6 +62,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
   );
+}
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  if (!isHostMode) {
+    return (
+      <SessionContext.Provider value={DISABLED_SESSION}>
+        {children}
+      </SessionContext.Provider>
+    );
+  }
+  return <HostSessionProvider>{children}</HostSessionProvider>;
 }
 
 export function useSessionContext(): SessionContextValue {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
+import { useAccount } from '@/hooks/useAccount';
 import { GameLayout } from '@/components/layout';
 import { Card, CardHeader, CardContent } from '@/components/ui';
 import { Settings, Wallet, Globe, FileCode, Copy, Check } from 'lucide-react';

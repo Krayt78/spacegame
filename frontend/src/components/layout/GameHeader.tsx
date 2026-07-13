@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { HostLink as Link } from '@/components/HostLink';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Settings, ChevronDown, Wallet, Copy, Check, ExternalLink, Coins, Zap } from 'lucide-react';
-import { useHostAddress as useAccount } from '@/hooks/useHostAddress';
+import { useAccount } from '@/hooks/useAccount';
 import { usePlayerBalance } from '@/hooks/usePlayerBalance';
 import { useSessionContext } from '@/contexts/SessionContext';
 import { SessionBadge } from '@/components/session/SessionBadge';
