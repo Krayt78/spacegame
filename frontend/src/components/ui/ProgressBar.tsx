@@ -27,25 +27,25 @@ const variantConfig: Record<
   }
 > = {
   default: {
-    bgClass: 'bg-bg-tertiary',
+    bgClass: 'bg-bg-primary',
     fillClass: 'bg-accent-secondary',
     glowColor: 'rgba(0, 217, 255, 0.5)',
     gradient: 'linear-gradient(90deg, #0077aa, #00d9ff, #0077aa)',
   },
   success: {
-    bgClass: 'bg-bg-tertiary',
+    bgClass: 'bg-bg-primary',
     fillClass: 'bg-accent-primary',
     glowColor: 'rgba(0, 255, 136, 0.5)',
     gradient: 'linear-gradient(90deg, #00aa55, #00ff88, #00aa55)',
   },
   warning: {
-    bgClass: 'bg-bg-tertiary',
+    bgClass: 'bg-bg-primary',
     fillClass: 'bg-accent-warn',
     glowColor: 'rgba(255, 170, 0, 0.5)',
     gradient: 'linear-gradient(90deg, #cc7700, #ffaa00, #cc7700)',
   },
   danger: {
-    bgClass: 'bg-bg-tertiary',
+    bgClass: 'bg-bg-primary',
     fillClass: 'bg-accent-danger',
     glowColor: 'rgba(255, 51, 102, 0.5)',
     gradient: 'linear-gradient(90deg, #aa2244, #ff3366, #aa2244)',
