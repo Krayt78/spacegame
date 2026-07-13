@@ -1477,9 +1477,14 @@ export function useBlockTimestamp() {
     staleTime: 0,
     queryFn: async () => {
       const api = (await getTypedApi()) as unknown as {
-        query: { Timestamp: { Now: { getValue: () => Promise<bigint> } } };
+        query: {
+          Timestamp: { Now: { getValue: (opts?: { at?: string }) => Promise<bigint> } };
+        };
       };
-      return api.query.Timestamp.Now.getValue();
+      // PAPI storage reads default to the FINALIZED block; on chains with slow
+      // finality that lags the head by ~30s, inflating every countdown by the
+      // lag (and pinning progress bars at 0 until remaining < buildTime).
+      return api.query.Timestamp.Now.getValue({ at: 'best' });
     },
   });
 
