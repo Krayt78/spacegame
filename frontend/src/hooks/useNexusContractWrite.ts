@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { Binary } from 'polkadot-api';
+import { Binary, type PolkadotSigner } from 'polkadot-api';
 import { encodeFunctionData, type Abi } from 'viem';
 
 import { APP_MODE } from '@/lib/mode';
@@ -41,9 +41,96 @@ export type ContractLibrary = '@nexus/game' | '@nexus/config';
 type TxOk = { ok: true; txHash?: string; block?: { number: number } };
 type TxErr = { ok: false; dispatchError?: unknown };
 type TxResult = TxOk | TxErr;
+
+type TxWatchEvent = {
+  type: string;
+  txHash?: string;
+  found?: boolean;
+  ok?: boolean;
+  block?: { number?: number; hash?: string };
+  dispatchError?: unknown;
+};
+type PreparedTx = {
+  signSubmitAndWatch: (
+    signer: PolkadotSigner,
+    options?: {
+      nonce?: number;
+      mortality?: { mortal: true; period: number };
+    },
+  ) => {
+    subscribe: (observer: {
+      next: (ev: TxWatchEvent) => void;
+      error: (e: unknown) => void;
+    }) => { unsubscribe: () => void };
+  };
+};
 type ContractMethod = {
   tx: (...args: unknown[]) => Promise<TxResult>;
+  // Same dry-run + gas estimation as tx(), but returns the PAPI tx unsubmitted.
+  prepare: (...args: unknown[]) => Promise<PreparedTx>;
 };
+
+/**
+ * Submit a prepared Revive.call with the account nonce read at the BEST block.
+ *
+ * Why not the SDK's own tx()/submitAndWatch: polkadot-api anchors tx creation
+ * — including the AccountNonceApi lookup — at the FINALIZED block when given
+ * no hint, and product-sdk-tx forwards only `mortality` (verified through
+ * 0.2.17, no nonce/at passthrough). On chains where finality lags the head by
+ * ~30s, two writes inside one finality window therefore reuse a nonce and the
+ * pool rejects the second as `Invalid::Stale`.
+ */
+async function submitWithBestNonce(
+  prepared: PreparedTx,
+  signer: PolkadotSigner,
+  ss58: string,
+): Promise<TxResult> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const api = (await getTypedApi()) as any;
+  const nonce: number = await api.apis.AccountNonceApi.account_nonce(ss58, {
+    at: 'best',
+  });
+
+  return new Promise<TxResult>((resolve, reject) => {
+    let settled = false;
+    const settle = (done: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      // Defer: subscribe() may emit synchronously, before `sub` is assigned.
+      queueMicrotask(() => sub.unsubscribe());
+      done();
+    };
+    const timer = setTimeout(
+      () => settle(() => reject(new Error('Tx not in a best block after 300s'))),
+      300_000,
+    );
+
+    const sub = prepared
+      .signSubmitAndWatch(signer, {
+        nonce,
+        mortality: { mortal: true, period: 64 },
+      })
+      .subscribe({
+        next: (ev) => {
+          if (ev.type !== 'txBestBlocksState' || !ev.found) return;
+          if (ev.ok === false) {
+            settle(() => resolve({ ok: false, dispatchError: ev.dispatchError }));
+          } else if (ev.ok === true) {
+            settle(() => resolve({ ok: true, txHash: ev.txHash }));
+          }
+        },
+        error: (e) =>
+          settle(() =>
+            reject(
+              e instanceof Error
+                ? e
+                : new Error(`Tx subscription error: ${JSON.stringify(e)}`),
+            ),
+          ),
+      });
+  });
+}
 
 /**
  * Legacy options shape: existing per-action hooks in `useNexusGame.ts` pass
@@ -253,30 +340,34 @@ function useNexusContractWriteHost(
         // (during user signing) we're "pending".
         setS({ ...idleState, isPending: false, isConfirming: true });
 
-        // Retry on AccountUnmapped if we just submitted map_account — the
-        // runtime API view can lag behind the best-block inclusion for a few
-        // seconds, returning `Revive::AccountUnmapped` even though the on-
-        // chain mapping is already there. Backoff: 2s, 4s, 8s.
+        // Retry two classes of transient dry-run failures (backoff 2s, 4s, 6s):
+        //  - AccountUnmapped right after map_account — the runtime API view can
+        //    lag behind best-block inclusion for a few seconds.
+        //  - "… not complete yet" from the timer-gated complete* methods
+        //    (buildings/ships/defense/research). The UI countdown ticks on wall
+        //    clock, but the dry-run evaluates block.timestamp at the current
+        //    best block, which trails by up to a block — clicking the moment
+        //    the button appears races that gap.
         const result = await (async () => {
           const MAX_REMAP_RETRIES = justMapped ? 3 : 0;
-          let lastErr: unknown;
-          for (let attempt = 0; attempt <= MAX_REMAP_RETRIES; attempt++) {
+          const MAX_TIMING_RETRIES = 3;
+          for (let attempt = 0; ; attempt++) {
             try {
-              return await fn.tx(...args, { signer });
+              // prepare() runs the same dry-run/gas estimation as tx(), but
+              // hands back the unsubmitted PAPI tx so we can inject a
+              // best-block nonce (see submitWithBestNonce).
+              const prepared = await fn.prepare(...args, { origin: address });
+              return await submitWithBestNonce(prepared, signer, address);
             } catch (e) {
               const msg = e instanceof Error ? e.message : String(e);
-              if (
-                attempt < MAX_REMAP_RETRIES &&
-                msg.includes('AccountUnmapped')
-              ) {
-                lastErr = e;
-                await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-                continue;
-              }
-              throw e;
+              const retryable =
+                (attempt < MAX_REMAP_RETRIES && msg.includes('AccountUnmapped')) ||
+                (attempt < MAX_TIMING_RETRIES &&
+                  (/not complete yet/i.test(msg) || /"Stale"/.test(msg)));
+              if (!retryable) throw e;
+              await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
             }
           }
-          throw lastErr;
         })();
 
         if (!result.ok) {

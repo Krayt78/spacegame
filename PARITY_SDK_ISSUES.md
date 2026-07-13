@@ -401,6 +401,20 @@ if (!isConnected) router.push('/login');
 
 ---
 
+## 17. `submitAndWatch` builds txs with the nonce at the FINALIZED block — consecutive writes within one finality window die with `Invalid::Stale`
+
+**Severity:** High on chains with slow finality. Any two writes from the same account inside the finality lag (~30s on paseo-next-v2) make the second one fail before inclusion.
+
+**Where:** `@parity/product-sdk-tx` `submitAndWatch()` (verified through `0.2.17`) + `polkadot-api` `tx.js` (`_sign`: `atBlock ? of(atBlock) : chainHead.finalized$`).
+
+**Behavior observed (paseo-next-v2, DevProvider/Alice, 2026-07-13):** queue a building upgrade, then call `completeUpgrade` ~15s later once the timer elapses. The dry-run passes (it runs `at: "best"`), but submission rejects with `InvalidTxError {"type":"Invalid","value":{"type":"Stale"}}`. Root cause: polkadot-api anchors tx creation — including the `AccountNonceApi_account_nonce` lookup — at the *finalized* block when no `at`/`nonce` hint is given. The first tx is in a best block but not finalized, so the second tx is built with the same nonce and the pool rejects it as stale. The SDK's `submitAndWatch` forwards only `mortality` to `signSubmitAndWatch` — there is no way to pass `nonce` (or `at`) through `tx()`'s overrides, so the polkadot-api escape hatch is unreachable.
+
+**Suggested fix:** forward `nonce`/`at` overrides from `tx()` through `submitAndWatch` to `signSubmitAndWatch`; or default tx creation to the best block, matching the dry-run's `defaultAt: "best"` (the current split means the dry-run and the built tx can disagree about chain state).
+
+**Workaround we applied:** `submitWithBestNonce()` in `frontend/src/hooks/useNexusContractWrite.ts` — use the contract handle's `prepare()` (same dry-run/gas estimation, returns the unsubmitted PAPI tx), read `AccountNonceApi.account_nonce(ss58, { at: 'best' })` ourselves, and drive `signSubmitAndWatch(signer, { nonce, mortality })` with a hand-rolled watcher mirroring `submitAndWatch`'s best-block semantics. NOTE: the session-wallet path (`proxied.signAndSubmit(sessionSigner)` in the same file) still uses the default finalized-anchored nonce and has the same latent exposure for rapid session writes.
+
+---
+
 ## Cross-cutting recommendations
 
 1. **Single source of truth for "what version of X works with version of Y."** A compatibility matrix in the monorepo README would have saved us most of this debugging time.
