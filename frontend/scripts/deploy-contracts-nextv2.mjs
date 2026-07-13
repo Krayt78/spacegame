@@ -34,6 +34,7 @@ import { getWsProvider } from "polkadot-api/ws";
 import { getPolkadotSigner } from "polkadot-api/signer";
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
+import { ss58ToH160 } from "@parity/product-sdk-address";
 import { encodeAbiParameters, encodeFunctionData, fromHex } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -255,6 +256,20 @@ async function main() {
   if (MODE !== "deploy") throw new Error(`unknown mode ${MODE}`);
 
   // ============ deploy: SUBMITS ============
+  // Map the deployer if not already mapped. pallet-revive needs an H160 mapping
+  // for substrate-origin instantiates/calls; on a fresh chain the key is
+  // unmapped and the first instantiate would fail with AccountUnmapped.
+  const deployerH160 = ss58ToH160(DEPLOYER_SS58);
+  const isMapped = await api.query.Revive.OriginalAccount.getValue(deployerH160);
+  if (isMapped === undefined || isMapped === null) {
+    log(`mapping deployer (Revive.map_account) ${DEPLOYER_SS58} …`);
+    const rm = await api.tx.Revive.map_account().signAndSubmit(signer);
+    if (!rm.ok) throw new Error(`map_account failed: ${JSON.stringify(rm.dispatchError, bigintReplacer)}`);
+    log("  ✓ mapped");
+  } else {
+    log("deployer already mapped.");
+  }
+
   log("[1/12] GameConfig");
   const gameConfig = await submitInstantiate("GameConfig", A.GameConfig.code);
   log("[2/12] GameState (implementation)");

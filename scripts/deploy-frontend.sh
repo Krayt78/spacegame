@@ -7,10 +7,10 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Parse flags
 DOMAIN=""
 ENV_FILE=""
-# Bulletin environment id (bulletin-deploy --env). Drives BOTH the Bulletin RPC
+# Bulletin environment id (polkadot-app-deploy --env). Drives BOTH the Bulletin RPC
 # and the Asset Hub RPC used for DotNS register/content-set, plus the bundled
 # DotNS contract addresses. Default 'summit' = Web3 Summit Network. Run
-# `npx bulletin-deploy --list-environments` for the full list (paseo-next-v2,
+# `npx @parity/polkadot-app-deploy --list-environments` for the full list (paseo-next-v2,
 # summit, …). Override with --net or BULLETIN_ENV.
 BULLETIN_ENV="${BULLETIN_ENV:-summit}"
 while [[ $# -gt 0 ]]; do
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --env <file>          env file to source for the build"
             echo "                        (default: frontend/.env.testnet)"
             echo "  --net <env-id>        Bulletin/DotNS environment (default: summit)."
-            echo "                        See 'npx bulletin-deploy --list-environments'."
+            echo "                        See 'npx @parity/polkadot-app-deploy --list-environments'."
             exit 0
             ;;
         *) echo "Unknown argument: $1"; echo "Run with --help for usage."; exit 1 ;;
@@ -46,19 +46,14 @@ DOMAIN_OVERRIDE="$DOMAIN"
 echo "=== Deploy Nexus Protocol Frontend to Bulletin Chain ==="
 echo ""
 
-# bulletin-deploy is invoked through npx with a >=0.7.12 pin (see [2/2]):
-# Bulletin Chain switched to an expiration-based authorization model on
-# 2026-05-07 (paritytech/bulletin-deploy#263) and older releases fail with
-# "Authorization was finalized but not applied". npx ignores any stale
-# global install, so there's no version to check here.
-
-# Check prerequisites
-if ! command -v ipfs &>/dev/null; then
-    echo "ERROR: IPFS Kubo not installed (required by bulletin-deploy)."
-    echo "Linux: see https://docs.ipfs.tech/install/command-line/"
-    echo "macOS: brew install ipfs && ipfs init"
-    exit 1
-fi
+# Deployed via @parity/polkadot-app-deploy (CLI: polkadot-app-deploy / pad),
+# invoked through npx — no global install or IPFS Kubo needed (we pass
+# --js-merkle). Two ways to authorize the DotNS register/content-set:
+#   1. QR sign-in: run `npx -y @parity/polkadot-app-deploy login` once, scan the
+#      QR with the Polkadot mobile app. Then deploy with NO mnemonic — a local
+#      worker registers + uploads and transfers the name to your signed-in
+#      account (testnet default; zero mobile signatures during deploy).
+#   2. MNEMONIC: set it in the env file (or shell) to sign as that owner key.
 
 # Resolve which env file to source (default: .env.testnet). The env file is the
 # single source of truth for this environment: it carries the build config
@@ -135,20 +130,25 @@ if [ ! -d "$OUT_DIR" ]; then
     exit 1
 fi
 
-# Deploy to Bulletin Chain.
+# Deploy to Bulletin Chain via @parity/polkadot-app-deploy.
 #
-# - npx pin '>=0.7.12': Bulletin's expiration-based auth model (2026-05-07);
-#   older releases fail with "Authorization was finalized but not applied".
-# - 3 attempts: bulletin-deploy hard-codes a 5-min WS heartbeat watchdog that
-#   kills the connection if the Bulletin RPC pauses mid-upload; a fresh process
-#   gets a fresh WS. (Pattern from Sovereignty/ignite deploy.yml.)
-# - 8GB heap: WS-reconnect retries can OOM the default 2GB Node heap with
-#   buffered subscription state.
+# - --js-merkle: pure-JS CAR merkleization, so no IPFS Kubo binary is required.
+# - No MNEMONIC needed if you've run `polkadot-app-deploy login` (QR sign-in);
+#   if MNEMONIC is set it's used as the DotNS owner key instead.
+# - 3 attempts: the tool has a 5-min WS heartbeat watchdog that kills the
+#   connection if the Bulletin RPC pauses mid-upload; a fresh process gets a
+#   fresh WS. (Pattern from Sovereignty/ignite deploy.yml.)
+# - 8GB heap: WS-reconnect retries can OOM the default 2GB Node heap.
+if [ -z "${MNEMONIC:-}" ]; then
+    echo "  No MNEMONIC set — using the QR sign-in session."
+    echo "  (If this fails with an auth error, run: npx -y @parity/polkadot-app-deploy login)"
+    echo ""
+fi
 echo "[2/2] Deploying to Bulletin Chain (env: $BULLETIN_ENV)..."
 export NODE_OPTIONS="--max-old-space-size=8192"
 ATTEMPTS=3
 for attempt in $(seq 1 $ATTEMPTS); do
-    if MNEMONIC="${MNEMONIC:-}" npx -y 'bulletin-deploy@>=0.7.12' --env "$BULLETIN_ENV" "$OUT_DIR" "$DOMAIN"; then
+    if MNEMONIC="${MNEMONIC:-}" npx -y '@parity/polkadot-app-deploy@^0.11.0' --env "$BULLETIN_ENV" --js-merkle "$OUT_DIR" "$DOMAIN"; then
         exit 0
     fi
     if [ "$attempt" -lt "$ATTEMPTS" ]; then
