@@ -1676,7 +1676,22 @@ Replaces the pallet_proxy flavor, which couldn't be fee-free."
 
 ---
 
-### Task 7: Write path — drop the proxy wrapper
+### Task 7: Write path — drop the proxy wrapper — ✅ DONE (2026-07-15)
+
+> **Result: 60 insertions, 133 deletions (net −73).** The prediction held —
+> registry sessions sign exactly what ContractManager already builds, so the
+> ~100-line Proxy branch and its ProxyExecuted decoding collapsed into a
+> signer/origin swap.
+>
+> Also dropped: `Binary` and `encodeFunctionData` imports (only the proxy
+> wrapper needed them) and the three `SESSION_REVIVE_*` weight constants — the
+> dry-run supplies real values now. Keep `type Abi`: the EVM hook still uses it.
+>
+> Documented in the hook: `address` is the PLAYER, `origin` is whoever signs;
+> they differ exactly when a session is active. The stored key is not
+> re-validated on every write (useNexusSession validates on restore, the health
+> hook polls) — a mid-session revoke elsewhere surfaces as a loud "Not your
+> planet" revert with reason recovery, not silent misattribution.
 
 The payoff task. The old session branch bypassed `ContractManager` **only** to inject the `Proxy` wrapper (`useNexusContractWrite.ts:238`). A registry session signs a plain `Revive.call` — exactly what `ContractManager.prepare()` already builds — so ~100 lines collapse into swapping the signer and origin, and the session path inherits dry-run gas, the best-block nonce fix, revert-reason recovery and the retry classes for free.
 
@@ -1687,7 +1702,7 @@ The payoff task. The old session branch bypassed `ContractManager` **only** to i
 - Consumes: Task 5's `getStoredSessionKey`, `getSessionCreatedAt`, `SESSION_EXPIRY_MS`.
 - Produces: no API change — `useNexusContractWrite` keeps its wagmi-shaped `{ hash, isPending, isConfirming, isSuccess, error, reset }`.
 
-- [ ] **Step 1: Delete the proxy machinery**
+- [x] **Step 1: Delete the proxy machinery**
 
 In `frontend/src/hooks/useNexusContractWrite.ts`:
 
@@ -1703,7 +1718,7 @@ import {
 } from '@/lib/session/sessionKeys';
 ```
 
-- [ ] **Step 2: Route the session key through the normal path**
+- [x] **Step 2: Route the session key through the normal path**
 
 Four precise edits in `useNexusContractWriteHost`'s `callImpl`.
 
@@ -1778,7 +1793,7 @@ the dry-run and the submit:
 Leave every other use of `address` alone — the "Not signed in" guard and the
 `invalidateReads` helper are about the player, not the signer.
 
-- [ ] **Step 3: Typecheck and build**
+- [x] **Step 3: Typecheck and build**
 
 ```bash
 cd frontend && npx tsc --noEmit
@@ -1794,7 +1809,7 @@ cd frontend && grep -n "Proxy\.proxy\|ProxyExecuted\|SESSION_REVIVE_\|sessionWal
 
 Expected: no output.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/hooks/useNexusContractWrite.ts
