@@ -1046,7 +1046,25 @@ flows through export-abi -> cdm.json as @nexus/session."
 
 ---
 
-### Task 5: Session key module on product-sdk
+### Task 5: Session key module on product-sdk — ✅ DONE (2026-07-15)
+
+> **SDK surface verified against the real .d.ts, and it matches the plan:**
+> `SessionKeyManager({ store, name })` with `create/get/getOrCreate/fromMnemonic/clear`,
+> returning `{ mnemonic, account }`; `LocalKvStore` has `get/set/remove/getJSON/setJSON`.
+>
+> **Two deviations from the draft below:**
+> - `SessionAccount` is now an alias of the SDK's exported `DerivedAccount`
+>   rather than a hand-rolled duplicate — the shapes were identical, and an
+>   alias can't drift.
+> - `createLocalKvStore` **throws outside a host container** (documented in its
+>   .d.ts). All read paths (`getStoredSessionKey`, `getSessionCreatedAt`,
+>   `clearSessionKey`) now degrade to null/no-op via a `tryGetStore` helper;
+>   only `getOrCreateSessionKey`/`setSessionCreatedAt` propagate, since there
+>   the user explicitly asked for a session. This matters for Task 7, which
+>   calls `getStoredSessionKey` on the write path.
+>
+> `toSession()` also lives here (not in useNexusSession) so Task 8's health hook
+> can import it without a hook dependency.
 
 Replace the homegrown keypair/`sessionStorage` wallet with `SessionKeyManager` + host KV, so a session survives a page reload.
 
@@ -1066,7 +1084,7 @@ Replace the homegrown keypair/`sessionStorage` wallet with `SessionKeyManager` +
   - `SESSION_EXPIRY_MS: number` (2h), `getSessionCreatedAt(): Promise<number | null>`, `setSessionCreatedAt(ts: number): Promise<void>`
 - Tasks 6, 7 and 8 consume these.
 
-- [ ] **Step 1: Promote the SDK packages to direct dependencies**
+- [x] **Step 1: Promote the SDK packages to direct dependencies**
 
 Both are already installed as transitive deps; this makes the dependency explicit.
 
@@ -1078,7 +1096,7 @@ Expected: `package.json` gains both under `dependencies`, no other version churn
 
 `@parity/product-sdk-keys@0.3.8` depends on `@polkadot-labs/hdkd` — the **same WASM-free library** `sessionWallet.ts` already used. It does **not** pull `@polkadot/keyring` or `@polkadot/wasm-crypto-wasm`, so the Turbopack octal-escape bug documented at `sessionWallet.ts:25-30` does not apply here.
 
-- [ ] **Step 2: Write the module**
+- [x] **Step 2: Write the module**
 
 Create `frontend/src/lib/session/sessionKeys.ts`:
 
@@ -1188,7 +1206,7 @@ export async function setSessionCreatedAt(ts: number): Promise<void> {
 }
 ```
 
-- [ ] **Step 3: Verify it typechecks and the KV API matches**
+- [x] **Step 3: Verify it typechecks and the KV API matches**
 
 ```bash
 cd frontend && npx tsc --noEmit
@@ -1203,7 +1221,7 @@ cd frontend && cat node_modules/@parity/product-sdk-local-storage/dist/index.d.t
 cat node_modules/@parity/product-sdk-keys/dist/index.d.ts
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/lib/session/sessionKeys.ts frontend/package.json frontend/package-lock.json
