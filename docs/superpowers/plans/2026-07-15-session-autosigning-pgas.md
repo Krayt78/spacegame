@@ -1234,7 +1234,27 @@ library, so the Turbopack octal-escape bug doesn't apply."
 
 ---
 
-### Task 6: Session lifecycle — PGAS claim, setup batch, restore, teardown
+### Task 6: Session lifecycle — PGAS claim, setup batch, restore, teardown — ✅ DONE (2026-07-15)
+
+> **Corrections found while implementing:**
+> - `requestResourceAllocation` returns `AllocationOutcome[]` (each with
+>   `.tag: "Allocated" | "Rejected" | "NotAvailable"`), **not** the `Result` the
+>   skill's recipe implies. Check `outcomes[0].tag === 'Allocated'`.
+> - `SmartContractAllowance` **is** a valid variant (`value: number`), but
+>   grepping `@parity/product-sdk-host` for it finds NOTHING — the type is
+>   codec-derived from `@novasamatech/host-api`
+>   (`protocol/v1/resourceAllocation`), which defines
+>   StatementStoreAllowance / BulletinAllowance / SmartContractAllowance /
+>   AutoSigning. Don't conclude it's missing from a grep; let tsc decide.
+> - **`GameHeader.tsx` is a session consumer the Task 8 file list misses.** It
+>   used `session?.isReady` (gone — `session` is non-null only after on-chain
+>   validation, so presence IS readiness) and carries PAS-specific copy that is
+>   now wrong. The type fix landed here; **its copy is Task 8's job.**
+> - `usePlayerBalance.ts` mentions sessions only in comments — no coupling.
+>
+> **Known state at this commit: the tree does NOT typecheck.** `SessionContext`
+> still passes `NexusSession` to a health hook typed for `SessionWalletData`.
+> Task 8 resolves it. This is the plan's intended sequencing, not an accident.
 
 **Files:**
 - Rewrite: `frontend/src/hooks/useNexusSession.ts`
@@ -1248,7 +1268,7 @@ library, so the Turbopack octal-escape bug doesn't apply."
   - `useNexusSession(): UseNexusSessionResult` keeps its existing external shape — `{ status, session, isSettingUp, isEnding, error, startSession, endSession }`, `status: 'idle' | 'setup_pending' | 'ready' | 'failed' | 'expired'` — but `session` is now `NexusSession | null` (was `SessionWalletData | null`). `SessionContext` consumes this unchanged.
 - Task 7 consumes `getStoredSessionKey`; Task 8 consumes `NexusSession`, `getPgasBalance`, `getSessionFundingAmount` and `readSessionOf`.
 
-- [ ] **Step 1: Write the PGAS helper**
+- [x] **Step 1: Write the PGAS helper**
 
 Create `frontend/src/lib/session/pgas.ts`:
 
@@ -1318,7 +1338,7 @@ export async function getSessionFundingAmount(): Promise<bigint> {
 }
 ```
 
-- [ ] **Step 2: Rewrite the session hook**
+- [x] **Step 2: Rewrite the session hook**
 
 Replace `frontend/src/hooks/useNexusSession.ts` entirely:
 
@@ -1626,7 +1646,7 @@ export function useNexusSession(): UseNexusSessionResult {
 }
 ```
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 ```bash
 cd frontend && npx tsc --noEmit
@@ -1640,7 +1660,7 @@ If `requestResourceAllocation`'s signature or the `SmartContractAllowance` tag s
 cd frontend && cat node_modules/@parity/product-sdk-host/dist/index.d.ts | grep -A 20 "requestResourceAllocation\|SmartContractAllowance"
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/hooks/useNexusSession.ts frontend/src/lib/session/pgas.ts

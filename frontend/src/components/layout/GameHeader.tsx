@@ -48,7 +48,9 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
   // The main wallet balance still matters for ONE thing without a session:
   // funding a new session (Balances.transfer to the session wallet), so we
   // surface it in the dropdown as a session-funding hint.
-  const sessionActive = session?.isReady === true && sessionHealth.status !== 'expired';
+  // `session` is non-null only once the key is validated against the registry
+  // on-chain, so its presence IS readiness — the old `isReady` flag is gone.
+  const sessionActive = !!session && sessionHealth.status !== 'expired';
   const sessionBalance = sessionHealth.balance;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
