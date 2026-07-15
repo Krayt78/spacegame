@@ -11,6 +11,7 @@ import "./FleetManager.sol";
 import "./ResearchManager.sol";
 import "./DefenseManager.sol";
 import "./TutorialManager.sol";
+import "./ISessionRegistry.sol";
 
 /**
  * @title NexusGame
@@ -29,6 +30,17 @@ contract NexusGame is Ownable, ReentrancyGuard {
     DefenseManager public defenseManager;
     TutorialManager public tutorialManager;
 
+    /**
+     * @notice Session registry used to resolve session-signed callers to players.
+     * @dev IMMUTABLE ON PURPOSE. A settable registry would let the owner key
+     *      repoint caller resolution at a malicious contract and claim any
+     *      player's account — a total takeover. The cost of immutability is
+     *      that replacing the registry means redeploying the router and every
+     *      manager (each holds `router` as an immutable). That trade is
+     *      deliberate; see docs/superpowers/specs/2026-07-15-session-autosigning-pgas-design.md
+     */
+    ISessionRegistry public immutable sessionRegistry;
+
     // Maximum number of ship types (for ABI compatibility)
     uint256 public constant MAX_SHIP_TYPES = 13;
     uint256 public constant MAX_DEFENSE_TYPES = 9;
@@ -37,9 +49,33 @@ contract NexusGame is Ownable, ReentrancyGuard {
     enum FleetMission { NONE, RAID, CAPTURE, MOVE, COLONIZE }
     enum FleetStatus { NONE, TRAVELING, RETURNING }
 
-    constructor(address _gameState, address _gameConfig) Ownable(msg.sender) {
+    constructor(
+        address _gameState,
+        address _gameConfig,
+        address _sessionRegistry
+    ) Ownable(msg.sender) {
+        require(_sessionRegistry != address(0), "NexusGame: registry required");
         gameState = GameState(_gameState);
         gameConfig = GameConfig(_gameConfig);
+        sessionRegistry = ISessionRegistry(_sessionRegistry);
+    }
+
+    /**
+     * @notice The player this call acts for.
+     * @dev A registered session key resolves to its owner; any other caller
+     *      resolves to itself, so plain EOAs behave exactly as before.
+     *
+     *      Fails closed: if the registry cross-call reverts, this call reverts.
+     *      Never assume an unresolvable caller is a main key.
+     *
+     *      Use this for every identity-bearing entrypoint. Do NOT use it in the
+     *      permissionless crank functions (completeResearch, completeUpgrade,
+     *      completeShipBuild, completeDefenseBuild, resolveFleet, completeFleet)
+     *      — they take their subject from a parameter or from storage and
+     *      credit that party, never the caller.
+     */
+    function _player() internal view returns (address) {
+        return sessionRegistry.resolve(msg.sender);
     }
 
     // ============ ADMIN FUNCTIONS ============
@@ -99,21 +135,21 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Claim a starter planet (free, one per address)
      */
     function claimStarterPlanet(string calldata planetName) external {
-        planetManager.claimStarterPlanet(msg.sender, planetName);
+        planetManager.claimStarterPlanet(_player(), planetName);
     }
 
     /**
      * @notice Claim accumulated resources
      */
     function claimResources(uint256 planetId) external {
-        planetManager.claimResources(msg.sender, planetId);
+        planetManager.claimResources(_player(), planetId);
     }
 
     /**
      * @notice Start a building upgrade
      */
     function upgradeBuilding(uint256 planetId, GameConfig.BuildingType buildingType) external nonReentrant {
-        planetManager.upgradeBuilding(msg.sender, planetId, buildingType);
+        planetManager.upgradeBuilding(_player(), planetId, buildingType);
     }
 
     /**
@@ -127,7 +163,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Cancel upgrade and refund resources (50% penalty)
      */
     function cancelUpgrade(uint256 planetId) external {
-        planetManager.cancelUpgrade(msg.sender, planetId);
+        planetManager.cancelUpgrade(_player(), planetId);
     }
 
     // ============ SHIP ROUTES ============
@@ -136,7 +172,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Start building ships
      */
     function buildShips(uint256 planetId, GameConfig.ShipType shipType, uint256 quantity) external nonReentrant {
-        shipManager.buildShips(msg.sender, planetId, shipType, quantity);
+        shipManager.buildShips(_player(), planetId, shipType, quantity);
     }
 
     /**
@@ -150,7 +186,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Cancel ship build and refund resources (50% penalty)
      */
     function cancelShipBuild(uint256 planetId) external {
-        shipManager.cancelShipBuild(msg.sender, planetId);
+        shipManager.cancelShipBuild(_player(), planetId);
     }
 
     // ============ DEFENSE ROUTES ============
@@ -159,7 +195,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Start building defenses
      */
     function buildDefenses(uint256 planetId, GameConfig.DefenseType defenseType, uint256 quantity) external nonReentrant {
-        defenseManager.buildDefenses(msg.sender, planetId, defenseType, quantity);
+        defenseManager.buildDefenses(_player(), planetId, defenseType, quantity);
     }
 
     /**
@@ -173,7 +209,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Cancel defense build and refund resources (50% penalty)
      */
     function cancelDefenseBuild(uint256 planetId) external {
-        defenseManager.cancelDefenseBuild(msg.sender, planetId);
+        defenseManager.cancelDefenseBuild(_player(), planetId);
     }
 
     // ============ RESEARCH ROUTES ============
@@ -182,7 +218,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Start researching a technology
      */
     function startResearch(uint256 planetId, GameConfig.ResearchType researchType) external nonReentrant {
-        researchManager.startResearch(msg.sender, planetId, researchType);
+        researchManager.startResearch(_player(), planetId, researchType);
     }
 
     /**
@@ -196,7 +232,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Cancel research and refund resources (50% penalty)
      */
     function cancelResearch(uint256 planetId) external {
-        researchManager.cancelResearch(msg.sender, planetId);
+        researchManager.cancelResearch(_player(), planetId);
     }
 
     // ============ FLEET ROUTES ============
@@ -214,7 +250,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
         uint256 cargoDarkMatter
     ) external nonReentrant returns (uint256 fleetId) {
         return fleetManager.dispatchFleet(
-            msg.sender,
+            _player(),
             planetId,
             ships,
             destination,
@@ -243,7 +279,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
         uint256 cargoDarkMatter
     ) external nonReentrant returns (uint256 fleetId) {
         return fleetManager.dispatchFleetFromOutpost(
-            msg.sender,
+            _player(),
             origin,
             ships,
             destination,
@@ -531,7 +567,7 @@ contract NexusGame is Ownable, ReentrancyGuard {
      * @notice Claim a tutorial quest reward
      */
     function claimTutorialQuest(uint256 planetId, uint256 questId) external {
-        tutorialManager.claimQuest(msg.sender, planetId, questId);
+        tutorialManager.claimQuest(_player(), planetId, questId);
     }
 
     /**

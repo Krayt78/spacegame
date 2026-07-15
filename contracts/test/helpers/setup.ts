@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { NexusGame, GameConfig, GameState, PlanetManager, ShipManager, FleetManager, ResearchManager, DefenseManager, CombatEngine, FleetResolver, TutorialManager } from "../../typechain-types";
+import { NexusGame, GameConfig, GameState, PlanetManager, ShipManager, FleetManager, ResearchManager, DefenseManager, CombatEngine, FleetResolver, TutorialManager, SessionRegistry } from "../../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 export interface DeployedContracts {
@@ -14,6 +14,7 @@ export interface DeployedContracts {
   researchManager: ResearchManager;
   defenseManager: DefenseManager;
   tutorialManager: TutorialManager;
+  sessionRegistry: SessionRegistry;
 }
 
 export interface TestSigners {
@@ -50,11 +51,19 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
 
   const gameState = GameStateFactory.attach(await gameStateProxy.getAddress()) as GameState;
 
+  // Deploy SessionRegistry (must precede NexusGame — the router holds it as an
+  // immutable). Every test deploys it so the plain-EOA path exercises
+  // resolve()'s identity fallback, which is the regression guard for sessions.
+  const SessionRegistryFactory = await ethers.getContractFactory("SessionRegistry");
+  const sessionRegistry = await SessionRegistryFactory.deploy();
+  await sessionRegistry.waitForDeployment();
+
   // Deploy NexusGame (Router)
   const NexusGameFactory = await ethers.getContractFactory("NexusGame");
   const nexusGame = await NexusGameFactory.deploy(
     await gameState.getAddress(),
-    await gameConfig.getAddress()
+    await gameConfig.getAddress(),
+    await sessionRegistry.getAddress()
   );
   await nexusGame.waitForDeployment();
 
@@ -149,7 +158,7 @@ export async function deployContracts(): Promise<{ contracts: DeployedContracts;
   await gameState.setManager(await tutorialManager.getAddress(), true);
 
   return {
-    contracts: { nexusGame, gameConfig, gameState, planetManager, shipManager, combatEngine, fleetResolver, fleetManager, researchManager, defenseManager, tutorialManager },
+    contracts: { nexusGame, gameConfig, gameState, planetManager, shipManager, combatEngine, fleetResolver, fleetManager, researchManager, defenseManager, tutorialManager, sessionRegistry },
     signers: { owner, player1, player2, player3 },
   };
 }

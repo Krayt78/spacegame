@@ -530,7 +530,25 @@ that's what keeps plain EOAs working and stops callers crediting address(0)."
 
 ---
 
-### Task 3: NexusGame resolves callers through the registry
+### Task 3: NexusGame resolves callers through the registry — ✅ DONE (2026-07-15)
+
+> **Result:** 407 passing (388 existing + 14 registry + 5 resolution), zero
+> failures. NexusGame 19,358 → 19,744 bytes (80.3% of EIP-170, +386 B — inside
+> the predicted 200-500 B). FleetResolver untouched at 98.8%.
+>
+> **Four corrections the drafted test code below got wrong** (the committed
+> `test/SessionResolution.test.ts` is authoritative):
+> - `getPlayerPlanetId(address)` lives on **NexusGame**, not GameState
+>   (GameState has `getPlayerPlanet`). Existing tests use the router.
+> - `BuildingType.NONE = 0`, so building type `0` reverts "Invalid building
+>   type" — use `1` (TITANIUM_EXTRACTOR), as existing tests do.
+> - `upgradeBuilding` only STARTS a timed upgrade; the level doesn't move until
+>   `advanceTime` + `completeUpgrade`. The test now runs the full cycle.
+> - **Do not bulk-rewrite `msg.sender` with sed/scripts:** it rewrites the
+>   occurrence inside `_player()` itself, producing
+>   `resolve(_player())` — infinite recursion on every call. After the swap,
+>   exactly two `msg.sender` must remain: `Ownable(msg.sender)` and the one
+>   inside `_player()`.
 
 **Files:**
 - Modify: `contracts/contracts/NexusGame.sol` (imports, storage, constructor at `:40`, and the 13 `msg.sender` sites at `:102, :109, :116, :130, :139, :153, :162, :176, :185, :199, :217, :246, :534`)
@@ -541,7 +559,7 @@ that's what keeps plain EOAs working and stops callers crediting address(0)."
 - Consumes: `ISessionRegistry` and `SessionRegistry` from Task 2.
 - Produces: `NexusGame` constructor becomes `constructor(address _gameState, address _gameConfig, address _sessionRegistry)`. `NexusGame.sessionRegistry()` → `address` (public immutable). `DeployedContracts` in `test/helpers/setup.ts` gains `sessionRegistry: SessionRegistry`. Tasks 4 and 9 depend on the new constructor arity.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `contracts/test/SessionResolution.test.ts`:
 
@@ -627,7 +645,7 @@ describe("Session key resolution through NexusGame", function () {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 cd contracts && npx hardhat test test/SessionResolution.test.ts
@@ -635,7 +653,7 @@ cd contracts && npx hardhat test test/SessionResolution.test.ts
 
 Expected: FAIL — `contracts.sessionRegistry` is undefined and `nexusGame.sessionRegistry` is not a function.
 
-- [ ] **Step 3: Add the registry to NexusGame**
+- [x] **Step 3: Add the registry to NexusGame**
 
 In `contracts/contracts/NexusGame.sol`, add the import after the existing `TutorialManager` import (currently line 13):
 
@@ -691,7 +709,7 @@ Replace the constructor (currently lines 40-43):
     }
 ```
 
-- [ ] **Step 4: Swap the 13 identity-bearing call sites**
+- [x] **Step 4: Swap the 13 identity-bearing call sites**
 
 In `contracts/contracts/NexusGame.sol`, replace `msg.sender` with `_player()` at exactly these 13 sites. **Do not touch line 40's `Ownable(msg.sender)`** — that is the deployer, not a player.
 
@@ -719,7 +737,7 @@ cd contracts && grep -n "msg.sender" contracts/NexusGame.sol
 
 Expected: exactly one hit — `Ownable(msg.sender)` in the constructor.
 
-- [ ] **Step 5: Update the shared test fixture**
+- [x] **Step 5: Update the shared test fixture**
 
 All 388 existing tests deploy through this fixture, so it must learn the new constructor.
 
@@ -754,7 +772,7 @@ Add `sessionRegistry` to the returned `contracts` object (line 152):
     contracts: { nexusGame, gameConfig, gameState, planetManager, shipManager, combatEngine, fleetResolver, fleetManager, researchManager, defenseManager, tutorialManager, sessionRegistry },
 ```
 
-- [ ] **Step 6: Run the new tests**
+- [x] **Step 6: Run the new tests**
 
 ```bash
 cd contracts && npx hardhat test test/SessionResolution.test.ts
@@ -762,7 +780,7 @@ cd contracts && npx hardhat test test/SessionResolution.test.ts
 
 Expected: PASS — 5 passing.
 
-- [ ] **Step 7: Run the full suite — the real regression gate**
+- [x] **Step 7: Run the full suite — the real regression gate**
 
 ```bash
 cd contracts && npx hardhat test
@@ -770,7 +788,7 @@ cd contracts && npx hardhat test
 
 Expected: **407 passing** (388 existing + 14 registry + 5 resolution), zero failures. The 388 exercise the plain-EOA path, which is the guard on `resolve()`'s identity fallback. If any of them fail, `resolve()` is not returning the caller for unregistered addresses — fix that before continuing.
 
-- [ ] **Step 8: Check the bytecode budget**
+- [x] **Step 8: Check the bytecode budget**
 
 ```bash
 cd contracts && npx hardhat compile && node -e "
@@ -783,7 +801,7 @@ console.log(n > 24576 ? 'OVER LIMIT' : 'OK');
 
 Expected: roughly 19,500-19,900 bytes (~80%), comfortably under. It was 19,358 B (78.8%) before. If it somehow exceeds 24,576, stop and report.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add contracts/contracts/NexusGame.sol contracts/test/helpers/setup.ts contracts/test/SessionResolution.test.ts
