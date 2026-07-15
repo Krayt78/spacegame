@@ -16,7 +16,7 @@ On-chain OGame-style space strategy game on Polkadot AssetHub.
 - SessionRegistry.sol maps session keys to owners. NexusGame resolves every identity-bearing caller through it via `_player()` (13 call sites), so a session key acts as the player. `resolve()` returns the caller itself when unregistered — that's what keeps plain EOAs working. The registry is IMMUTABLE on the router: replacing it means redeploying the router and all 7 managers, since each holds `router` as an immutable
 - Sessions are PGAS-funded and fee-free (ChargePGAS covers `Revive.call` + all-Revive batches ONLY — one non-Revive call in a batch forfeits it). Host mode only; local/EVM mode signs directly. Session keys live in host KV via `SessionKeyManager`
 - Frontend reads/writes go through PAPI + @parity/product-sdk-contracts (wagmi removed in Phase G); ABIs come from JSON artifacts via the generated cdm.json (never manually defined)
-- Contracts live on paseo-next-v2 Asset Hub (genesis 0xbf0488…, wss://paseo-asset-hub-next-rpc.polkadot.io — NO public eth-rpc; deploy via frontend/scripts/deploy-contracts-nextv2.mjs, addresses in contracts/deployments/next-v2.json)
+- Contracts live on paseo-next-v2 Asset Hub (genesis 0xbf0488…, wss://paseo-asset-hub-next-rpc.polkadot.io — NO public eth-rpc; deploy via scripts/deploy-contracts/ (own package.json — it needs PAPI, not hardhat), addresses in contracts/deployments/next-v2.json)
 
 ## Agents Available
 - `/solidity-architect` — Architecture review (read-only)
@@ -41,4 +41,4 @@ On-chain OGame-style space strategy game on Polkadot AssetHub.
 - Seed local test world: `cd contracts && npm run seed:local` (Alice + 4 NPC players: planets, tutorial done, ships, outposts, fleet; then play via `frontend npm run dev:local` → "Play as Alice")
 - Skip local timers: `cd contracts && FF_SECONDS=3600 npm run fast-forward`
 - Verify PGAS/session prerequisites on the live chain: `cd frontend && node scripts/verify-pgas.mjs` (add `AUTOMAP_SURI=//Alice` to also probe AutoMap)
-- Deploy to paseo-next-v2: `cd frontend && node scripts/deploy-contracts-nextv2.mjs dry` then `... deploy` (defaults target next-v2; the genesis assertion aborts on any other chain)
+- Deploy to paseo-next-v2: `cd scripts/deploy-contracts && npm install && npm run dry` then `npm run deploy` (defaults target next-v2; the genesis assertion aborts on any other chain). Reads env from `frontend/.env.testnet`

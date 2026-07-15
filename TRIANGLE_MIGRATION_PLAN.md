@@ -165,7 +165,7 @@ dot.li host signs against it (DotRivals verified live 2026-06-05), the Paseo
 faucet defaults to it, and the user's product account already held 5000 PAS
 there from a mis-targeted faucet drip.
 
-**Contracts** — redeployed via `frontend/scripts/deploy-contracts-nextv2.mjs`
+**Contracts** — redeployed via `frontend/scripts/deploy-contracts-nextv2.mjs` (moved 2026-07-15 to `scripts/deploy-contracts/deploy-nextv2.mjs`)
 (ported from DotRivals' `deploy-papi.mjs`; eth-rpc is a dead end on next-v2 —
 no stock adapter matches the custom runtime's metadata, so the script submits
 `Revive.instantiate_with_code` over PAPI signed by well-known //Alice, funded +

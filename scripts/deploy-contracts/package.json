@@ -1,0 +1,18 @@
+{
+  "name": "@nexus/deploy-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PAPI-based contract deployer for paseo-next-v2. Lives here rather than in contracts/ or frontend/ because it belongs to neither: it reads contracts/artifacts and writes contracts/deployments, but needs the PAPI stack rather than hardhat's.",
+  "scripts": {
+    "dry": "node deploy-nextv2.mjs dry",
+    "deploy": "node deploy-nextv2.mjs deploy"
+  },
+  "dependencies": {
+    "@parity/product-sdk-address": "0.1.1",
+    "@polkadot-labs/hdkd": "^0.0.28",
+    "@polkadot-labs/hdkd-helpers": "^0.0.30",
+    "polkadot-api": "^2.0.0",
+    "viem": "^2.45.0"
+  }
+}

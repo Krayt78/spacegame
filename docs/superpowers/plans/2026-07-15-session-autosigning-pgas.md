@@ -844,7 +844,7 @@ resolution at a malicious contract and take over any account."
 **Files:**
 - Modify: `contracts/scripts/deploy.ts` (`:39-45`)
 - Modify: `contracts/scripts/exportABI.js` (`:14`)
-- Modify: `frontend/scripts/deploy-contracts-nextv2.mjs` (`:101-104` artifact map, plus the NexusGame constructor args and the wiring section)
+- Modify: `scripts/deploy-contracts/deploy-nextv2.mjs` (`:101-104` artifact map, plus the NexusGame constructor args and the wiring section)
 - Modify: `frontend/scripts/generate-cdm.mjs` (`:31-32`, `:58-59`, `:68-85`)
 - Modify: `frontend/src/lib/contracts.ts`
 - Modify: `frontend/.env.devnet`, `frontend/.env.testnet`
@@ -891,7 +891,7 @@ const contracts = ['NexusGame', 'GameConfig', 'SessionRegistry'];
 
 - [x] **Step 2b: Teach the paseo-next-v2 deployer about the registry**
 
-`frontend/scripts/deploy-contracts-nextv2.mjs` is the **real** deploy path for
+`scripts/deploy-contracts/deploy-nextv2.mjs` (moved from frontend/ on 2026-07-15) is the **real** deploy path for
 paseo-next-v2 (`contracts/scripts/deploy.ts` is hardhat/local). It hardcodes the
 deploy order and constructor args, so it will produce a broken deployment against
 the 3-arg NexusGame unless updated. Task 9 depends on this.
@@ -900,7 +900,7 @@ Read it first — it's ~18KB and has its own conventions (constructor args are
 ABI-encoded and **appended to the code blob**, per the note at `:132`):
 
 ```bash
-cd frontend && sed -n '95,150p' scripts/deploy-contracts-nextv2.mjs
+sed -n '95,150p' scripts/deploy-contracts/deploy-nextv2.mjs
 ```
 
 Add `SessionRegistry` to the artifact map alongside the existing entries (`:101-104`):
@@ -928,7 +928,7 @@ Verify with the script's own dry-run mode before spending a real deploy (see the
 `dry` mode note at `:22`):
 
 ```bash
-cd frontend && node scripts/deploy-contracts-nextv2.mjs dry
+cd scripts/deploy-contracts && npm run dry
 ```
 
 Expected: the dry-run resolves all artifacts including `SessionRegistry` and
@@ -2232,8 +2232,9 @@ This uses the deployer updated in Task 4 Step 2b. Dry-run first — a real deplo
 costs tokens and a wrong constructor arg means doing the whole cascade again:
 
 ```bash
-cd frontend && node scripts/deploy-contracts-nextv2.mjs dry
-node scripts/deploy-contracts-nextv2.mjs
+cd scripts/deploy-contracts && npm install
+npm run dry
+npm run deploy
 ```
 
 Expected: fresh addresses for all contracts including `SessionRegistry`. Write them into `contracts/deployments/next-v2.json`, then update `NEXT_PUBLIC_NEXUS_GAME_ADDRESS`, `NEXT_PUBLIC_GAME_CONFIG_ADDRESS` and `NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS` in both `frontend/.env.devnet` and `frontend/.env.testnet`.

@@ -25,7 +25,17 @@
 //   deploy  — the real thing. Dry-runs before EVERY submit (fresh weights +
 //             real ctor addresses). Writes contracts/deployments/next-v2.json.
 //
-// Run from frontend/ (module resolution): node scripts/deploy-contracts-nextv2.mjs dry
+// Usage (from anywhere):
+//   cd scripts/deploy-contracts && npm install && npm run dry
+//   cd scripts/deploy-contracts && npm run deploy
+//
+// Lives here rather than in contracts/ or frontend/ because it belongs to
+// neither. It reads contracts/artifacts and writes contracts/deployments, so
+// it is contract tooling — but it can't live in contracts/, whose toolchain is
+// hardhat, and it needs the PAPI stack instead. It used to sit in
+// frontend/scripts purely because those deps were already in
+// frontend/node_modules, which buried chain config somewhere nobody looks.
+// It now carries its own package.json.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -39,7 +49,17 @@ import { ss58ToH160 } from "@parity/product-sdk-address";
 import { encodeAbiParameters, encodeFunctionData, fromHex } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONTRACTS = resolve(__dirname, "../../contracts");
+const ROOT = resolve(__dirname, "../..");
+const CONTRACTS = resolve(ROOT, "contracts");
+
+// Env files still live in frontend/ — they're the app's (.env.testnet carries
+// the NEXT_PUBLIC_* build config), and they also carry the deploy MNEMONIC, so
+// one file drives both `npm run dev:<mode>` and this deploy. Reading them from
+// here keeps that single source of truth rather than duplicating secrets.
+// Override with DEPLOY_ENV_DIR if you keep them elsewhere.
+const ENV_DIR = process.env.DEPLOY_ENV_DIR
+  ? resolve(process.env.DEPLOY_ENV_DIR)
+  : resolve(ROOT, "frontend");
 
 // Load the env file for this deploy so MNEMONIC (and other vars) come from the
 // same .env.<mode> files the app uses — exactly like `npm run dev:<mode>`. The
@@ -51,7 +71,7 @@ const DEPLOY_ENV = process.env.DEPLOY_ENV ?? "testnet";
 function loadDotEnv() {
   for (const name of [".env.local", `.env.${DEPLOY_ENV}`, ".env"]) {
     let text;
-    try { text = readFileSync(resolve(__dirname, "..", name), "utf8"); } catch { continue; }
+    try { text = readFileSync(resolve(ENV_DIR, name), "utf8"); } catch { continue; }
     for (const line of text.split("\n")) {
       const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
       if (!m) continue;
