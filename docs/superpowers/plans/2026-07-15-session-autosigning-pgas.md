@@ -14,7 +14,24 @@
 
 - Branch: `session-autosigning-pgas`. Never commit to `main` or `trinity-version`.
 - Target chain: `paseo-next-v2` Asset Hub, `wss://paseo-asset-hub-next-rpc.polkadot.io`, genesis `0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f`.
-- PGAS asset id: `2_000_000_000`. PGAS ERC-20 precompile: `0x7735940000000000000000000000000001200000`.
+- PGAS asset id: `2_000_000_000` — **a JS `number`, not a bigint**. It's a `u32`. Passing `2_000_000_000n` makes papi throw `Incompatible runtime entry Storage(Assets.Asset)`, which reads like a stale-descriptor problem and is not. (Verified in Task 1.)
+- PGAS ERC-20 precompile: `0x7735940000000000000000000000000001200000` — **confirmed live** in Task 1: its `totalSupply()` equals `Assets.Asset` supply.
+
+**`ReviveApi.call` calling convention** (from `.papi/descriptors/dist/hub.d.ts`, confirmed live in Task 1). Getting any of these wrong yields the same misleading `Incompatible runtime entry RuntimeCall(ReviveApi_call)`:
+
+```
+call(origin: SS58String,      // ss58 string
+     dest: SizedHex<20>,      // HEX STRING — not Binary, not bytes
+     value: bigint,
+     gas_limit, storage_deposit_limit,
+     input_data: Uint8Array,  // RAW Uint8Array — not Binary
+     { at: 'best' })
+```
+
+- **Compare SS58 addresses by public key bytes, never as strings.** This chain returns accounts at prefix 0; our keys default to prefix 42, so string equality gives false negatives on the same account. Use `ss58Decode(a).publicKey` from `@parity/product-sdk-address`. (Task 1 hit this.)
+- **Read at `{ at: 'best' }` when comparing against a dry-run.** Storage defaults to *finalized*; `ReviveApi.call` runs at *best*. PGAS burns on use, so mixing the two flakes intermittently. (Task 1 hit this.)
+- `Revive.OriginalAccount` is keyed by **H160**, not SS58; value is the SS58 account. Derive with `ss58ToH160()` from `@parity/product-sdk-address` — verified against live entries in Task 1.
+- PGAS has **no asset metadata set**: `Assets.Metadata(2_000_000_000)` returns empty name/symbol and `decimals = 0`. Balances are therefore displayed raw.
 - PGAS claim amount: **always read from chain** (`Pgas.PgasClaimAmount`). Never hardcode.
 - `SESSION_PGAS` funding = **20% of the on-chain claim amount**, computed at setup time.
 - Product account derivation index: `PRODUCT_ACCOUNT_INDEX = 0` (`frontend/src/lib/triangle/productIdentifier.ts:36`).
@@ -26,7 +43,7 @@
 
 ---
 
-### Task 1: Live-chain spike — verify AutoMap (GATE)
+### Task 1: Live-chain spike — verify AutoMap (GATE) — ✅ DONE, GATE CLOSED (2026-07-15)
 
 This is a **verification spike, not TDD**. It closes the spec's one open risk before any code is built on it. `Revive.map_account` is not a `Revive.call`, so it falls outside `ChargePGAS` — if the product account needs an explicit mapping call, the zero-native premise is broken.
 
@@ -38,7 +55,14 @@ Encouraging prior evidence, already gathered from `frontend/.papi/metadata/hub.s
 **Interfaces:**
 - Produces: nothing consumed by later tasks. This is a gate — its verdict decides whether Tasks 2-9 proceed as written.
 
-- [ ] **Step 1: Write the spike script**
+- [x] **Step 1: Write the spike script**
+
+> **Superseded — the authoritative script is the committed
+> `frontend/scripts/verify-pgas.mjs` (`fc7d80e`).** The draft below is kept only
+> as a record of what was intended; it contains three bugs the real run found
+> and fixed (bigint asset id, `Binary` where `ReviveApi.call` wants a hex string
+> and raw bytes, and `OriginalAccount` keyed by SS58 instead of H160). Read the
+> committed file, not this. The corrections are folded into Global Constraints.
 
 Create `frontend/scripts/verify-pgas.mjs`:
 
@@ -162,7 +186,7 @@ client.destroy();
 process.exit(failed ? 1 : 0);
 ```
 
-- [ ] **Step 2: Run the read-only checks**
+- [x] **Step 2: Run the read-only checks**
 
 ```bash
 cd frontend && node scripts/verify-pgas.mjs
@@ -172,7 +196,24 @@ Expected: checks 1-3 PASS — a readable claim amount, PGAS present and sufficie
 
 If check 3 fails, the precompile address in the spec is wrong — stop and re-derive it (asset id `2_000_000_000` as 4 BE bytes ++ 12 zero bytes ++ `0x0120` ++ 2 zero bytes).
 
-- [ ] **Step 3: Close the gate with the AutoMap probe**
+- [x] **Step 3: Close the gate with the AutoMap probe** — ✅ **PASSED**
+
+Result recorded 2026-07-15 against `paseo-next-v2` (reproduced across runs):
+
+```
+OriginalAccount(fresh) before funding: none
+included in block #1719468 ok=true
+OriginalAccount(fresh) after funding:  13VJRTgGBiPc1o3gHgevMJapdmNTWSPqkTWJG28sFi8PNYRP
+PASS  AutoMap IS ON — fresh account auto-mapped on creation, no map_account
+      needed. GATE CLOSED.
+```
+
+Also confirmed live: `PgasClaimAmount = 50_000_000_000`; PGAS sufficient with
+`min_balance = 10_000_000`, status Live; the ERC-20 precompile's `totalSupply()`
+equals `Assets.Asset` supply (**address confirmed**); `ss58ToH160` matches the
+chain's `OriginalAccount` keying on every sampled entry.
+
+**Tasks 2-9 proceed as written.**
 
 Needs a key with native PAS on paseo-next-v2. Per `frontend/.env.devnet`, `//Alice` is expected to be funded there.
 
@@ -186,7 +227,7 @@ Expected: `PASS  AutoMap IS ON — fresh account auto-mapped, no map_account nee
 
 If `//Alice` is unfunded, report that rather than skipping the gate: an unclosed gate is a blocker, not a formality.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/scripts/verify-pgas.mjs
@@ -1140,8 +1181,8 @@ library, so the Turbopack octal-escape bug doesn't apply."
 **Interfaces:**
 - Consumes: Task 5's `sessionKeys.ts`; Task 4's `SESSION_REGISTRY_ADDRESS` + `sessionRegistryAbi`.
 - Produces:
-  - `frontend/src/lib/session/pgas.ts`: `PGAS_ASSET_ID = 2_000_000_000n`, `PGAS_ERC20 = '0x7735940000000000000000000000000001200000'`, `getPgasBalance(ss58: string): Promise<bigint>`, `getPgasClaimAmount(): Promise<bigint>`, `getSessionFundingAmount(): Promise<bigint>`
-  - `readSessionOf(ownerH160: string): Promise<string | null>` — **exported**, because Task 8's health hook polls it to check registration.
+  - `frontend/src/lib/session/pgas.ts`: `PGAS_ASSET_ID = 2_000_000_000` (**number, not bigint**), `PGAS_ERC20 = '0x7735940000000000000000000000000001200000'`, `hexToBytes(hex: string): Uint8Array`, `getPgasBalance(ss58: string): Promise<bigint>`, `getPgasClaimAmount(): Promise<bigint>`, `getSessionFundingAmount(): Promise<bigint>`
+  - `readSessionOf(ownerSs58: string): Promise<string | null>` — **exported**, because Task 8's health hook polls it to check registration. Takes SS58 (not H160) and derives the H160 internally; returns null when there's no active session.
   - `useNexusSession(): UseNexusSessionResult` keeps its existing external shape — `{ status, session, isSettingUp, isEnding, error, startSession, endSession }`, `status: 'idle' | 'setup_pending' | 'ready' | 'failed' | 'expired'` — but `session` is now `NexusSession | null` (was `SessionWalletData | null`). `SessionContext` consumes this unchanged.
 - Task 7 consumes `getStoredSessionKey`; Task 8 consumes `NexusSession`, `getPgasBalance`, `getSessionFundingAmount` and `readSessionOf`.
 
@@ -1152,18 +1193,29 @@ Create `frontend/src/lib/session/pgas.ts`:
 ```typescript
 import { getTypedApi } from '@/lib/triangle/chainClient';
 
+/** Hex string → raw bytes. ReviveApi.call wants Uint8Array, not Binary. */
+export const hexToBytes = (hex: string): Uint8Array =>
+  Uint8Array.from((hex.slice(2).match(/../g) ?? []).map((b) => parseInt(b, 16)));
+
 /**
  * PGAS: the personhood-gated gas asset. Sufficient (holdable with zero native)
  * and burnable. The runtime's ChargePGAS extension pays fees from a signer's
  * PGAS balance for Revive calls and all-Revive batches ONLY — one non-Revive
  * call in a batch forfeits it for the whole extrinsic.
  */
-export const PGAS_ASSET_ID = 2_000_000_000n;
+/**
+ * A JS number, NOT a bigint — the asset id is a u32. Passing 2_000_000_000n
+ * makes papi throw "Incompatible runtime entry Storage(Assets.Asset)", which
+ * looks like a stale-descriptor problem and isn't. (Verified in Task 1.)
+ */
+export const PGAS_ASSET_ID = 2_000_000_000;
 
 /**
  * PGAS ERC-20 precompile: asset id as 4 BE bytes ++ 12 zero bytes ++ prefix
  * 0x0120 ++ 2 zero bytes. Transfers MUST go through this, not Assets.transfer,
  * which would break the all-Revive rule and forfeit fee-free status.
+ *
+ * Confirmed live in Task 1: totalSupply() here equals Assets.Asset supply.
  */
 export const PGAS_ERC20 = '0x7735940000000000000000000000000001200000' as const;
 
@@ -1173,7 +1225,12 @@ const SESSION_FUNDING_RATIO_PCT = 20n;
 export async function getPgasBalance(ss58: string): Promise<bigint> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const api = (await getTypedApi()) as any;
-  const account = await api.query.Assets.Account.getValue(PGAS_ASSET_ID, ss58);
+  // `at: 'best'` — storage defaults to finalized, which lags the head by ~30s
+  // on this chain. A session's PGAS moves at best-block speed, so a finalized
+  // read reports stale balances right after setup.
+  const account = await api.query.Assets.Account.getValue(PGAS_ASSET_ID, ss58, {
+    at: 'best',
+  });
   return account?.balance ?? 0n;
 }
 
@@ -1210,11 +1267,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Binary } from 'polkadot-api';
 import { encodeFunctionData, erc20Abi, type Abi } from 'viem';
 import { requestResourceAllocation } from '@parity/product-sdk-host';
+import { ss58ToH160, ss58Decode } from '@parity/product-sdk-address';
 
 import { useTriangle } from '@/hooks/useTriangle';
 import { getTypedApi } from '@/lib/triangle/chainClient';
 import { PRODUCT_ACCOUNT_INDEX } from '@/lib/triangle/productIdentifier';
 import { SESSION_REGISTRY_ADDRESS, sessionRegistryAbi } from '@/lib/contracts';
+import { hexToBytes } from '@/lib/session/pgas';
 import {
   getOrCreateSessionKey, getStoredSessionKey, clearSessionKey,
   getSessionCreatedAt, setSessionCreatedAt,
@@ -1259,22 +1318,45 @@ function toSession(account: SessionAccount, createdAt: number): NexusSession {
 /**
  * Read registry.sessionOf(owner) via a dry-run — no submission, no fee.
  * Exported: the health hook polls this to detect a broken registration.
+ *
+ * Takes the owner's SS58 and derives the H160 the contract will see as
+ * msg.sender. `ss58ToH160` is the right derivation — Task 1 verified it against
+ * the chain's own Revive.OriginalAccount entries.
+ *
+ * Returns the session key's H160, or null when there is no active session
+ * (the registry's zero-address sentinel reads back as 0x000…0).
  */
-export async function readSessionOf(ownerH160: string): Promise<string | null> {
+export async function readSessionOf(ownerSs58: string): Promise<string | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const api = (await getTypedApi()) as any;
+  const ownerH160 = ss58ToH160(ownerSs58);
   const data = encodeFunctionData({
     abi: sessionRegistryAbi as Abi,
     functionName: 'sessionOf',
     args: [ownerH160],
   });
+  // Signature confirmed live in Task 1 — see Global Constraints. `dest` is a
+  // hex STRING and `input_data` a RAW Uint8Array; passing Binary for either
+  // throws "Incompatible runtime entry RuntimeCall(ReviveApi_call)".
   const res = await api.apis.ReviveApi.call(
-    ownerH160, SESSION_REGISTRY_ADDRESS, 0n, undefined, undefined,
-    Binary.fromHex(data),
+    ownerSs58,                      // origin: ss58 string
+    SESSION_REGISTRY_ADDRESS,       // dest: hex string
+    0n,
+    undefined,
+    undefined,
+    hexToBytes(data),               // input_data: raw Uint8Array
+    { at: 'best' },
   );
-  const hex: string | undefined = res?.result?.value?.data?.asHex?.();
-  if (!hex || hex.length < 66) return null;
-  return `0x${hex.slice(-40)}`;
+  const raw = res?.result?.value?.data;
+  const hex: string | undefined =
+    raw?.asHex?.() ??
+    (raw instanceof Uint8Array
+      ? `0x${Array.from(raw).map((b) => b.toString(16).padStart(2, '0')).join('')}`
+      : undefined);
+  if (!hex || hex.length < 42) return null;
+  // ABI-encoded address: 32 bytes, right-aligned.
+  const session = `0x${hex.slice(-40)}`;
+  return /^0x0{40}$/.test(session) ? null : session;
 }
 
 export function useNexusSession(): UseNexusSessionResult {
