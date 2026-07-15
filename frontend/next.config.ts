@@ -22,7 +22,21 @@ const nextConfig: NextConfig = {
         // Next/image requires the runtime image optimizer; it's gone in static mode.
         images: { unoptimized: true },
       }
-    : {}),
+    : {
+        // Local-dev RPC proxy: the app talks to same-origin `/rpc`, which the
+        // dev server forwards to the hardhat node. Same-origin means no CORS
+        // preflights and no Brave/extension shields blocking cross-origin
+        // localhost requests. Static export can't do rewrites, but local play
+        // is always `next dev`. Target port must match `hardhat node --port`.
+        async rewrites() {
+          return [
+            {
+              source: "/rpc",
+              destination: process.env.LOCAL_RPC_TARGET ?? "http://127.0.0.1:8545",
+            },
+          ];
+        },
+      }),
 };
 
 export default nextConfig;

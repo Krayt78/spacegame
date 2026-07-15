@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:local": "env-cmd -f .env.localhost sh -c 'node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs && next dev'",
+    "dev:local": "node scripts/sync-local-env.mjs && env-cmd -f .env.localhost sh -c 'node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs && next dev'",
     "dev:testnet": "env-cmd -f .env.testnet sh -c 'node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs && next dev'",
     "dev:net": "env-cmd -f .env.devnet sh -c 'node scripts/generate-cdm.mjs && node scripts/generate-contract-types.mjs && next dev'",
     "build": "next build",

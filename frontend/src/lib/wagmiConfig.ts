@@ -1,5 +1,6 @@
 import { getDefaultConfig } from 'connectkit';
 import { createConfig, http } from 'wagmi';
+import { injected, mock } from 'wagmi/connectors';
 import { defineChain } from 'viem';
 
 // EVM-mode (standalone-wallet) transport config. Only consumed when
@@ -65,6 +66,15 @@ export const polkadotHubTestnet = defineChain({
 export const activeChain =
   process.env.NEXT_PUBLIC_CHAIN === 'testnet' ? polkadotHubTestnet : localhost;
 
+// "Play as Alice" dev connector for the local hardhat chain. Hardhat's
+// well-known account #0 — the node holds the key and auto-signs
+// eth_sendTransaction for it, so the wagmi mock connector (which passes
+// requests straight through to the RPC) gives a zero-setup signing wallet.
+// The seed script (contracts/scripts/seed-local.ts) builds this account into
+// a fully-progressed player.
+export const HARDHAT_ALICE = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const;
+export const isLocalChain = activeChain.id === 31337;
+
 export const config = createConfig(
   getDefaultConfig({
     // Required
@@ -72,6 +82,27 @@ export const config = createConfig(
     transports: {
       [activeChain.id]: http(),
     },
+
+    // Localhost only: replace ConnectKit's default wallet list with the Alice
+    // dev connector + plain injected. Passing `connectors` overrides the
+    // defaults (WalletConnect etc.), which is what we want on 31337 — remote
+    // chains keep the stock list.
+    ...(isLocalChain
+      ? {
+          connectors: [
+            // defaultConnected is required for the session to survive a page
+            // reload: the connector keeps its connected flag in memory only,
+            // and isAuthorized() (wagmi's reconnect gate) returns false unless
+            // the flag starts true. Net effect: localhost auto-signs in as
+            // Alice on load — desirable for a local test harness.
+            mock({
+              accounts: [HARDHAT_ALICE],
+              features: { defaultConnected: true, reconnect: true },
+            }),
+            injected(),
+          ],
+        }
+      : {}),
 
     // WalletConnect
     walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',

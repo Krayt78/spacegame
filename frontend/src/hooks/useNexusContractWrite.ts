@@ -68,6 +68,12 @@ type ContractMethod = {
   tx: (...args: unknown[]) => Promise<TxResult>;
   // Same dry-run + gas estimation as tx(), but returns the PAPI tx unsubmitted.
   prepare: (...args: unknown[]) => Promise<PreparedTx>;
+  // ReviveApi.call dry-run (no submission). On revert, `value.reason` carries
+  // the decoded Error(string) message — the dispatch error of an included tx
+  // doesn't, so this is our only way to name an on-chain revert.
+  query: (
+    ...args: unknown[]
+  ) => Promise<{ success: boolean; value?: { reason?: string } }>;
 };
 
 /**
@@ -204,6 +210,14 @@ function useNexusContractWriteHost(
 
       setS({ ...idleState, isPending: true });
 
+      const invalidateReads = () => {
+        for (const functionName of invalidate) {
+          queryClient.invalidateQueries({
+            queryKey: ['readContract', { functionName }],
+          });
+        }
+      };
+
       try {
         // Was this call site's first write per process? If so, we just
         // submitted Revive.map_account and need to retry the dry-run below
@@ -302,6 +316,9 @@ function useNexusContractWriteHost(
             | undefined;
           const innerResult = proxyExecuted?.value?.value?.result;
           if (innerResult && innerResult.success === false) {
+            // Inner revert = on-chain state disagrees with what the UI showed;
+            // resync reads so the user isn't invited to retry against it.
+            invalidateReads();
             throw new Error(
               `Tx failed (inner): ${JSON.stringify(innerResult.value)}`,
             );
@@ -314,11 +331,7 @@ function useNexusContractWriteHost(
             isSuccess: true,
             error: undefined,
           });
-          for (const functionName of invalidate) {
-            queryClient.invalidateQueries({
-              queryKey: ['readContract', { functionName }],
-            });
-          }
+          invalidateReads();
           return;
         }
 
@@ -371,7 +384,40 @@ function useNexusContractWriteHost(
         })();
 
         if (!result.ok) {
-          throw new Error(`Tx failed: ${JSON.stringify(result.dispatchError)}`);
+          // The tx was included on-chain and reverted. Revive's dispatch error
+          // (`Revive.ContractReverted`) doesn't carry the revert string, so
+          // re-run the dry-run at the current best block to recover it.
+          let reason: string | undefined;
+          try {
+            const rerun = await fn.query(...args, { origin: address });
+            if (!rerun.success) reason = rerun.value?.reason;
+          } catch {
+            // Reason recovery is best-effort; the dispatch error still surfaces.
+          }
+
+          // Timer-gated complete* methods: "No X in queue" from a FRESH
+          // dry-run means the queue is already resolved — typically an earlier
+          // broadcast of this same call landed but its watch errored, so the
+          // UI reported failure and invited a duplicate click. The work is
+          // done; treat it as success so reads resync and the button clears.
+          if (method.startsWith('complete') && reason && /^No .+ in queue$/.test(reason)) {
+            setS({
+              hash: undefined,
+              isPending: false,
+              isConfirming: false,
+              isSuccess: true,
+              error: undefined,
+            });
+            invalidateReads();
+            return;
+          }
+
+          // Resync reads on failure too — the revert proves on-chain state
+          // disagrees with what the UI showed when the user clicked.
+          invalidateReads();
+          throw new Error(
+            `Tx failed: ${JSON.stringify(result.dispatchError)}${reason ? ` — revert: "${reason}"` : ''}`,
+          );
         }
 
         setS({
@@ -382,11 +428,7 @@ function useNexusContractWriteHost(
           error: undefined,
         });
 
-        for (const functionName of invalidate) {
-          queryClient.invalidateQueries({
-            queryKey: ['readContract', { functionName }],
-          });
-        }
+        invalidateReads();
       } catch (e) {
         console.error(`[useNexusContractWrite] ${library}.${method} failed:`, e);
         setS({
@@ -454,6 +496,21 @@ function useNexusContractWriteEvm(
     // `invalidate` is stable per call site; `isSuccess` is the real trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuccess]);
+
+  // A failed write usually means the UI acted on stale state (e.g. "Build
+  // queue occupied" while the buttons still showed as available) — log the
+  // revert reason and resync the reads so the UI corrects itself. Mirrors the
+  // host path's invalidate-on-failure.
+  useEffect(() => {
+    if (!error) return;
+    console.error('[useNexusContractWrite:evm] write failed:', error);
+    for (const functionName of invalidate) {
+      queryClient.invalidateQueries({
+        queryKey: ['readContract', { functionName }],
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
 
   const callImpl = useCallback(
     (library: ContractLibrary, method: string, args: readonly unknown[]) => {

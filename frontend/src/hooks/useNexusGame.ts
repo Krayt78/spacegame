@@ -6,6 +6,7 @@ import { useReadContract } from '@/hooks/useReadContract';
 import { useAccount } from '@/hooks/useAccount';
 import { useNexusContractWrite } from '@/hooks/useNexusContractWrite';
 import { getTypedApi } from '@/lib/triangle/chainClient';
+import { APP_MODE } from '@/lib/mode';
 import {
   NEXUS_GAME_ADDRESS,
   GAME_CONFIG_ADDRESS,
@@ -1465,7 +1466,7 @@ export function useCancelResearch() {
  * Without this, useBlock returns the last MINED block's timestamp, which doesn't
  * advance until a new transaction is made (problematic on local Hardhat networks).
  */
-export function useBlockTimestamp() {
+function useBlockTimestampHost() {
   // Substrate-side equivalent of wagmi's useBlock({ blockTag: 'pending' }):
   // pallet_timestamp's `Timestamp.Now` storage (milliseconds) at best block,
   // refetched once per block-ish interval. Contract completionTimes are
@@ -1493,6 +1494,37 @@ export function useBlockTimestamp() {
 
   return { timestamp };
 }
+
+function useBlockTimestampEvm() {
+  // eth-rpc latest-block timestamp (seconds). Local hardhat time diverges
+  // hugely from wall clock after evm_increaseTime fast-forwards, so Date.now()
+  // (or the host-mode PAPI read, which targets a DIFFERENT chain) would make
+  // every countdown wrong. The node mines a block per second, so 'latest' is
+  // fresh enough.
+  const { data: nowSec } = useQuery({
+    queryKey: ['chain', 'evmBlockTimestamp'],
+    refetchInterval: 4_000,
+    staleTime: 0,
+    queryFn: async () => {
+      const res = await fetch(process.env.NEXT_PUBLIC_RPC_URL ?? 'http://127.0.0.1:8545', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBlockByNumber', params: ['latest', false] }),
+      });
+      const json = (await res.json()) as { result?: { timestamp?: string } };
+      const ts = json.result?.timestamp;
+      if (!ts) throw new Error('eth_getBlockByNumber returned no timestamp');
+      return Number.parseInt(ts, 16);
+    },
+  });
+
+  const timestamp = nowSec ?? Math.floor(Date.now() / 1000);
+  return { timestamp };
+}
+
+/** Mode-routed: chain time must come from the chain the contracts live on. */
+export const useBlockTimestamp =
+  APP_MODE === 'host' ? useBlockTimestampHost : useBlockTimestampEvm;
 
 // ========== Tutorial Hooks ==========
 

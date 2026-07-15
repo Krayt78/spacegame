@@ -6,17 +6,31 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConnectKitProvider } from 'connectkit';
 
 import { APP_MODE } from '@/lib/mode';
-import { config } from '@/lib/wagmiConfig';
+import { config, isLocalChain } from '@/lib/wagmiConfig';
 
+// On the local hardhat chain, state changes constantly from OUTSIDE the tab
+// (seed script, fast-forward, CLI txs, a second tab), so cached reads go stale
+// and the UI lies — e.g. upgrade buttons stay enabled while the build queue is
+// occupied on-chain. Poll instead of trusting the cache; it's a local node,
+// the extra eth_calls are free. Remote chains keep the conservative settings.
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      staleTime: 30000, // 30 seconds - data is considered fresh for this duration
-      gcTime: 5 * 60 * 1000, // 5 minutes - keep unused data in cache
-      refetchOnWindowFocus: false, // Don't refetch when window regains focus
-      refetchOnMount: false, // Don't refetch on component mount if data is fresh
-      retry: 3, // Retry failed requests 3 times
-    },
+    queries: isLocalChain
+      ? {
+          staleTime: 2000,
+          gcTime: 5 * 60 * 1000,
+          refetchInterval: 4000,
+          refetchOnWindowFocus: true,
+          refetchOnMount: true,
+          retry: 3,
+        }
+      : {
+          staleTime: 30000, // 30 seconds - data is considered fresh for this duration
+          gcTime: 5 * 60 * 1000, // 5 minutes - keep unused data in cache
+          refetchOnWindowFocus: false, // Don't refetch when window regains focus
+          refetchOnMount: false, // Don't refetch on component mount if data is fresh
+          retry: 3, // Retry failed requests 3 times
+        },
   },
 });
 

@@ -9,10 +9,10 @@ DOMAIN=""
 ENV_FILE=""
 # Bulletin environment id (polkadot-app-deploy --env). Drives BOTH the Bulletin RPC
 # and the Asset Hub RPC used for DotNS register/content-set, plus the bundled
-# DotNS contract addresses. Default 'summit' = Web3 Summit Network. Run
-# `npx @parity/polkadot-app-deploy --list-environments` for the full list (paseo-next-v2,
-# summit, …). Override with --net or BULLETIN_ENV.
-BULLETIN_ENV="${BULLETIN_ENV:-summit}"
+# DotNS contract addresses. Run `npx @parity/polkadot-app-deploy --list-environments`
+# for the full list (paseo-next-v2, summit, …). Resolution: --net > shell
+# BULLETIN_ENV > env-file BULLETIN_ENV > 'summit' (Web3 Summit Network).
+BULLETIN_ENV="${BULLETIN_ENV:-}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --domain|-d) DOMAIN="$2"; shift 2 ;;
@@ -42,6 +42,9 @@ done
 # > default. This lets `.env.<target>` own the deploy target alongside the
 # in-bundle DOT_NS_IDENTIFIER, so one file drives both.
 DOMAIN_OVERRIDE="$DOMAIN"
+# Same for the network: --net (or shell BULLETIN_ENV) must beat an env-file
+# BULLETIN_ENV, which would otherwise clobber it when the file is sourced.
+BULLETIN_ENV_OVERRIDE="$BULLETIN_ENV"
 
 echo "=== Deploy Nexus Protocol Frontend to Bulletin Chain ==="
 echo ""
@@ -97,8 +100,9 @@ if [ -z "${MNEMONIC:-}" ]; then
 fi
 echo ""
 
-# Resolve deploy domain now that the env file has been sourced.
+# Resolve deploy domain + network now that the env file has been sourced.
 DOMAIN="${DOMAIN_OVERRIDE:-${NEXUS_DOTNS_DOMAIN:-spacegame.dot}}"
+BULLETIN_ENV="${BULLETIN_ENV_OVERRIDE:-${BULLETIN_ENV:-summit}}"
 echo "  Network: $BULLETIN_ENV"
 echo "  Domain:  $DOMAIN"
 echo "  URL:     https://$DOMAIN.li"

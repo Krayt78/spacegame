@@ -308,8 +308,12 @@ export default function BuildingsPage() {
   const productionMultiplier = prodMultiplier ? Number(prodMultiplier) : 100;
 
   // Upgrade hook
-  const { upgradeBuilding, isPending, isConfirming } = useUpgradeBuilding();
+  const { upgradeBuilding, isPending, isConfirming, error: upgradeError } = useUpgradeBuilding();
   const isUpgrading = isPending || isConfirming;
+  // wagmi/viem errors carry a human-readable shortMessage; fall back to message.
+  const upgradeErrorText = upgradeError
+    ? ((upgradeError as { shortMessage?: string }).shortMessage ?? upgradeError.message)
+    : null;
 
   // Parse planet data to get building levels
   const buildings = useMemo(() => {
@@ -437,6 +441,16 @@ export default function BuildingsPage() {
             Extractors produce resources over time. Vaults increase storage capacity. The Shipyard unlocks ship construction, and the Research Node enables technology upgrades.
           </p>
         </div>
+
+        {/* Last upgrade attempt failed — show the revert reason instead of
+            silently snapping back to the buttons */}
+        {upgradeErrorText && (
+          <div className="p-3 bg-[var(--accent-danger)]/10 border border-[var(--accent-danger)]/40 rounded-sm">
+            <p className="text-sm text-[var(--accent-danger)]">
+              <span className="font-semibold">Upgrade failed:</span> {upgradeErrorText}
+            </p>
+          </div>
+        )}
 
         {/* Build Queue Status */}
         {hasActiveQueue && queue && planetId && (

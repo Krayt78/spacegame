@@ -34,5 +34,7 @@ On-chain OGame-style space strategy game on Polkadot AssetHub.
 - Export ABIs: `cd contracts && npm run export-abi`
 - Build frontend: `cd frontend && npm run build`
 - Dev server: `cd frontend && npm run dev`
-- Local chain: `cd contracts && npx hardhat node`
+- Local chain: `cd contracts && npx hardhat node` (add `--port 8546` + `export LOCALHOST_RPC_URL=http://127.0.0.1:8546` if 8545 is taken by an eth-rpc adapter)
 - Deploy local: `cd contracts && npm run deploy:local`
+- Seed local test world: `cd contracts && npm run seed:local` (Alice + 4 NPC players: planets, tutorial done, ships, outposts, fleet; then play via `frontend npm run dev:local` → "Play as Alice")
+- Skip local timers: `cd contracts && FF_SECONDS=3600 npm run fast-forward`

@@ -23,7 +23,10 @@ const config: HardhatUserConfig = {
       },
     },
     localhost: {
-      url: "http://127.0.0.1:8545",
+      // Override when 8545 is taken (e.g. a revive eth-rpc adapter):
+      //   LOCALHOST_RPC_URL=http://127.0.0.1:8546 npm run deploy:local
+      // (start the node with `npx hardhat node --port 8546` to match)
+      url: process.env.LOCALHOST_RPC_URL || "http://127.0.0.1:8545",
       chainId: 31337,
     },
     polkadotHubTestnet: {

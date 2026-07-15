@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react';
 import { ConnectKitButton } from 'connectkit';
-import { useAccount } from 'wagmi';
+import { useAccount, useConnect } from 'wagmi';
 import { useRouter } from '@/lib/hostNav';
+import { isLocalChain } from '@/lib/wagmiConfig';
 
 /**
  * EVM-mode connect surface. Signs every in-game action with the user's own
@@ -15,6 +16,12 @@ import { useRouter } from '@/lib/hostNav';
 export function EvmConnectPanel() {
   const router = useRouter();
   const { isConnected } = useAccount();
+  const { connect, connectors, isPending: isDevConnecting } = useConnect();
+  // Present only on the local hardhat chain (see wagmiConfig.ts) — hardhat
+  // account #0, node-signed, seeded as a fully-progressed player.
+  const aliceConnector = isLocalChain
+    ? connectors.find((c) => c.id === 'mock')
+    : undefined;
 
   // Redirect to game once a wallet is connected.
   useEffect(() => {
@@ -25,6 +32,16 @@ export function EvmConnectPanel() {
 
   return (
     <div className="space-y-3">
+      {aliceConnector && (
+        <button
+          type="button"
+          onClick={() => connect({ connector: aliceConnector })}
+          disabled={isDevConnecting || isConnected}
+          className="bg-accent-warn/20 border border-accent-warn text-accent-warn px-8 py-3 font-bold hover:bg-accent-warn/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed clip-angular"
+        >
+          {isDevConnecting ? 'Connecting…' : 'Play as Alice (local dev)'}
+        </button>
+      )}
       <ConnectKitButton.Custom>
         {({ isConnected, isConnecting, show, truncatedAddress, ensName }) => (
           <button

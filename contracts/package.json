@@ -12,6 +12,8 @@
     "upgrade:dry-run": "DRY_RUN=true hardhat run scripts/upgrade.ts --network polkadotHubTestnet",
     "export-abi": "node scripts/exportABI.js",
     "node": "hardhat node",
+    "seed:local": "hardhat run scripts/seed-local.ts --network localhost",
+    "fast-forward": "hardhat run scripts/fast-forward.ts --network localhost",
     "setup:galaxy": "hardhat run scripts/setupGalaxyTest.ts --network localhost",
     "verify:testnet": "hardhat run scripts/verify.ts --network polkadotHubTestnet"
   },
