@@ -11,7 +11,7 @@ const frontendAbiDir = path.join(__dirname, '..', '..', 'frontend', 'src', 'cont
   }
 });
 
-const contracts = ['NexusGame', 'GameConfig'];
+const contracts = ['NexusGame', 'GameConfig', 'SessionRegistry'];
 
 contracts.forEach(contractName => {
   const artifactPath = path.join(

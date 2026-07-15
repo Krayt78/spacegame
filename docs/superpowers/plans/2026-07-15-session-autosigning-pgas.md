@@ -821,7 +821,25 @@ resolution at a malicious contract and take over any account."
 
 ---
 
-### Task 4: Deploy script and ABI pipeline
+### Task 4: Deploy script and ABI pipeline — ✅ DONE (2026-07-15)
+
+> **Verified:** local deploy places SessionRegistry before NexusGame and writes
+> it to `deployments/latest.json`; `sync-local-env` propagates it to
+> `.env.localhost`; `export-abi` emits the exact documented surface; `cdm.json`
+> carries `@nexus/session`; frontend typechecks and builds. The paseo-next-v2
+> deployer dry-runs clean against the live chain with the 3-arg constructor
+> (`DRY OK — EVM bytecode accepted`).
+>
+> **Notes for later tasks:**
+> - The nextv2 deployer needs `ASSET_HUB_WS=wss://paseo-asset-hub-next-rpc.polkadot.io`
+>   and `DEPLOY_NETWORK=next-v2` — it defaults to **summit**, and without them it
+>   silently hangs connecting to the wrong chain. Task 9 must pass these.
+> - `seed-local.ts` needed **no change** — it reads addresses from the
+>   deployment JSON rather than constructing NexusGame. Task 9's flagged risk
+>   does not materialise; verified by a full seed run.
+> - `.env.testnet` is gitignored (it holds a deployer mnemonic), so its
+>   `NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS` line is local-only and must be set by
+>   hand on each machine. `.env.devnet` is tracked and carries it.
 
 **Files:**
 - Modify: `contracts/scripts/deploy.ts` (`:39-45`)
@@ -836,7 +854,7 @@ resolution at a malicious contract and take over any account."
 - Consumes: `SessionRegistry` (Task 2), NexusGame's 3-arg constructor (Task 3).
 - Produces: `NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS` env var; `SESSION_REGISTRY_ADDRESS` and `sessionRegistryAbi` exported from `frontend/src/lib/contracts.ts`; `@nexus/session` library in `cdm.json`; `SessionRegistry` in `contracts/deployments/*.json`. Tasks 5-7 consume these.
 
-- [ ] **Step 1: Deploy the registry before NexusGame**
+- [x] **Step 1: Deploy the registry before NexusGame**
 
 In `contracts/scripts/deploy.ts`, insert before the NexusGame block (line 39) and update the NexusGame deploy:
 
@@ -863,7 +881,7 @@ In `contracts/scripts/deploy.ts`, insert before the NexusGame block (line 39) an
 
 Add `SessionRegistry: sessionRegistryAddress,` to the `contracts` object written into the deployments JSON, alongside the existing entries.
 
-- [ ] **Step 2: Export the registry ABI**
+- [x] **Step 2: Export the registry ABI**
 
 In `contracts/scripts/exportABI.js`, line 14:
 
@@ -871,7 +889,7 @@ In `contracts/scripts/exportABI.js`, line 14:
 const contracts = ['NexusGame', 'GameConfig', 'SessionRegistry'];
 ```
 
-- [ ] **Step 2b: Teach the paseo-next-v2 deployer about the registry**
+- [x] **Step 2b: Teach the paseo-next-v2 deployer about the registry**
 
 `frontend/scripts/deploy-contracts-nextv2.mjs` is the **real** deploy path for
 paseo-next-v2 (`contracts/scripts/deploy.ts` is hardhat/local). It hardcodes the
@@ -916,7 +934,7 @@ cd frontend && node scripts/deploy-contracts-nextv2.mjs dry
 Expected: the dry-run resolves all artifacts including `SessionRegistry` and
 reports no encoding errors.
 
-- [ ] **Step 3: Add the registry to the CDM manifest**
+- [x] **Step 3: Add the registry to the CDM manifest**
 
 In `frontend/scripts/generate-cdm.mjs`, add alongside the existing address reads (lines 31-32):
 
@@ -942,7 +960,7 @@ Add `"@nexus/session": 0,` to `dependencies`, and to `contracts`:
 
 Add `session=${short(sessionRegistryAddress)}` to the closing `console.log`.
 
-- [ ] **Step 4: Export the address and ABI to the app**
+- [x] **Step 4: Export the address and ABI to the app**
 
 In `frontend/src/lib/contracts.ts`, mirror the existing `NEXUS_GAME_ADDRESS` pattern exactly:
 
@@ -963,7 +981,7 @@ if (!process.env.NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS) missingVars.push('NEXT_PU
 export { nexusGameAbi, gameConfigAbi, sessionRegistryAbi };
 ```
 
-- [ ] **Step 5: Add the env var**
+- [x] **Step 5: Add the env var**
 
 Add to `frontend/.env.devnet` and `frontend/.env.testnet` (address filled in by Task 9's deploy; `sync-local-env.mjs` fills it for local):
 
@@ -994,7 +1012,7 @@ console.log(
 
 The existing loop appends any key missing from `.env.localhost`, so no separate edit to that file is needed.
 
-- [ ] **Step 6: Verify the pipeline end-to-end**
+- [x] **Step 6: Verify the pipeline end-to-end**
 
 ```bash
 cd contracts && npx hardhat compile && npm run export-abi
@@ -1016,7 +1034,7 @@ console.log('session address:', cdm.contracts['@nexus/session'].address);
 
 Expected: `libraries: @nexus/game, @nexus/config, @nexus/session` and the session address echoed back.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add contracts/scripts/deploy.ts contracts/scripts/exportABI.js frontend/scripts/generate-cdm.mjs frontend/scripts/sync-local-env.mjs frontend/src/lib/contracts.ts frontend/src/contracts/abi/SessionRegistry.json frontend/.env.devnet frontend/.env.testnet

@@ -32,6 +32,7 @@ if (deployment.chainId !== 31337) {
 const updates = {
   NEXT_PUBLIC_NEXUS_GAME_ADDRESS: deployment.contracts.NexusGame,
   NEXT_PUBLIC_GAME_CONFIG_ADDRESS: deployment.contracts.GameConfig,
+  NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS: deployment.contracts.SessionRegistry,
 };
 
 let env = fs.readFileSync(envPath, 'utf8');
@@ -42,5 +43,7 @@ for (const [key, value] of Object.entries(updates)) {
 }
 fs.writeFileSync(envPath, env);
 console.log(
-  `[sync-local-env] .env.localhost → NexusGame ${updates.NEXT_PUBLIC_NEXUS_GAME_ADDRESS}, GameConfig ${updates.NEXT_PUBLIC_GAME_CONFIG_ADDRESS}`,
+  `[sync-local-env] .env.localhost → NexusGame ${updates.NEXT_PUBLIC_NEXUS_GAME_ADDRESS}, ` +
+    `GameConfig ${updates.NEXT_PUBLIC_GAME_CONFIG_ADDRESS}, ` +
+    `SessionRegistry ${updates.NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS}`,
 );

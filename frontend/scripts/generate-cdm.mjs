@@ -30,6 +30,7 @@ const DEFAULT_HUB_WS = "wss://paseo-asset-hub-next-rpc.polkadot.io";
 
 const nexusGameAddress = process.env.NEXT_PUBLIC_NEXUS_GAME_ADDRESS;
 const gameConfigAddress = process.env.NEXT_PUBLIC_GAME_CONFIG_ADDRESS;
+const sessionRegistryAddress = process.env.NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS;
 const hubWs = process.env.NEXT_PUBLIC_HUB_WS_URL || DEFAULT_HUB_WS;
 
 if (!nexusGameAddress || !gameConfigAddress) {
@@ -57,6 +58,7 @@ function readAbi(relativePath) {
 
 const nexusGameAbi = readAbi("src/contracts/abi/NexusGame.json");
 const gameConfigAbi = readAbi("src/contracts/abi/GameConfig.json");
+const sessionRegistryAbi = readAbi("src/contracts/abi/SessionRegistry.json");
 
 // Flat CDM manifest shape consumed by @parity/product-sdk-contracts >=0.7
 // (the "flatten cdm.json" change, #161): top-level `dependencies` (name →
@@ -69,6 +71,7 @@ const cdm = {
   dependencies: {
     "@nexus/game": 0,
     "@nexus/config": 0,
+    "@nexus/session": 0,
   },
   contracts: {
     "@nexus/game": {
@@ -81,6 +84,11 @@ const cdm = {
       address: gameConfigAddress || ZERO,
       abi: gameConfigAbi,
     },
+    "@nexus/session": {
+      version: 0,
+      address: sessionRegistryAddress || ZERO,
+      abi: sessionRegistryAbi,
+    },
   },
 };
 
@@ -90,5 +98,6 @@ writeFileSync(outPath, JSON.stringify(cdm, null, 2) + "\n");
 const short = (addr) => (addr && addr !== ZERO ? `${addr.slice(0, 10)}…` : "ZERO");
 console.log(
   `[generate-cdm] wrote ${relative(frontendDir, outPath)} ` +
-    `(game=${short(nexusGameAddress)}, config=${short(gameConfigAddress)}, hub=${hubWs})`,
+    `(game=${short(nexusGameAddress)}, config=${short(gameConfigAddress)}, ` +
+    `session=${short(sessionRegistryAddress)}, hub=${hubWs})`,
 );

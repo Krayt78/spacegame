@@ -11,7 +11,8 @@
 //
 // Deploy graph (mirrors contracts/scripts/deploy.ts):
 //   GameConfig() → GameState impl() → ERC1967Proxy(impl, initialize()) →
-//   NexusGame(state, config) → PlanetManager/ShipManager(game, state, config) →
+//   SessionRegistry() → NexusGame(state, config, sessionRegistry) →
+//   PlanetManager/ShipManager(game, state, config) →
 //   CombatEngine(config) → FleetResolver(state, config, combat) →
 //   FleetManager(game, state, config, resolver) →
 //   ResearchManager/DefenseManager/TutorialManager(game, state, config)
@@ -101,6 +102,7 @@ const A = {
   GameConfig: loadArtifact("contracts/GameConfig.sol", "GameConfig"),
   GameState: loadArtifact("contracts/GameState.sol", "GameState"),
   ERC1967Proxy: loadArtifact("@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol", "ERC1967Proxy"),
+  SessionRegistry: loadArtifact("contracts/SessionRegistry.sol", "SessionRegistry"),
   NexusGame: loadArtifact("contracts/NexusGame.sol", "NexusGame"),
   PlanetManager: loadArtifact("contracts/PlanetManager.sol", "PlanetManager"),
   ShipManager: loadArtifact("contracts/ShipManager.sol", "ShipManager"),
@@ -227,8 +229,9 @@ async function main() {
     const impl = await dryInstantiate("GameState(impl)", A.GameState.code);
     await dryInstantiate("ERC1967Proxy(GameState)",
       withCtor(A.ERC1967Proxy, ["address", "bytes"], [impl.addr, `0x${Buffer.from(initData).toString("hex")}`]));
+    await dryInstantiate("SessionRegistry", withCtor(A.SessionRegistry, [], []));
     await dryInstantiate("NexusGame",
-      withCtor(A.NexusGame, ["address", "address"], [impl.addr, cfg.addr]));
+      withCtor(A.NexusGame, ["address", "address", "address"], [impl.addr, cfg.addr, impl.addr]));
     // The two heavyweights (per CLAUDE.md FleetResolver is at 96% of the
     // EVM 24KB limit) — make sure their instantiates fit the extrinsic cap.
     await dryInstantiate("FleetResolver",
@@ -270,38 +273,44 @@ async function main() {
     log("deployer already mapped.");
   }
 
-  log("[1/12] GameConfig");
+  log("[1/13] GameConfig");
   const gameConfig = await submitInstantiate("GameConfig", A.GameConfig.code);
-  log("[2/12] GameState (implementation)");
+  log("[2/13] GameState (implementation)");
   const gameStateImpl = await submitInstantiate("GameState(impl)", A.GameState.code);
-  log("[3/12] ERC1967Proxy(GameState, initialize)");
+  log("[3/13] ERC1967Proxy(GameState, initialize)");
   const gameState = await submitInstantiate("GameState(proxy)",
     withCtor(A.ERC1967Proxy, ["address", "bytes"], [gameStateImpl, `0x${Buffer.from(initData).toString("hex")}`]));
-  log("[4/12] NexusGame(state, config)");
+  // SessionRegistry must precede NexusGame — the router holds it as an
+  // immutable, so its address has to exist before the router is constructed.
+  log("[4/13] SessionRegistry()");
+  const sessionRegistry = await submitInstantiate("SessionRegistry",
+    withCtor(A.SessionRegistry, [], []));
+
+  log("[5/13] NexusGame(state, config, sessionRegistry)");
   const nexusGame = await submitInstantiate("NexusGame",
-    withCtor(A.NexusGame, ["address", "address"], [gameState, gameConfig]));
-  log("[5/12] PlanetManager");
+    withCtor(A.NexusGame, ["address", "address", "address"], [gameState, gameConfig, sessionRegistry]));
+  log("[6/13] PlanetManager");
   const planetManager = await submitInstantiate("PlanetManager",
     withCtor(A.PlanetManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[6/12] ShipManager");
+  log("[7/13] ShipManager");
   const shipManager = await submitInstantiate("ShipManager",
     withCtor(A.ShipManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[7/12] CombatEngine(config)");
+  log("[8/13] CombatEngine(config)");
   const combatEngine = await submitInstantiate("CombatEngine",
     withCtor(A.CombatEngine, ["address"], [gameConfig]));
-  log("[8/12] FleetResolver(state, config, combat)");
+  log("[9/13] FleetResolver(state, config, combat)");
   const fleetResolver = await submitInstantiate("FleetResolver",
     withCtor(A.FleetResolver, ["address", "address", "address"], [gameState, gameConfig, combatEngine]));
-  log("[9/12] FleetManager(game, state, config, resolver)");
+  log("[10/13] FleetManager(game, state, config, resolver)");
   const fleetManager = await submitInstantiate("FleetManager",
     withCtor(A.FleetManager, ["address", "address", "address", "address"], [nexusGame, gameState, gameConfig, fleetResolver]));
-  log("[10/12] ResearchManager");
+  log("[11/13] ResearchManager");
   const researchManager = await submitInstantiate("ResearchManager",
     withCtor(A.ResearchManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[11/12] DefenseManager");
+  log("[12/13] DefenseManager");
   const defenseManager = await submitInstantiate("DefenseManager",
     withCtor(A.DefenseManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[12/12] TutorialManager");
+  log("[13/13] TutorialManager");
   const tutorialManager = await submitInstantiate("TutorialManager",
     withCtor(A.TutorialManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
 
@@ -330,6 +339,7 @@ async function main() {
       GameConfig: gameConfig,
       GameState: gameState,
       GameStateImplementation: gameStateImpl,
+      SessionRegistry: sessionRegistry,
       NexusGame: nexusGame,
       PlanetManager: planetManager,
       ShipManager: shipManager,
