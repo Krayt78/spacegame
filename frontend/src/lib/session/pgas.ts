@@ -19,12 +19,40 @@ export const PGAS_ASSET_ID = 2_000_000_000;
 
 /**
  * PGAS ERC-20 precompile: asset id as 4 BE bytes ++ 12 zero bytes ++ prefix
- * 0x0120 ++ 2 zero bytes. Transfers MUST go through this, not Assets.transfer,
- * which would break the all-Revive rule and forfeit fee-free status.
+ * 0x0120 ++ 2 zero bytes. Confirmed live: totalSupply() equals Assets.Asset supply.
  *
- * Confirmed live: totalSupply() here equals the Assets.Asset supply.
+ * ONLY USABLE FOR RECIPIENTS pallet-revive CAN RESOLVE — i.e. accounts already in
+ * `Revive.OriginalAccount`. That's the product account (mapped when claim_pgas
+ * created it), so the teardown drain uses this and stays free (a lone Revive
+ * call → ChargePGAS covers it).
+ *
+ * DO NOT use it to fund a fresh session key. A session key's H160 is
+ * keccak256(pubkey)[12..] — one-way — so pallet-revive cannot resolve it to the
+ * key and instead credits the `h160 ++ 0xEE*12` fallback, an account with no
+ * private key. The key then signs from its SS58, ChargePGAS reads 0 there, and
+ * the pool rejects with Invalid::Payment. Use `Assets.transfer` to the SS58
+ * instead — see useNexusSession's setup batch.
  */
 export const PGAS_ERC20 = '0x7735940000000000000000000000000001200000' as const;
+
+/**
+ * PGAS as a fee-asset Location, for paying a non-Revive tx through the
+ * DOT↔PGAS AssetConversion pool (papi's `asset:` option → the chain's
+ * `ChargeAssetTxPayment` extension). Shape matches the live pool key.
+ *
+ * This is what makes the setup batch cost zero native despite containing
+ * `Assets.transfer`, which is not ChargePGAS-eligible.
+ */
+export const PGAS_FEE_LOCATION = {
+  parents: 0,
+  interior: {
+    type: 'X2' as const,
+    value: [
+      { type: 'PalletInstance' as const, value: 50 },
+      { type: 'GeneralIndex' as const, value: BigInt(PGAS_ASSET_ID) },
+    ],
+  },
+};
 
 /** Fraction of the on-chain claim amount moved to the session key. */
 const SESSION_FUNDING_RATIO_PCT = 20n;

@@ -21,7 +21,9 @@ import {
   type NexusSession,
 } from '@/lib/session/sessionKeys';
 import {
+  PGAS_ASSET_ID,
   PGAS_ERC20,
+  PGAS_FEE_LOCATION,
   getPgasBalance,
   getSessionFundingAmount,
   hexToBytes,
@@ -222,20 +224,31 @@ export function useNexusSession(): UseNexusSessionResult {
         key.ss58Address,
       );
 
-      // 3. The one prompt: an all-Revive batch_all, therefore fee-free.
+      // 3. The one prompt.
+      //
+      // Fund the session's SS58 with Assets.transfer — NOT its h160 via the
+      // PGAS ERC-20 precompile. The h160 is keccak256(pubkey)[12..], which
+      // pallet-revive cannot invert, so a precompile transfer credits the
+      // `h160 ++ 0xEE*12` fallback (an account with no private key); the key
+      // then signs from its SS58, ChargePGAS reads 0 and the pool rejects with
+      // Invalid::Payment. PGAS is a *sufficient* asset, so receipt at the SS58
+      // creates that account -> OnNewAccount -> AutoMapper maps the real key.
+      // One call funds it AND mints the mapping.
+      //
+      // Cost: a batch containing Assets.transfer fails the ChargePGAS filter,
+      // so this one tx pays via the DOT<->PGAS pool (`asset:` below) — ~0.45%
+      // of a claim. Still one prompt, still zero native. Gameplay stays free:
+      // each action is a lone Revive.call.
+      //
+      // Verified live 2026-07-15; see the spec's "RESOLVED RISK" section.
       const funding = await getSessionFundingAmount();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const api = (await getTypedApi()) as any;
 
-      const fundData = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [key.h160Address, funding],
-      });
       const registerData = encodeFunctionData({
         abi: sessionRegistryAbi as Abi,
         functionName: 'registerSession',
-        args: [key.h160Address],
+        args: [key.h160Address], // the registry keys on h160 — that IS msg.sender
       });
 
       // dest is SizedHex<20> (a hex string) in the current metadata, not bytes
@@ -252,7 +265,11 @@ export function useNexusSession(): UseNexusSessionResult {
 
       const batch = api.tx.Utility.batch_all({
         calls: [
-          reviveCall(PGAS_ERC20, fundData).decodedCall,
+          api.tx.Assets.transfer({
+            id: PGAS_ASSET_ID,
+            target: { type: 'Id', value: key.ss58Address },
+            amount: funding,
+          }).decodedCall,
           reviveCall(SESSION_REGISTRY_ADDRESS, registerData).decodedCall,
         ],
       });
@@ -261,7 +278,11 @@ export function useNexusSession(): UseNexusSessionResult {
         block?: { number?: number };
         events?: Array<{ type: string; value?: { type?: string } }>;
       };
-      const result = (await batch.signAndSubmit(hostSigner)) as SubmitResult;
+      // `asset` routes the fee through the DOT<->PGAS pool. Without it this
+      // falls back to native, and a PGAS-only product account cannot pay.
+      const result = (await batch.signAndSubmit(hostSigner, {
+        asset: PGAS_FEE_LOCATION,
+      })) as SubmitResult;
 
       const failedEvent = (result.events ?? []).find(
         (e) => e.type === 'System' && e.value?.type === 'ExtrinsicFailed',
@@ -272,6 +293,18 @@ export function useNexusSession(): UseNexusSessionResult {
       const onChain = await readSessionOf(address);
       if (!sameH160(onChain, key.h160Address)) {
         throw new Error('Setup batch landed but the session is not registered.');
+      }
+
+      // The PGAS must be at the session's SS58 — that's the account ChargePGAS
+      // charges. If a future change reintroduces the precompile hop, the funds
+      // land on the 0xEE fallback and this check fails loudly here instead of
+      // as an opaque Invalid::Payment on the player's first move.
+      const sessionPgas = await getPgasBalance(key.ss58Address);
+      if (sessionPgas === 0n) {
+        throw new Error(
+          'Session registered but its PGAS balance is 0 — funding did not reach the session key. ' +
+            'Fund the SS58 with Assets.transfer, never the h160 via the ERC-20 precompile.',
+        );
       }
 
       const createdAt = Date.now();
@@ -311,6 +344,11 @@ export function useNexusSession(): UseNexusSessionResult {
 
       // Drain the session's PGAS back (silent, fee-free, session-signed).
       // The account is sufficient-asset-only, so there's no ED to strand.
+      //
+      // The precompile is CORRECT here, unlike in setup: the product account is
+      // already mapped (claim_pgas created it), so pallet-revive resolves its
+      // h160 to the real account. And being a lone Revive.call, ChargePGAS
+      // covers the fee from the session's own PGAS — so this stays free.
       if (session) {
         try {
           const remaining = await getPgasBalance(session.ss58Address);
