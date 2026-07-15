@@ -10,6 +10,27 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-15-session-autosigning-pgas-design.md`
 
+> ## ⚠️ SUPERSEDED IN PART — the funding call is wrong (2026-07-15)
+>
+> Tasks 1-9 are implemented, but the **live host run found that the precompile
+> funding path cannot work**. A session key's H160 is `keccak256(pubkey)[12..]`
+> (one-way), so the ERC-20 transfer credits the `h160 ++ 0xEE*12` fallback — an
+> account with no private key. The session then signs from its SS58, ChargePGAS
+> reads 0, and the pool rejects with `Invalid::Payment`.
+>
+> **Fix (live-verified end-to-end):** in the setup batch, replace
+> `Revive.call(PGAS_ERC20, transfer(session.h160, X))` with
+> `Assets.transfer({ id: 2_000_000_000, target: session.ss58Address, amount: X })`
+> and sign the batch `{ asset: PGAS_LOCATION }`. Still ONE prompt, still zero
+> native; costs ~2.3e8 PGAS (≈0.45% of a claim) because a mixed batch isn't
+> ChargePGAS-eligible. Gameplay stays free.
+>
+> The teardown drain keeps the precompile — the product account IS mapped, so it
+> resolves correctly and stays free. Only funding a fresh key was broken.
+>
+> Task 1's gate tested a *native* transfer to an SS58, which maps fine and proved
+> nothing about the precompile path. See the spec's "RESOLVED RISK" section.
+
 ## Global Constraints
 
 - Branch: `session-autosigning-pgas`. Never commit to `main` or `trinity-version`.

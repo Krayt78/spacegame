@@ -9,6 +9,9 @@ Status: Approved, ready for implementation planning
 One prompt to start playing, then every game action signs silently **and costs
 nothing** — no wallet popups mid-game, no native PAS anywhere.
 
+(Setup itself costs ≈0.45% of one PGAS claim — see "RESOLVED RISK". Gameplay is
+genuinely free, and zero native holds throughout.)
+
 Source material: `gaming-retreat-2026/session-autosigning-with-pgas.md` and its
 implementation guide at `gaming-retreat-2026/.claude/skills/session-autosigning/`.
 
@@ -55,10 +58,12 @@ presence of: `AsPgas` signed extension, `Pgas` pallet, `PgasClaimAmount`,
 | Constant | Value |
 |---|---|
 | PGAS asset id | `2_000_000_000` |
-| PGAS ERC-20 precompile | `0x7735940000000000000000000000000001200000` |
+| PGAS ERC-20 precompile | `0x7735940000000000000000000000000001200000` — **only for MAPPED recipients** (teardown drain); cannot fund a fresh session key, see "RESOLVED RISK" |
+| PGAS fee-asset Location (pool route) | `{ parents: 0, interior: X2[PalletInstance(50), GeneralIndex(2_000_000_000)] }` |
 | PGAS claim amount | read from chain (`Pgas.PgasClaimAmount`) — **do not hardcode** |
 | Product account derivation index | `PRODUCT_ACCOUNT_INDEX = 0` (`frontend/src/lib/triangle/productIdentifier.ts:36`) |
 | ChargePGAS-free calls | `Revive.call` + all-Revive `Utility` batches only |
+| Signed extensions | **both** `AsPgas` (free path) and `ChargeAssetTxPayment` (pool path, papi's `asset:` option) |
 
 ## Contract design
 
@@ -212,9 +217,11 @@ Inherited for free: real dry-run gas estimation, the best-block nonce fix
                                            → match: resume silently, no prompt
                                            → mismatch: clear + re-run setup
    (compare by bytes, not SS58 strings)
-5. Setup batch_all — THE one prompt, fee-free (all-Revive):
-     Revive.call(PGAS_ERC20, transfer(session.h160Address, SESSION_PGAS))
-     Revive.call(REGISTRY,   registerSession(session.h160Address))
+5. Setup batch_all — THE one prompt, zero native, small PGAS fee via the pool:
+     Assets.transfer(PGAS -> session.ss58Address, SESSION_PGAS)  <- funds AND maps
+     Revive.call(REGISTRY, registerSession(session.h160Address))
+   ...signed { asset: PGAS_LOCATION }. NOT the ERC-20 precompile — see
+   "RESOLVED RISK" below; it cannot reach an unmapped sr25519 key.
 6. Teardown: session-signed PGAS drain (silent, free)
            + product-signed revokeSession() (one prompt)
            + keys.clear()
@@ -247,25 +254,79 @@ no host, so EVM mode keeps direct wagmi signing. Because `resolve()` returns
 `msg.sender` for unregistered EOAs, contracts behave identically there — the
 "Play as Alice" local flow is unaffected.
 
-## Open risk (verify first)
+## RESOLVED RISK — the precompile funding path is broken (2026-07-15)
 
-**`map_account` is not free** — it is not a `Revive` call, so it falls outside
-`ChargePGAS`. If the product account needs an explicit `Revive.map_account`
-before its first contract call, the zero-native claim is punctured.
+**Status: found live, root-caused, fixed design verified end-to-end.**
 
-The expected escape is `AutoMap` (`OnNewAccount = pallet_revive::AutoMapper`,
-`AutoMap = true`): `claim_pgas` creating the product account should auto-map it,
-making the existing `ensureMapped` call an idempotent no-op read. The session key
-is likewise auto-mapped on receiving PGAS via the precompile.
+The setup batch above (PGAS ERC-20 precompile → `session.h160Address`) **cannot
+work**, and this was found only by running it in the host:
 
-**The source skill lists exactly this as its one unvalidated item:** *"Residual:
-exercise the precompile-transfer → session-key-signs-first-call path once
-end-to-end."*
+- A session key's H160 is `keccak256(sr25519_pubkey)[12..]` — `product-sdk`'s own
+  `h160.ts` calls it a **"One-way mapping"**. pallet-revive cannot invert it.
+- So the ERC-20 transfer resolves the recipient through its only route: the
+  `h160 ++ 0xEE*12` fallback — **an account whose private key does not exist**.
+- The session key then signs from its **SS58**; `ChargePGAS` reads that account,
+  finds 0, and the pool rejects with `Invalid::Payment`.
 
-**Therefore: verify this against the live chain as implementation step 1**,
-before contract work. If AutoMap does not fire for the product account, "zero
-native" needs rethinking, and that must surface on day one — not after the
-contracts are redeployed.
+`AutoMap` is real but was misread by the skill (and by this spec): it fires on
+`OnNewAccount`, so it maps whichever account the transfer *creates* — the `0xEE`
+fallback, never the sr25519 key.
+
+**Task 1's gate tested the wrong path.** It funded a fresh SS58 with a *native*
+transfer, which creates and maps that account — proving nothing about the
+precompile path the design actually uses. The skill's residual (*"exercise the
+precompile-transfer → session-key-signs-first-call path once end-to-end"*) was
+copied into the plan and then not discharged.
+
+### The fix (live-verified on paseo-next-v2)
+
+Fund the session's **SS58 with `Assets.transfer`**, not its H160 via the
+precompile. PGAS is a *sufficient* asset, so receipt creates the account →
+`OnNewAccount` → `AutoMapper` maps the real key. One call funds it and mints the
+mapping.
+
+Setup stays **one prompt and zero native**, but is no longer free: a batch
+containing `Assets.transfer` fails the ChargePGAS filter, so it pays through the
+DOT↔PGAS pool via papi's `asset:` option (~2.3 × 10⁸ PGAS planck, ≈0.45% of one
+claim). **Gameplay remains free** — each action is a lone `Revive.call`.
+
+```ts
+const batch = api.tx.Utility.batch_all({ calls: [
+  api.tx.Assets.transfer({ id: 2_000_000_000, target: { type: 'Id', value: session.ss58Address }, amount: SESSION_PGAS }).decodedCall,
+  reviveCall(REGISTRY, registerSessionData).decodedCall,
+]})
+await batch.signAndSubmit(productSigner, { asset: PGAS_LOCATION })
+```
+
+Verified end-to-end: `batch ok=true`, **0 native spent**, session funded
+20,000,000,000, **mapped to the real key**, **registered** — then the session key
+signed a `Revive.call` with ChargePGAS paying from its own PGAS (burned
+430,522,096).
+
+**Direction matters.** The precompile is fine for *mapped* recipients, so the
+teardown drain (session → product) still uses it and stays free. Only funding a
+fresh, unmapped key is broken.
+
+### Evidence
+
+3,432 of 7,768 PGAS holders on paseo-next-v2 are stranded `0xEE` fallback
+accounts. Of 40 sampled real-key holders, 27 had zero native and **all 27 were
+mapped** (`providers=0, sufficients=1`) — zero counterexamples.
+
+### Also learned
+
+- **`AutoSigning` returns `NotAvailable`** on next-v2 (confirmed by dotrivals and
+  dungeon-crawler). Its codec carries `{ productDerivationSecret,
+  productRootPrivateKey }` — it would let the session account be derived inside
+  the product subtree, so `SmartContractAllowance` could mint straight to it and
+  this whole problem disappears. Worth re-checking before building more.
+- **PGAS is purchasable**: the DOT↔PGAS pool is permissionless both ways (50 PAS
+  → 60 × 10⁹ PGAS planck, no personhood check). Personhood gates who gets it
+  *free*, not who can get it.
+- Sovereignty — the only shipped session implementation — **avoids PGAS entirely**,
+  funding with native PAS + `pallet_proxy` specifically to dodge this trap. Its
+  design doc: *"Session account does NOT need `map_account`… it never appears as
+  a Revive origin."*
 
 ## Testing
 
