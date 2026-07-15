@@ -36,10 +36,24 @@ async function main() {
   const gameState = GameState.attach(gameStateAddress);
   console.log("GameState proxy deployed to:", gameStateAddress);
 
-  // 3. Deploy NexusGame (Router) with GameState and GameConfig
+  // 2b. Deploy SessionRegistry — must precede NexusGame, which holds it as an
+  //     immutable. Session keys registered here resolve to their owner in the
+  //     router.
+  console.log("\n2b. Deploying SessionRegistry...");
+  const SessionRegistry = await ethers.getContractFactory("SessionRegistry");
+  const sessionRegistry = await SessionRegistry.deploy();
+  await sessionRegistry.waitForDeployment();
+  const sessionRegistryAddress = await sessionRegistry.getAddress();
+  console.log("SessionRegistry deployed to:", sessionRegistryAddress);
+
+  // 3. Deploy NexusGame (Router) with GameState, GameConfig and SessionRegistry
   console.log("\n3. Deploying NexusGame (Router)...");
   const NexusGame = await ethers.getContractFactory("NexusGame");
-  const nexusGame = await NexusGame.deploy(gameStateAddress, gameConfigAddress);
+  const nexusGame = await NexusGame.deploy(
+    gameStateAddress,
+    gameConfigAddress,
+    sessionRegistryAddress
+  );
   await nexusGame.waitForDeployment();
   const nexusGameAddress = await nexusGame.getAddress();
   console.log("NexusGame deployed to:", nexusGameAddress);
@@ -143,6 +157,7 @@ async function main() {
       GameConfig: gameConfigAddress,
       GameState: gameStateAddress,
       GameStateImplementation: gameStateImplAddress,
+      SessionRegistry: sessionRegistryAddress,
       NexusGame: nexusGameAddress,
       PlanetManager: planetManagerAddress,
       ShipManager: shipManagerAddress,

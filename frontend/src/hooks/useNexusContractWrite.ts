@@ -3,31 +3,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { Binary, type PolkadotSigner } from 'polkadot-api';
-import { encodeFunctionData, type Abi } from 'viem';
+import { type PolkadotSigner } from 'polkadot-api';
+import { type Abi } from 'viem';
 
 import { APP_MODE } from '@/lib/mode';
 import { useTriangle } from '@/hooks/useTriangle';
 import { ensureMapped, getContractManager } from '@/lib/triangle/contractManager';
 import { getTypedApi } from '@/lib/triangle/chainClient';
-import { getSessionWalletManager } from '@/lib/session/sessionWallet';
+import {
+  getStoredSessionKey,
+  getSessionCreatedAt,
+  SESSION_EXPIRY_MS,
+} from '@/lib/session/sessionKeys';
 import {
   NEXUS_GAME_ADDRESS,
   GAME_CONFIG_ADDRESS,
   nexusGameAbi,
   gameConfigAbi,
 } from '@/lib/contracts';
-
-// Conservative defaults for the inner Revive.call when we skip dry-run in
-// session mode. Sized for `@nexus/game` writes (claim, upgrade, build,
-// dispatch). Matches Sovereignty's session-mode defaults. If NotEnoughGas
-// surfaces in practice, bump these — the proxied dispatch only spends what it
-// needs, but the weight limit must be at least that much.
-const SESSION_REVIVE_REF_TIME = 500_000_000_000n;
-const SESSION_REVIVE_PROOF_SIZE = 2_000_000n;
-const SESSION_REVIVE_STORAGE_DEPOSIT = 10_000_000_000n;
-
-const sessionManager = getSessionWalletManager();
 
 /**
  * Process-wide memoization of accounts we've already run `Revive.map_account`
@@ -167,13 +160,24 @@ const idleState = {
  * Every write hook in `useNexusGame.ts` is a thin wrapper around the
  * mode-routed `useNexusContractWrite` (bottom of file); in host mode it
  * resolves to this. Responsibilities:
- *   - Pull the active PolkadotSigner from the global SignerManager.
- *   - Run `ensureMapped` once per process per address (idempotent on chain).
+ *   - Pick the signer: a live session key if one is stored (silent, fee-free
+ *     via PGAS), else the host product-account signer (prompts).
+ *   - Run `ensureMapped` once per process per origin (idempotent on chain).
  *   - Submit via the typed contract handle from `ContractManager` — which
  *     internally runs the `ReviveApi.call` dry-run + `signSubmitAndWatch`.
  *   - Surface a wagmi-shaped `{ hash, isPending, isConfirming, isSuccess,
  *     error, reset }` so existing UI buttons don't need to move.
  *   - Invalidate the named read-query keys after best-block inclusion.
+ *
+ * `address` is the PLAYER (the product account); `origin` is whoever signs.
+ * They differ exactly when a session is active — NexusGame reconciles them by
+ * resolving the caller through the SessionRegistry.
+ *
+ * The stored key is used without re-checking its on-chain registration on every
+ * write: `useNexusSession` validates on restore, and `useNexusSessionHealth`
+ * polls it. If it is revoked mid-session from elsewhere, the write reverts
+ * ("Not your planet") with the reason recovered and reads resynced — a loud,
+ * recoverable failure rather than silent misattribution.
  *
  * Call signatures supported:
  *   - `call('@nexus/game', 'upgradeBuilding', [planetId, type])`  (preferred)
@@ -202,8 +206,8 @@ function useNexusContractWriteHost(
       // In host mode this is the product-account signer (signs across chains
       // including our dotters Paseo Asset Hub). In dev mode it's the
       // DevProvider's Alice signer. See useTriangle.ts for the switch.
-      const signer = getSigner();
-      if (!signer) {
+      const hostSigner = getSigner();
+      if (!hostSigner) {
         setS({ ...idleState, error: new Error('No signer available') });
         return;
       }
@@ -219,120 +223,43 @@ function useNexusContractWriteHost(
       };
 
       try {
-        // Was this call site's first write per process? If so, we just
-        // submitted Revive.map_account and need to retry the dry-run below
-        // because best-block inclusion of map_account doesn't always
-        // propagate to the runtime API view (`ReviveApi.call`) immediately.
-        let justMapped = false;
-        if (!mappedAddresses.has(address)) {
-          await ensureMapped(address, signer);
-          mappedAddresses.add(address);
-          justMapped = true;
+        // Session path: a registered session key signs a plain Revive.call and
+        // NexusGame resolves it to this player through the registry. That's
+        // exactly what ContractManager builds — so unlike the old pallet_proxy
+        // flavor, no bypass is needed. Just a different signer and origin, and
+        // we inherit dry-run gas sizing, the best-block nonce fix,
+        // revert-reason recovery and the retry classes.
+        //
+        // Limited to '@nexus/game': '@nexus/config' writes are admin-only and
+        // don't benefit from prompt-free UX.
+        let signer = hostSigner;
+        let origin = address;
+
+        if (library === '@nexus/game') {
+          const key = await getStoredSessionKey();
+          const createdAt = key ? await getSessionCreatedAt() : null;
+          const live =
+            !!key && !!createdAt && Date.now() - createdAt <= SESSION_EXPIRY_MS;
+          if (key && live) {
+            signer = key.signer;
+            origin = key.ss58Address;
+          }
         }
 
-        // Session path: when a session wallet is active for this main account,
-        // wrap the contract call in `Proxy.proxy({ real: main, call:
-        // Revive.call(...) })` and sign locally with the session keypair.
-        // pallet_proxy flips origin to `real` at the runtime level, so the
-        // contract sees `msg.sender = main` exactly as in the host path.
-        // ContractManager.tx() doesn't let us inject the Proxy wrapper around
-        // its internal Revive.call, so for session mode we bypass it and
-        // build the extrinsic directly via PAPI's typed API.
+        // Was this origin's first write per process? If so we may have just
+        // submitted Revive.map_account and need to retry the dry-run below,
+        // because best-block inclusion doesn't always propagate to the runtime
+        // API view (`ReviveApi.call`) immediately.
         //
-        // Limited to '@nexus/game' — '@nexus/config' writes are admin-only
-        // and don't benefit from prompt-free UX.
-        const sessionData = sessionManager.restore(address);
-        const useSessionPath =
-          library === '@nexus/game' &&
-          sessionData?.isReady === true &&
-          sessionManager.timeRemaining(sessionData) > 0;
-
-        if (useSessionPath && sessionData) {
-          setS({ ...idleState, isPending: false, isConfirming: true });
-          const sessionSigner = sessionManager.getSigner(sessionData);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const api = (await getTypedApi()) as any;
-
-          const calldata = encodeFunctionData({
-            abi: nexusGameAbi as Abi,
-            functionName: method,
-            args: args as never,
-          });
-
-          // dest is `SizedHex<20>` (a hex string) in the current metadata, not
-          // bytes — passing Binary.fromHex(...) makes isCompat reject the
-          // outer Proxy.proxy because its `call: TxCallData` validates the
-          // inner extrinsic's args recursively. data is still `Uint8Array`,
-          // which Binary.fromHex satisfies.
-          const inner = api.tx.Revive.call({
-            dest: NEXUS_GAME_ADDRESS,
-            value: 0n,
-            weight_limit: {
-              ref_time: SESSION_REVIVE_REF_TIME,
-              proof_size: SESSION_REVIVE_PROOF_SIZE,
-            },
-            storage_deposit_limit: SESSION_REVIVE_STORAGE_DEPOSIT,
-            data: Binary.fromHex(calldata),
-          });
-
-          const proxied = api.tx.Proxy.proxy({
-            real: { type: 'Id', value: address },
-            force_proxy_type: undefined,
-            call: inner.decodedCall,
-          });
-
-          type SessionSubmitResult = {
-            block?: { number?: number; hash?: string };
-            events?: Array<{ type: string; value?: { type?: string } }>;
-          };
-          const result = (await proxied.signAndSubmit(
-            sessionSigner,
-          )) as SessionSubmitResult;
-
-          const events = result.events ?? [];
-          const failed = events.find(
-            (e) => e.type === 'System' && e.value?.type === 'ExtrinsicFailed',
-          );
-          if (failed) {
-            throw new Error(
-              `Tx failed (outer): ${JSON.stringify(failed.value)}`,
-            );
-          }
-          // Proxy.ProxyExecuted carries the inner dispatch result. In the
-          // current runtime its event shape is `{ result: { success: bool,
-          // value?: DispatchError } }`. If the inner Revive.call reverted,
-          // the outer extrinsic still succeeds (the proxy invocation itself
-          // didn't fail) — only this field tells us about the inner result.
-          const proxyExecuted = events.find(
-            (e) => e.type === 'Proxy' && e.value?.type === 'ProxyExecuted',
-          ) as
-            | {
-                value?: {
-                  value?: {
-                    result?: { success?: boolean; value?: unknown };
-                  };
-                };
-              }
-            | undefined;
-          const innerResult = proxyExecuted?.value?.value?.result;
-          if (innerResult && innerResult.success === false) {
-            // Inner revert = on-chain state disagrees with what the UI showed;
-            // resync reads so the user isn't invited to retry against it.
-            invalidateReads();
-            throw new Error(
-              `Tx failed (inner): ${JSON.stringify(innerResult.value)}`,
-            );
-          }
-
-          setS({
-            hash: result.block?.hash as `0x${string}` | undefined,
-            isPending: false,
-            isConfirming: false,
-            isSuccess: true,
-            error: undefined,
-          });
-          invalidateReads();
-          return;
+        // With AutoMap on (verified live in scripts/verify-pgas.mjs) both the
+        // product account and the session key are already mapped — the session
+        // key auto-maps on receiving PGAS — so this is normally just an
+        // idempotent storage read.
+        let justMapped = false;
+        if (!mappedAddresses.has(origin)) {
+          await ensureMapped(origin, signer);
+          mappedAddresses.add(origin);
+          justMapped = true;
         }
 
         const manager = await getContractManager();
@@ -369,8 +296,8 @@ function useNexusContractWriteHost(
               // prepare() runs the same dry-run/gas estimation as tx(), but
               // hands back the unsubmitted PAPI tx so we can inject a
               // best-block nonce (see submitWithBestNonce).
-              const prepared = await fn.prepare(...args, { origin: address });
-              return await submitWithBestNonce(prepared, signer, address);
+              const prepared = await fn.prepare(...args, { origin });
+              return await submitWithBestNonce(prepared, signer, origin);
             } catch (e) {
               const msg = e instanceof Error ? e.message : String(e);
               const retryable =
@@ -389,7 +316,7 @@ function useNexusContractWriteHost(
           // re-run the dry-run at the current best block to recover it.
           let reason: string | undefined;
           try {
-            const rerun = await fn.query(...args, { origin: address });
+            const rerun = await fn.query(...args, { origin });
             if (!rerun.success) reason = rerun.value?.reason;
           } catch {
             // Reason recovery is best-effort; the dispatch error still surfaces.
@@ -467,7 +394,7 @@ function useNexusContractWriteHost(
  * EVM-mode write path. Same public surface as the host impl, but backed by
  * wagmi's `useWriteContract` + `useWaitForTransactionReceipt` over eth-rpc.
  * Signing is the injected wallet (MetaMask / Talisman). None of the host
- * machinery (account mapping, session-wallet Proxy.proxy, ReviveApi dry-runs)
+ * machinery (account mapping, session-key signing, ReviveApi dry-runs)
  * applies — the EVM RPC handles gas/nonce and the contract sees
  * `msg.sender = the wallet's H160` natively.
  */

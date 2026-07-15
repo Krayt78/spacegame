@@ -1,21 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Zap, ZapOff, Loader2, AlertTriangle } from 'lucide-react';
 
 import { isHostMode } from '@/lib/mode';
 import { useSessionContext } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui';
-import { SESSION_FUNDING_AMOUNT } from '@/lib/session/sessionWallet';
+import { formatUnits } from 'viem';
+
+import { getPgasDecimals } from '@/lib/session/pgas';
 import { cn } from '@/lib/utils';
 
-const PAS_DECIMALS = 10n ** 10n;
-
-function formatPas(planck: bigint): string {
-  const whole = planck / PAS_DECIMALS;
-  const frac = (planck % PAS_DECIMALS) / 10_000_000n; // 3 decimals
-  return `${whole}.${frac.toString().padStart(3, '0')}`;
-}
+// PGAS decimals come from chain metadata rather than a constant. It currently
+// has NO metadata on paseo-next-v2 (decimals = 0), so balances render raw —
+// but reading it means display follows automatically if metadata is ever set.
 
 function formatTimeLeft(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -50,9 +48,15 @@ function SessionBadgeInner() {
     health,
   } = useSessionContext();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [pgasDecimals, setPgasDecimals] = useState<number | null>(null);
+  useEffect(() => {
+    getPgasDecimals()
+      .then(setPgasDecimals)
+      .catch(() => setPgasDecimals(null));
+  }, []);
 
   // Hide until we know what to show — avoids a "Start session" flash before
-  // the manager has finished restoring from sessionStorage.
+  // the restore + on-chain validation has finished.
   if (status === 'idle' && session === null && !error) {
     return (
       <div className="flex items-center">
@@ -124,7 +128,7 @@ function SessionBadgeInner() {
   const degraded =
     health.status === 'low-balance' ||
     health.status === 'low-time' ||
-    health.status === 'delegation-broken';
+    health.status === 'registration-broken';
 
   return (
     <div className="flex items-center gap-2">
@@ -136,8 +140,8 @@ function SessionBadgeInner() {
             : 'bg-[var(--accent-primary)]/10 border border-[var(--accent-primary)]/30 text-[var(--accent-primary)]',
         )}
         title={
-          health.balance !== null
-            ? `${formatPas(health.balance)} PAS · ${health.actionsLeft ?? '?'} actions left`
+          health.balance !== null && pgasDecimals !== null
+            ? `${formatUnits(health.balance, pgasDecimals)} PGAS · ~${health.actionsLeft ?? '?'} actions left`
             : undefined
         }
       >
@@ -177,25 +181,29 @@ function SessionStartConfirm({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-display text-lg font-bold text-[var(--accent-primary)] mb-3">
-          Start gasless session
+          Start free session
         </h2>
         <p className="text-sm text-[var(--text-secondary)] mb-3 leading-relaxed">
           Approve one transaction now and every game action for the next 2 hours
-          will execute without a host prompt.
+          will execute with no prompt and no fees.
         </p>
         <div className="text-xs font-mono text-[var(--text-muted)] mb-5 space-y-1">
           <div>
-            <span className="text-[var(--text-secondary)]">Funding:</span>{' '}
-            {formatPas(SESSION_FUNDING_AMOUNT)} PAS (held in session wallet, spent
-            on fees)
+            <span className="text-[var(--text-secondary)]">Cost:</span> free —
+            fees are paid in PGAS, which the host mints for verified persons
           </div>
           <div>
-            <span className="text-[var(--text-secondary)]">Proxy deposit:</span> ~1 PAS
-            (refunded when you end the session)
+            <span className="text-[var(--text-secondary)]">Native tokens:</span>{' '}
+            none needed
           </div>
           <div>
-            <span className="text-[var(--text-secondary)]">Duration:</span> 2 hours
-            (session keys are cleared when you close the tab)
+            <span className="text-[var(--text-secondary)]">Duration:</span> 2 hours,
+            and the session survives a page reload
+          </div>
+          <div className="text-[var(--accent-warn)] pt-1 leading-relaxed">
+            The session key is stored on this device and can act for you until
+            you end the session. Don&apos;t start one on a device you
+            don&apos;t trust.
           </div>
         </div>
         <div className="flex gap-3 justify-end">

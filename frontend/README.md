@@ -30,9 +30,9 @@ any other secret in an env file.**
 | File             | Tracked in git    | Used by                                        |
 | ---------------- | ----------------- | ---------------------------------------------- |
 | `.env.example`   | ✅ yes (template)  | reference for all available variables          |
-| `.env.devnet`    | ✅ yes             | `npm run dev:net` (dev server vs. the real Summit chain, DevProvider) |
+| `.env.devnet`    | ✅ yes             | `npm run dev:net` (dev server vs. the real paseo-next-v2 chain, DevProvider) |
 | `.env.localhost` | ❌ **gitignored**  | `npm run dev:local` (local Hardhat node)       |
-| `.env.testnet`   | ❌ **gitignored**  | `npm run dev:testnet` + `scripts/deploy-frontend.sh` (Summit deploy) |
+| `.env.testnet`   | ❌ **gitignored**  | `npm run dev:testnet` + `scripts/deploy-frontend.sh` (paseo-next-v2 deploy) |
 
 `.env.example` and `.env.devnet` are committed (public values only). The
 per-user runtime files — `.env.localhost` and `.env.testnet` — are
@@ -41,21 +41,22 @@ you need by copying the template:
 
 ```bash
 cp .env.example .env.localhost   # local Hardhat node
-cp .env.example .env.testnet     # Summit testnet + bulletin deploy
+cp .env.example .env.testnet     # paseo-next-v2 + bulletin deploy
 ```
 
 Then set the public values (chain, WS endpoint, deployed contract addresses).
 `scripts/deploy-frontend.sh` sources `.env.testnet` by default for the Bulletin
 build, so that one file drives both `npm run dev:testnet` and the deploy.
 
-Reference values (Summit testnet):
+Reference values (paseo-next-v2 — this project's only chain target):
 
 ```bash
 NEXT_PUBLIC_CHAIN=testnet
-NEXT_PUBLIC_HUB_WS_URL=wss://summit-asset-hub-rpc.polkadot.io
-# Fill in from contracts/deployments/summit.json after deploying:
+NEXT_PUBLIC_HUB_WS_URL=wss://paseo-asset-hub-next-rpc.polkadot.io
+# Fill in from contracts/deployments/next-v2.json after deploying:
 NEXT_PUBLIC_NEXUS_GAME_ADDRESS=
 NEXT_PUBLIC_GAME_CONFIG_ADDRESS=
+NEXT_PUBLIC_SESSION_REGISTRY_ADDRESS=
 NEXUS_DOTNS_DOMAIN=spacegame.dot
 ```
 

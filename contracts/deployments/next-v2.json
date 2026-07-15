@@ -1,21 +1,22 @@
 {
-  "network": "paseo-next-v2",
+  "network": "next-v2",
   "rpc": "wss://paseo-asset-hub-next-rpc.polkadot.io",
   "genesis": "0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f",
   "deployer": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
   "contracts": {
-    "GameConfig": "0xa4fe17ea7595fc50e55319f46c54cf8c7b34b3e3",
-    "GameState": "0x84e7637427ba79550440146b7e51dc05230f3685",
-    "GameStateImplementation": "0xfc73b5d7f6495d4a169ce4d8682a644a8e9e90e2",
-    "NexusGame": "0x64e619ea4d8a593c68533c0feaf3e36d3666495b",
-    "PlanetManager": "0x9554489ce26c1229cdbaa0fd1193ff5dcc9542ef",
-    "ShipManager": "0x5296344ed752c19cdee2bb3e5e5b015ba69982c7",
-    "CombatEngine": "0xa27c323a30c7ee1f0a7a35f48983d98d18c53445",
-    "FleetResolver": "0x099b539bf034c741404d393ab95946e4923bc7ab",
-    "FleetManager": "0xe12efef359226464a5672029cfce9c04ca89afcf",
-    "ResearchManager": "0x35f8594c8e68a0ad079bca5f72bf6c9560ac22b0",
-    "DefenseManager": "0x3388cf14bceb70d96fa242f9a31d525772f7dbf0",
-    "TutorialManager": "0xffa4bcd8d30eb08e154d9f5db6e21dd9cd02d6bd"
+    "GameConfig": "0x7b026c8c640e3c47d24af34484edc2036d056f55",
+    "GameState": "0xe708ff2c35590492bcb31dd4d2592c3d2bef7ca5",
+    "GameStateImplementation": "0x3c1dd9d63df37306d43afe086d26ea8add5a06d9",
+    "SessionRegistry": "0xed11fec1cb5ecf3f2a0c0f8ca813440b23c9efab",
+    "NexusGame": "0x915f137610346fda7db236373687ef8b43255980",
+    "PlanetManager": "0xb955ba76b0d12d6b284bf65b16ecdb5692d249cd",
+    "ShipManager": "0xcd9ff10830652c2f0c7c27202733387d28f56f05",
+    "CombatEngine": "0x1c1cb799297c05f35f1ea7920ebacd65208c0371",
+    "FleetResolver": "0xf180f9cd2e7afa454aa0e650263814b74d028d0c",
+    "FleetManager": "0xcf7a7f4571f6025be9953aa131e09a69d7f80129",
+    "ResearchManager": "0xccd1031eac62c055a13aea31a19dcff8096893eb",
+    "DefenseManager": "0x0b62d51f0c27f1894a05a46d40bb489c5f19bdb4",
+    "TutorialManager": "0x23e0d02ebf25046813673c6ceea9738cfa802171"
   },
-  "deployedAt": "2026-06-12T20:27:53.731Z"
+  "deployedAt": "2026-07-15T15:17:59.278Z"
 }

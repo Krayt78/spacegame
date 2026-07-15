@@ -10,6 +10,11 @@
         "internalType": "address",
         "name": "_gameConfig",
         "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_sessionRegistry",
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -2524,6 +2529,19 @@
     "name": "resolveFleet",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "sessionRegistry",
+    "outputs": [
+      {
+        "internalType": "contract ISessionRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

@@ -11,7 +11,8 @@
 //
 // Deploy graph (mirrors contracts/scripts/deploy.ts):
 //   GameConfig() → GameState impl() → ERC1967Proxy(impl, initialize()) →
-//   NexusGame(state, config) → PlanetManager/ShipManager(game, state, config) →
+//   SessionRegistry() → NexusGame(state, config, sessionRegistry) →
+//   PlanetManager/ShipManager(game, state, config) →
 //   CombatEngine(config) → FleetResolver(state, config, combat) →
 //   FleetManager(game, state, config, resolver) →
 //   ResearchManager/DefenseManager/TutorialManager(game, state, config)
@@ -24,7 +25,17 @@
 //   deploy  — the real thing. Dry-runs before EVERY submit (fresh weights +
 //             real ctor addresses). Writes contracts/deployments/next-v2.json.
 //
-// Run from frontend/ (module resolution): node scripts/deploy-contracts-nextv2.mjs dry
+// Usage (from anywhere):
+//   cd scripts/deploy-contracts && npm install && npm run dry
+//   cd scripts/deploy-contracts && npm run deploy
+//
+// Lives here rather than in contracts/ or frontend/ because it belongs to
+// neither. It reads contracts/artifacts and writes contracts/deployments, so
+// it is contract tooling — but it can't live in contracts/, whose toolchain is
+// hardhat, and it needs the PAPI stack instead. It used to sit in
+// frontend/scripts purely because those deps were already in
+// frontend/node_modules, which buried chain config somewhere nobody looks.
+// It now carries its own package.json.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -38,11 +49,21 @@ import { ss58ToH160 } from "@parity/product-sdk-address";
 import { encodeAbiParameters, encodeFunctionData, fromHex } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONTRACTS = resolve(__dirname, "../../contracts");
+const ROOT = resolve(__dirname, "../..");
+const CONTRACTS = resolve(ROOT, "contracts");
+
+// Env files still live in frontend/ — they're the app's (.env.testnet carries
+// the NEXT_PUBLIC_* build config), and they also carry the deploy MNEMONIC, so
+// one file drives both `npm run dev:<mode>` and this deploy. Reading them from
+// here keeps that single source of truth rather than duplicating secrets.
+// Override with DEPLOY_ENV_DIR if you keep them elsewhere.
+const ENV_DIR = process.env.DEPLOY_ENV_DIR
+  ? resolve(process.env.DEPLOY_ENV_DIR)
+  : resolve(ROOT, "frontend");
 
 // Load the env file for this deploy so MNEMONIC (and other vars) come from the
 // same .env.<mode> files the app uses — exactly like `npm run dev:<mode>`. The
-// mode defaults to "testnet" (the Summit target); override with DEPLOY_ENV
+// mode defaults to "testnet" (which targets paseo-next-v2); override with DEPLOY_ENV
 // (e.g. DEPLOY_ENV=devnet, DEPLOY_ENV=localhost). Precedence: shell env >
 // .env.local > .env.<mode> > .env. Empty values don't shadow later non-empty
 // ones. Minimal parser — no dotenv dependency.
@@ -50,7 +71,7 @@ const DEPLOY_ENV = process.env.DEPLOY_ENV ?? "testnet";
 function loadDotEnv() {
   for (const name of [".env.local", `.env.${DEPLOY_ENV}`, ".env"]) {
     let text;
-    try { text = readFileSync(resolve(__dirname, "..", name), "utf8"); } catch { continue; }
+    try { text = readFileSync(resolve(ENV_DIR, name), "utf8"); } catch { continue; }
     for (const line of text.split("\n")) {
       const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
       if (!m) continue;
@@ -62,14 +83,20 @@ function loadDotEnv() {
 }
 loadDotEnv();
 
-// Asset Hub substrate WS. Default = Summit Network AH. Override with
-// ASSET_HUB_WS (or the legacy NEXT_WS_URL) to target another chain.
-const WS = process.env.ASSET_HUB_WS ?? process.env.NEXT_WS_URL ?? "wss://summit-asset-hub-rpc.polkadot.io";
+// Asset Hub substrate WS. Default = paseo-next-v2 Asset Hub — the chain this
+// project targets. Override with ASSET_HUB_WS (or the legacy NEXT_WS_URL) only
+// if you genuinely mean to deploy elsewhere.
+//
+// This used to default to Summit, which was a footgun: pointed at the wrong
+// chain the script just hangs on connect, with nothing saying why.
+const WS = process.env.ASSET_HUB_WS ?? process.env.NEXT_WS_URL ?? "wss://paseo-asset-hub-next-rpc.polkadot.io";
 const MODE = process.argv[2] ?? "dry";
-const NETWORK = process.env.DEPLOY_NETWORK ?? "summit";
-// Optional genesis assertion (e.g. EXPECT_GENESIS=0xbf0488… for next-v2).
-// Unset = accept whatever chain WS points at.
-const EXPECT_GENESIS = process.env.EXPECT_GENESIS ?? "";
+const NETWORK = process.env.DEPLOY_NETWORK ?? "next-v2";
+// Genesis assertion, defaulted to paseo-next-v2 so a wrong chain fails LOUDLY
+// instead of silently deploying somewhere unintended. Set EXPECT_GENESIS="" to
+// disable (the check treats empty as off), or to another hash to target it.
+const EXPECT_GENESIS = process.env.EXPECT_GENESIS ??
+  "0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f";
 
 // Dry-runs pass gas_limit = undefined (None → runtime uses block max).
 // Any finite cap risks a phantom OutOfGas: GameConfig's EVM-interpreter
@@ -101,6 +128,7 @@ const A = {
   GameConfig: loadArtifact("contracts/GameConfig.sol", "GameConfig"),
   GameState: loadArtifact("contracts/GameState.sol", "GameState"),
   ERC1967Proxy: loadArtifact("@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol", "ERC1967Proxy"),
+  SessionRegistry: loadArtifact("contracts/SessionRegistry.sol", "SessionRegistry"),
   NexusGame: loadArtifact("contracts/NexusGame.sol", "NexusGame"),
   PlanetManager: loadArtifact("contracts/PlanetManager.sol", "PlanetManager"),
   ShipManager: loadArtifact("contracts/ShipManager.sol", "ShipManager"),
@@ -113,7 +141,7 @@ const A = {
 };
 
 // Deployer key: MNEMONIC env (sr25519, bare account, no derivation path) if set,
-// else the well-known //Alice — dev/local only, NOT funded on summit. Whatever
+// else the well-known //Alice — dev/local only. Whatever
 // is chosen, fund the SS58 printed at startup on the target Asset Hub.
 function makeSigner() {
   const phrase = process.env.MNEMONIC?.trim();
@@ -227,8 +255,9 @@ async function main() {
     const impl = await dryInstantiate("GameState(impl)", A.GameState.code);
     await dryInstantiate("ERC1967Proxy(GameState)",
       withCtor(A.ERC1967Proxy, ["address", "bytes"], [impl.addr, `0x${Buffer.from(initData).toString("hex")}`]));
+    await dryInstantiate("SessionRegistry", withCtor(A.SessionRegistry, [], []));
     await dryInstantiate("NexusGame",
-      withCtor(A.NexusGame, ["address", "address"], [impl.addr, cfg.addr]));
+      withCtor(A.NexusGame, ["address", "address", "address"], [impl.addr, cfg.addr, impl.addr]));
     // The two heavyweights (per CLAUDE.md FleetResolver is at 96% of the
     // EVM 24KB limit) — make sure their instantiates fit the extrinsic cap.
     await dryInstantiate("FleetResolver",
@@ -270,38 +299,44 @@ async function main() {
     log("deployer already mapped.");
   }
 
-  log("[1/12] GameConfig");
+  log("[1/13] GameConfig");
   const gameConfig = await submitInstantiate("GameConfig", A.GameConfig.code);
-  log("[2/12] GameState (implementation)");
+  log("[2/13] GameState (implementation)");
   const gameStateImpl = await submitInstantiate("GameState(impl)", A.GameState.code);
-  log("[3/12] ERC1967Proxy(GameState, initialize)");
+  log("[3/13] ERC1967Proxy(GameState, initialize)");
   const gameState = await submitInstantiate("GameState(proxy)",
     withCtor(A.ERC1967Proxy, ["address", "bytes"], [gameStateImpl, `0x${Buffer.from(initData).toString("hex")}`]));
-  log("[4/12] NexusGame(state, config)");
+  // SessionRegistry must precede NexusGame — the router holds it as an
+  // immutable, so its address has to exist before the router is constructed.
+  log("[4/13] SessionRegistry()");
+  const sessionRegistry = await submitInstantiate("SessionRegistry",
+    withCtor(A.SessionRegistry, [], []));
+
+  log("[5/13] NexusGame(state, config, sessionRegistry)");
   const nexusGame = await submitInstantiate("NexusGame",
-    withCtor(A.NexusGame, ["address", "address"], [gameState, gameConfig]));
-  log("[5/12] PlanetManager");
+    withCtor(A.NexusGame, ["address", "address", "address"], [gameState, gameConfig, sessionRegistry]));
+  log("[6/13] PlanetManager");
   const planetManager = await submitInstantiate("PlanetManager",
     withCtor(A.PlanetManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[6/12] ShipManager");
+  log("[7/13] ShipManager");
   const shipManager = await submitInstantiate("ShipManager",
     withCtor(A.ShipManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[7/12] CombatEngine(config)");
+  log("[8/13] CombatEngine(config)");
   const combatEngine = await submitInstantiate("CombatEngine",
     withCtor(A.CombatEngine, ["address"], [gameConfig]));
-  log("[8/12] FleetResolver(state, config, combat)");
+  log("[9/13] FleetResolver(state, config, combat)");
   const fleetResolver = await submitInstantiate("FleetResolver",
     withCtor(A.FleetResolver, ["address", "address", "address"], [gameState, gameConfig, combatEngine]));
-  log("[9/12] FleetManager(game, state, config, resolver)");
+  log("[10/13] FleetManager(game, state, config, resolver)");
   const fleetManager = await submitInstantiate("FleetManager",
     withCtor(A.FleetManager, ["address", "address", "address", "address"], [nexusGame, gameState, gameConfig, fleetResolver]));
-  log("[10/12] ResearchManager");
+  log("[11/13] ResearchManager");
   const researchManager = await submitInstantiate("ResearchManager",
     withCtor(A.ResearchManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[11/12] DefenseManager");
+  log("[12/13] DefenseManager");
   const defenseManager = await submitInstantiate("DefenseManager",
     withCtor(A.DefenseManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
-  log("[12/12] TutorialManager");
+  log("[13/13] TutorialManager");
   const tutorialManager = await submitInstantiate("TutorialManager",
     withCtor(A.TutorialManager, ["address", "address", "address"], [nexusGame, gameState, gameConfig]));
 
@@ -330,6 +365,7 @@ async function main() {
       GameConfig: gameConfig,
       GameState: gameState,
       GameStateImplementation: gameStateImpl,
+      SessionRegistry: sessionRegistry,
       NexusGame: nexusGame,
       PlanetManager: planetManager,
       ShipManager: shipManager,
