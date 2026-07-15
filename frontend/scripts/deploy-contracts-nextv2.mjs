@@ -43,7 +43,7 @@ const CONTRACTS = resolve(__dirname, "../../contracts");
 
 // Load the env file for this deploy so MNEMONIC (and other vars) come from the
 // same .env.<mode> files the app uses — exactly like `npm run dev:<mode>`. The
-// mode defaults to "testnet" (the Summit target); override with DEPLOY_ENV
+// mode defaults to "testnet" (which targets paseo-next-v2); override with DEPLOY_ENV
 // (e.g. DEPLOY_ENV=devnet, DEPLOY_ENV=localhost). Precedence: shell env >
 // .env.local > .env.<mode> > .env. Empty values don't shadow later non-empty
 // ones. Minimal parser — no dotenv dependency.
@@ -63,14 +63,20 @@ function loadDotEnv() {
 }
 loadDotEnv();
 
-// Asset Hub substrate WS. Default = Summit Network AH. Override with
-// ASSET_HUB_WS (or the legacy NEXT_WS_URL) to target another chain.
-const WS = process.env.ASSET_HUB_WS ?? process.env.NEXT_WS_URL ?? "wss://summit-asset-hub-rpc.polkadot.io";
+// Asset Hub substrate WS. Default = paseo-next-v2 Asset Hub — the chain this
+// project targets. Override with ASSET_HUB_WS (or the legacy NEXT_WS_URL) only
+// if you genuinely mean to deploy elsewhere.
+//
+// This used to default to Summit, which was a footgun: pointed at the wrong
+// chain the script just hangs on connect, with nothing saying why.
+const WS = process.env.ASSET_HUB_WS ?? process.env.NEXT_WS_URL ?? "wss://paseo-asset-hub-next-rpc.polkadot.io";
 const MODE = process.argv[2] ?? "dry";
-const NETWORK = process.env.DEPLOY_NETWORK ?? "summit";
-// Optional genesis assertion (e.g. EXPECT_GENESIS=0xbf0488… for next-v2).
-// Unset = accept whatever chain WS points at.
-const EXPECT_GENESIS = process.env.EXPECT_GENESIS ?? "";
+const NETWORK = process.env.DEPLOY_NETWORK ?? "next-v2";
+// Genesis assertion, defaulted to paseo-next-v2 so a wrong chain fails LOUDLY
+// instead of silently deploying somewhere unintended. Set EXPECT_GENESIS="" to
+// disable (the check treats empty as off), or to another hash to target it.
+const EXPECT_GENESIS = process.env.EXPECT_GENESIS ??
+  "0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f";
 
 // Dry-runs pass gas_limit = undefined (None → runtime uses block max).
 // Any finite cap risks a phantom OutOfGas: GameConfig's EVM-interpreter
@@ -115,7 +121,7 @@ const A = {
 };
 
 // Deployer key: MNEMONIC env (sr25519, bare account, no derivation path) if set,
-// else the well-known //Alice — dev/local only, NOT funded on summit. Whatever
+// else the well-known //Alice — dev/local only. Whatever
 // is chosen, fund the SS58 printed at startup on the target Asset Hub.
 function makeSigner() {
   const phrase = process.env.MNEMONIC?.trim();

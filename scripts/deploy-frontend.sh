@@ -11,7 +11,11 @@ ENV_FILE=""
 # and the Asset Hub RPC used for DotNS register/content-set, plus the bundled
 # DotNS contract addresses. Run `npx @parity/polkadot-app-deploy --list-environments`
 # for the full list (paseo-next-v2, summit, …). Resolution: --net > shell
-# BULLETIN_ENV > env-file BULLETIN_ENV > 'summit' (Web3 Summit Network).
+# BULLETIN_ENV > env-file BULLETIN_ENV > 'paseo-next-v2'.
+#
+# Default is paseo-next-v2 — the chain this project's contracts live on. It used
+# to default to summit, which meant a bare `deploy-frontend.sh` could publish a
+# bundle pointing at contracts that don't exist on the target chain.
 BULLETIN_ENV="${BULLETIN_ENV:-}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -29,7 +33,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --domain <name.dot>   DotNS basename (default: spacegame.dot)"
             echo "  --env <file>          env file to source for the build"
             echo "                        (default: frontend/.env.testnet)"
-            echo "  --net <env-id>        Bulletin/DotNS environment (default: summit)."
+            echo "  --net <env-id>        Bulletin/DotNS environment (default: paseo-next-v2)."
             echo "                        See 'npx @parity/polkadot-app-deploy --list-environments'."
             exit 0
             ;;
@@ -102,7 +106,7 @@ echo ""
 
 # Resolve deploy domain + network now that the env file has been sourced.
 DOMAIN="${DOMAIN_OVERRIDE:-${NEXUS_DOTNS_DOMAIN:-spacegame.dot}}"
-BULLETIN_ENV="${BULLETIN_ENV_OVERRIDE:-${BULLETIN_ENV:-summit}}"
+BULLETIN_ENV="${BULLETIN_ENV_OVERRIDE:-${BULLETIN_ENV:-paseo-next-v2}}"
 echo "  Network: $BULLETIN_ENV"
 echo "  Domain:  $DOMAIN"
 echo "  URL:     https://$DOMAIN.li"
