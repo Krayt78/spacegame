@@ -68,8 +68,9 @@ Solidity port of the skill's verified reference. Semantics: one session per
 owner, auto-revoke on re-register, reject reused keys, live until revoked.
 
 ```solidity
-mapping(address => address) public sessionOf;  // owner   → session
-mapping(address => address) public ownerOf;    // session → owner
+mapping(address => address) public sessionOf;     // owner   → active session
+mapping(address => address) public ownerOf;       // session → owner
+mapping(address => bool)    public isRetiredKey;  // key     → revoked/rotated away
 
 function registerSession(address session) external;  // auto-revokes previous
 function revokeSession() external;
@@ -80,6 +81,22 @@ error InvalidSessionKey();  error SessionKeyInUse();  error NoActiveSession();
 event SessionRegistered(address indexed owner, address indexed session);
 event SessionRevoked(address indexed owner, address indexed session);
 ```
+
+**Implemented divergence from the reference — `isRetiredKey` (added 2026-07-15,
+Task 2).** The skill's reference documents that a reused key is rejected *"even
+[for] the same owner re-registering a burned key — so rotation always means a
+fresh key"*, but its code does not implement that: rotation does
+`owner_of.remove(&previous)`, which resets the retired key to "never seen" and
+leaves it re-registerable — by its original owner *or by anyone else*, which
+contradicts even its own inline comment. A TDD test written against the
+documented intent caught this.
+
+We implement the documented intent, since revocation exists precisely for keys
+that may be compromised and a retired key must never regain authority.
+`ownerOf` alone cannot express it: revoking has to clear `ownerOf` (that is what
+de-authorizes the key), so a separate retirement flag is required. It is kept
+out of `resolve`, so the hot path stays a single SLOAD; the cost is one SSTORE
+per revoke, never per game action.
 
 **Load-bearing semantic:** `resolve()` returns `account` itself when
 unregistered — never `address(0)`. This is what keeps plain EOAs working and

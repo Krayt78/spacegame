@@ -38,7 +38,7 @@ call(origin: SS58String,      // ss58 string
 - ChargePGAS is fee-free **only** for `Revive.call` and `Utility` batches where *every* inner call is Revive. One non-Revive call forfeits it for the whole extrinsic.
 - `resolve()` returns the account itself when unregistered — **never `address(0)`**.
 - EIP-170 bytecode limit is 24,576 B. `FleetResolver` is at 24,281 B (98.8%) — do not add a byte to it.
-- All 304 existing contract tests must pass unchanged at every commit.
+- All **388** existing contract tests must pass unchanged at every commit. (CLAUDE.md says 304 — that figure is stale; 388 is the measured baseline as of 2026-07-15.)
 - Contract tests: `cd contracts && npx hardhat test`. Frontend build: `cd frontend && npm run build`.
 
 ---
@@ -239,7 +239,15 @@ zero-native play depends on AutoMap firing for the product account."
 
 ---
 
-### Task 2: SessionRegistry contract
+### Task 2: SessionRegistry contract — ✅ DONE (2026-07-15)
+
+> **Implemented with one deliberate divergence from the code below:** a
+> `isRetiredKey` mapping. The draft (copied from the skill's Rust reference)
+> deletes `ownerOf[previous]` on rotation, which makes a retired key
+> re-registerable — contradicting the reference's own documented "reject
+> reused keys ... even the same owner re-registering a burned key". The TDD
+> test caught it. See the committed `contracts/contracts/SessionRegistry.sol`
+> and the design doc. Result: 14 tests passing, 986 bytes (4% of EIP-170).
 
 **Files:**
 - Create: `contracts/contracts/SessionRegistry.sol`
@@ -249,7 +257,7 @@ zero-native play depends on AutoMap firing for the product account."
 **Interfaces:**
 - Produces: `SessionRegistry` with `registerSession(address)`, `revokeSession()`, `resolve(address) → address`, `isSessionKey(address) → bool`, public mappings `sessionOf(address) → address` and `ownerOf(address) → address`; errors `InvalidSessionKey`, `SessionKeyInUse`, `NoActiveSession`; events `SessionRegistered(address indexed owner, address indexed session)`, `SessionRevoked(address indexed owner, address indexed session)`. `ISessionRegistry` exposes `resolve` and `isSessionKey` — Task 3 consumes it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `contracts/test/SessionRegistry.test.ts`:
 
@@ -369,7 +377,7 @@ describe("SessionRegistry", function () {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd contracts && npx hardhat test test/SessionRegistry.test.ts
@@ -377,7 +385,7 @@ cd contracts && npx hardhat test test/SessionRegistry.test.ts
 
 Expected: FAIL — `HH701: Artifact for contract "SessionRegistry" not found`.
 
-- [ ] **Step 3: Write the interface**
+- [x] **Step 3: Write the interface**
 
 Create `contracts/contracts/ISessionRegistry.sol`:
 
@@ -396,7 +404,7 @@ interface ISessionRegistry {
 }
 ```
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 Create `contracts/contracts/SessionRegistry.sol`:
 
@@ -490,23 +498,23 @@ contract SessionRegistry {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 ```bash
 cd contracts && npx hardhat test test/SessionRegistry.test.ts
 ```
 
-Expected: PASS — 12 passing.
+Expected: PASS — 14 passing.
 
-- [ ] **Step 6: Confirm no regression**
+- [x] **Step 6: Confirm no regression**
 
 ```bash
 cd contracts && npx hardhat test
 ```
 
-Expected: 304 + 12 = **316 passing**. Nothing else touches the registry yet.
+Expected: 388 + 14 = **402 passing**. Nothing else touches the registry yet.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add contracts/contracts/SessionRegistry.sol contracts/contracts/ISessionRegistry.sol contracts/test/SessionRegistry.test.ts
@@ -713,7 +721,7 @@ Expected: exactly one hit — `Ownable(msg.sender)` in the constructor.
 
 - [ ] **Step 5: Update the shared test fixture**
 
-All 304 existing tests deploy through this fixture, so it must learn the new constructor.
+All 388 existing tests deploy through this fixture, so it must learn the new constructor.
 
 In `contracts/test/helpers/setup.ts`, add `SessionRegistry` to the typechain import (line 2), then add to the `DeployedContracts` interface (after `tutorialManager: TutorialManager;`, line 16):
 
@@ -760,7 +768,7 @@ Expected: PASS — 5 passing.
 cd contracts && npx hardhat test
 ```
 
-Expected: **321 passing** (304 existing + 12 registry + 5 resolution), zero failures. The 304 exercise the plain-EOA path, which is the guard on `resolve()`'s identity fallback. If any of them fail, `resolve()` is not returning the caller for unregistered addresses — fix that before continuing.
+Expected: **407 passing** (388 existing + 14 registry + 5 resolution), zero failures. The 388 exercise the plain-EOA path, which is the guard on `resolve()`'s identity fallback. If any of them fail, `resolve()` is not returning the caller for unregistered addresses — fix that before continuing.
 
 - [ ] **Step 8: Check the bytecode budget**
 
@@ -2088,7 +2096,7 @@ Expected: clean.
 cd contracts && npx hardhat test
 ```
 
-Expected: **321 passing**, zero failures.
+Expected: **407 passing**, zero failures.
 
 - [ ] **Step 3: Local deploy + seed**
 
@@ -2149,7 +2157,7 @@ Record the observed result — including a failure — rather than assuming. If 
 In the "Key Architecture Decisions" section, replace the stale contract count and record the session model:
 
 ```markdown
-- `contracts/` — Hardhat + Solidity (12 contracts, 321 tests)
+- `contracts/` — Hardhat + Solidity (12 contracts, 407 tests)
 - SessionRegistry.sol maps session keys to owners; NexusGame resolves every
   identity-bearing caller through it via `_player()`, so a session key acts as
   the player. The registry is immutable on the router — replacing it means
@@ -2176,7 +2184,7 @@ git push -u origin session-autosigning-pgas
 
 **Task 1 is a gate, not a formality.** If AutoMap doesn't fire, the zero-native premise is broken and Tasks 2-9 need rework. Report it; don't route around it.
 
-**The 304 existing tests are the real safety net** for Task 3. They exercise the plain-EOA path, which is exactly what `resolve()`'s identity fallback must preserve. If they fail, the fallback is wrong.
+**The 388 existing tests are the real safety net** for Task 3. They exercise the plain-EOA path, which is exactly what `resolve()`'s identity fallback must preserve. If they fail, the fallback is wrong.
 
 **Don't touch FleetResolver.** It's at 24,281 of 24,576 bytes (98.8%) — 295 bytes from the limit. It contains no `msg.sender` and needs nothing from this work.
 
