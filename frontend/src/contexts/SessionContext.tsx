@@ -29,11 +29,12 @@ export interface SessionContextValue extends UseNexusSessionResult {
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 /**
- * Session wallets are a HOST-mode feature: they delegate signing to a local
- * session keypair via `pallet_proxy` so the host doesn't prompt on every
- * write. EVM mode has no such concept — the injected wallet signs each tx —
- * so the disabled value below stands in, and the host hooks (which drive a
- * 10s chain poll and depend on `useTriangle`) are never called.
+ * Sessions are a HOST-mode feature: a local session key signs game calls
+ * directly and NexusGame resolves it to the player through the SessionRegistry,
+ * so the host never prompts mid-game and PGAS makes it fee-free. EVM mode has
+ * no such concept — the injected wallet signs each tx — so the disabled value
+ * below stands in, and the host hooks (which drive a 10s chain poll and depend
+ * on `useTriangle`) are never called.
  */
 const DISABLED_SESSION: SessionContextValue = {
   status: 'idle',
@@ -47,9 +48,8 @@ const DISABLED_SESSION: SessionContextValue = {
     status: 'none',
     timeLeftMs: 0,
     balance: null,
-    delegationOk: null,
+    registrationOk: null,
     actionsLeft: null,
-    proxyCount: null,
   },
 };
 

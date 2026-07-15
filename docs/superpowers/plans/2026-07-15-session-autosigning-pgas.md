@@ -1826,7 +1826,25 @@ values."
 
 ---
 
-### Task 8: Session UI — PGAS balance and registration health
+### Task 8: Session UI — PGAS balance and registration health — ✅ DONE (2026-07-15)
+
+> **Typecheck/lint/build green again** — the Task 6-8 type migration is complete.
+>
+> **A display bug tsc could not catch:** `GameHeader` formatted the session
+> balance with `formatPas` (divide by 1e10). That balance is now PGAS with
+> decimals = 0, so it would have rendered `0.000` forever while labelled "PAS".
+> Both are `bigint`, so only reading the render caught it. Session balance now
+> uses viem's `formatUnits(v, pgasDecimals)`; `formatPas` is documented as
+> NATIVE-ONLY. Wallet balance legitimately stays PAS.
+>
+> Dropped the hand-rolled formatter in favour of viem's `formatUnits` (already a
+> dependency) rather than duplicating one across two components.
+>
+> **Copy fixed in two places, not one.** SessionBadge's modal promised a proxy
+> deposit and tab-scoped keys; GameHeader claimed "Your own PAS is only needed
+> to start a session" and "— needed to start a session". All false now. The
+> bearer-credential warning went into the consent modal, which is the spec's
+> "carry the security notes into user-facing docs" requirement.
 
 The health hook currently polls `System.Account` (native balance) and
 `Proxy.Proxies` (delegation). Both are proxy-era concepts. They become: PGAS
@@ -1846,7 +1864,7 @@ balance, and whether the registry still lists our key.
   **Changes from the current shape:** `delegationOk` → `registrationOk`, `'delegation-broken'` → `'registration-broken'`, and `proxyCount` is **removed** (it counted orphan proxy deposits — no analog exists now). `SessionContext.DISABLED_SESSION` must match.
 - `getPgasDecimals(): Promise<number>` added to `pgas.ts`.
 
-- [ ] **Step 1: Add a decimals reader to pgas.ts**
+- [x] **Step 1: Add a decimals reader to pgas.ts**
 
 Append to `frontend/src/lib/session/pgas.ts`:
 
@@ -1860,7 +1878,7 @@ export async function getPgasDecimals(): Promise<number> {
 }
 ```
 
-- [ ] **Step 2: Rewrite the health hook**
+- [x] **Step 2: Rewrite the health hook**
 
 Replace `frontend/src/hooks/useNexusSessionHealth.ts` entirely. It keeps the
 existing polling/ticking structure — only the two chain reads change:
@@ -2001,7 +2019,7 @@ export function useNexusSessionHealth(
 }
 ```
 
-- [ ] **Step 3: Update the context's disabled value**
+- [x] **Step 3: Update the context's disabled value**
 
 `SessionContext.DISABLED_SESSION` hardcodes the health shape, so it breaks on the
 field changes. In `frontend/src/contexts/SessionContext.tsx`, replace the
@@ -2030,7 +2048,7 @@ Also fix the now-stale doc comment above it — it describes `pallet_proxy`:
  */
 ```
 
-- [ ] **Step 4: Update the badge**
+- [x] **Step 4: Update the badge**
 
 In `frontend/src/components/session/SessionBadge.tsx`:
 
@@ -2083,7 +2101,7 @@ function formatUnits(value: bigint, decimals: number): string {
   // the restore + on-chain validation has finished.
 ```
 
-- [ ] **Step 5: Rewrite the confirm modal copy — it is now actively wrong**
+- [x] **Step 5: Rewrite the confirm modal copy — it is now actively wrong**
 
 `SessionStartConfirm` currently promises a proxy deposit and tab-scoped keys.
 Both are false under the new design, and one of them is a security claim. This is
@@ -2120,7 +2138,7 @@ Replace the modal body (heading through the detail list):
         </div>
 ```
 
-- [ ] **Step 6: Typecheck and build**
+- [x] **Step 6: Typecheck and build**
 
 ```bash
 cd frontend && npx tsc --noEmit && npm run build
@@ -2136,7 +2154,7 @@ cd frontend && grep -rn "delegationOk\|delegation-broken\|proxyCount\|SESSION_FU
 
 Expected: no output.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/hooks/useNexusSessionHealth.ts frontend/src/contexts/SessionContext.tsx frontend/src/components/session/SessionBadge.tsx frontend/src/lib/session/pgas.ts

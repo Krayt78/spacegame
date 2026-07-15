@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { HostLink as Link } from '@/components/HostLink';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatUnits } from 'viem';
 import { User, Settings, ChevronDown, Wallet, Copy, Check, ExternalLink, Coins, Zap } from 'lucide-react';
 import { useAccount } from '@/hooks/useAccount';
 import { usePlayerBalance } from '@/hooks/usePlayerBalance';
@@ -10,6 +11,7 @@ import { useSessionContext } from '@/contexts/SessionContext';
 import { SessionBadge } from '@/components/session/SessionBadge';
 import { ResourceHeader } from './ResourceHeader';
 import { PlanetSelector } from './PlanetSelector';
+import { getPgasDecimals } from '@/lib/session/pgas';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/stores/userStore';
 import { localhost } from '@/lib/wagmiConfig';
@@ -26,7 +28,13 @@ function truncateAddress(address: string): string {
 
 const PAS_DECIMALS = 10n ** 10n;
 
-/** planck → PAS string with 3 decimal places. */
+/**
+ * planck → PAS string with 3 decimal places.
+ *
+ * NATIVE PAS ONLY. The session balance is PGAS (a different asset, and
+ * currently decimals = 0) — formatting it with this would divide by 1e10 and
+ * render 0.000 forever. Use `formatUnits(v, pgasDecimals)` for PGAS.
+ */
 function formatPas(planck: bigint): string {
   const whole = planck / PAS_DECIMALS;
   const frac = (planck % PAS_DECIMALS) / 10_000_000n; // 3 decimals
@@ -40,18 +48,29 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
   const { playerName } = useUserStore();
 
   // Two distinct gas-funding modes:
-  //  - Session active  → writes are signed locally by the session wallet, paid
-  //    from ITS balance. Show that balance.
+  //  - Session active  → writes are signed locally by the session key. Fees are
+  //    FREE under ChargePGAS; the session's PGAS covers storage deposits only.
+  //    Show that PGAS balance.
   //  - No session      → writes are host-signed under the SmartContractAllowance
   //    grant, so the host sponsors gas; the player's own balance does NOT pay.
   //    Show "Host-sponsored" rather than a misleading "available for gas" figure.
-  // The main wallet balance still matters for ONE thing without a session:
-  // funding a new session (Balances.transfer to the session wallet), so we
-  // surface it in the dropdown as a session-funding hint.
+  // Native PAS is no longer needed for either path — session setup is an
+  // all-Revive batch paid in PGAS — so the wallet balance is informational only.
   // `session` is non-null only once the key is validated against the registry
   // on-chain, so its presence IS readiness — the old `isReady` flag is gone.
   const sessionActive = !!session && sessionHealth.status !== 'expired';
+  // PGAS, not native — see formatPas's note. Decimals come from chain metadata.
   const sessionBalance = sessionHealth.balance;
+  const [pgasDecimals, setPgasDecimals] = useState<number | null>(null);
+  useEffect(() => {
+    getPgasDecimals()
+      .then(setPgasDecimals)
+      .catch(() => setPgasDecimals(null));
+  }, []);
+  const sessionBalanceText =
+    sessionBalance !== null && pgasDecimals !== null
+      ? formatUnits(sessionBalance, pgasDecimals)
+      : null;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -161,9 +180,9 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
             </div>
           )}
 
-          {/* Gas-funding indicator. With a session: the session wallet's PAS
-              balance (it pays gas). Without one: host-sponsored via the
-              allowance, so no player balance is relevant. */}
+          {/* Gas-funding indicator. With a session: the session key's PGAS
+              (fees are free; this covers storage deposits). Without one:
+              host-sponsored via the allowance. Either way no native is needed. */}
           {isConnected && (
             <div
               className={cn(
@@ -173,16 +192,16 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
               )}
               title={
                 sessionActive
-                  ? 'Session wallet balance — pays gas while the session is active'
-                  : 'Writes are signed and paid by the Polkadot Host (allowance). Your own PAS is only needed to start a session.'
+                  ? 'Session PGAS — fees are free; this covers storage deposits only'
+                  : 'Writes are signed and paid by the Polkadot Host (allowance). No native tokens needed.'
               }
             >
               {sessionActive ? (
                 <>
                   <Zap className="w-4 h-4 text-[var(--accent-primary)]" />
                   <span>
-                    {sessionBalance !== null ? formatPas(sessionBalance) : '—'}
-                    <span className="text-[var(--text-muted)]"> PAS</span>
+                    {sessionBalanceText ?? '—'}
+                    <span className="text-[var(--text-muted)]"> PGAS</span>
                   </span>
                 </>
               ) : (
@@ -291,8 +310,8 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
                       </div>
                       {sessionActive ? (
                         <p className="font-mono text-sm text-[var(--text-primary)]">
-                          {sessionBalance !== null
-                            ? `${formatPas(sessionBalance)} PAS`
+                          {sessionBalanceText !== null
+                            ? `${sessionBalanceText} PGAS`
                             : 'Loading…'}
                         </p>
                       ) : (
@@ -305,7 +324,7 @@ export function GameHeader({ className, showResources = true }: GameHeaderProps)
                             {walletBalance !== null
                               ? `${formatPas(walletBalance)} PAS`
                               : '…'}{' '}
-                            — needed to start a session
+                            — not needed to play
                           </p>
                         </>
                       )}
